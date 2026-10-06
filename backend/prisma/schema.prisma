@@ -13,22 +13,38 @@ enum Role {
   ADMIN
 }
 
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  REGISTRATION_OPEN
+  REGISTRATION_CLOSED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum EventVisibility {
+  PUBLIC
+  PRIVATE
+}
+
 model User {
   id              String   @id @default(uuid())
   name            String
   email           String   @unique
   passwordHash    String?
-  role            Role     @default(ATTENDEE)
+  role             Role     @default(ATTENDEE)
   emailVerified   Boolean  @default(false)
   isActive        Boolean  @default(true)
   googleId        String?  @unique
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  refreshTokens       RefreshToken[]
+  refreshTokens        RefreshToken[]
   refreshTokenFamilies RefreshTokenFamily[]
-  emailVerifications  EmailVerification[]
-  passwordResetTokens PasswordResetToken[]
+  emailVerifications   EmailVerification[]
+  passwordResetTokens  PasswordResetToken[]
+  events               Event[]
 
   @@index([role])
   @@index([isActive])
@@ -94,4 +110,61 @@ model PasswordResetToken {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  events Event[]
+
+  @@index([name])
+}
+
+model Event {
+  id          String          @id @default(uuid())
+  organizerId String
+  categoryId  String
+  title       String
+  slug        String          @unique
+  description String
+  venue       String
+  address     String?
+  coverImage  String?
+  status      EventStatus     @default(DRAFT)
+  visibility  EventVisibility @default(PUBLIC)
+  capacity    Int
+  startsAt    DateTime
+  endsAt      DateTime
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  organizer User     @relation(fields: [organizerId], references: [id], onDelete: Restrict)
+  category  Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  sessions  EventSession[]
+
+  @@index([organizerId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([visibility])
+  @@index([startsAt])
+  @@index([createdAt])
+}
+
+model EventSession {
+  id        String   @id @default(uuid())
+  eventId   String
+  title     String
+  startsAt  DateTime
+  endsAt    DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([startsAt])
 }
