@@ -6,6 +6,7 @@ import { CategoriesModule } from './categories/categories.module.js';
 import { EventModule } from './events/event.module.js';
 import { SessionModule } from './sessions/session.module.js';
 import { TicketModule } from './tickets/ticket.module.js';
+import { RegistrationModule } from './registrations/registration.module.js';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { TicketModule } from './tickets/ticket.module.js';
     EventModule,
     SessionModule,
     TicketModule,
+    RegistrationModule,
   ],
 })
 export class AppModule {}
