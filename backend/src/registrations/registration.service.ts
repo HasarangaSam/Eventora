@@ -72,24 +72,20 @@ export class RegistrationService {
           );
         }
 
-        const existingRegistration = await tx.registration.findUnique({
+        const existingRegistration = await tx.registration.findFirst({
           where: {
-            userId_eventId: {
-              userId: user.id,
-              eventId: ticketType.eventId,
-            },
+            userId: user.id,
+            eventId: ticketType.eventId,
+            status: 'CONFIRMED',
           },
           select: {
             id: true,
-            status: true,
           },
         });
 
         if (existingRegistration) {
           throw new ConflictException(
-            existingRegistration.status === RegistrationStatus.CANCELLED
-              ? 'You already have a cancelled registration for this event.'
-              : 'You are already registered for this event.',
+            'You already have an active registration for this event.',
           );
         }
 
@@ -295,6 +291,183 @@ export class RegistrationService {
     }
 
     return registration;
+  }
+
+  async cancel(id: string, userId: string) {
+    return this.prisma.$transaction(
+      async (tx) => {
+        const registration = await tx.registration.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            userId: true,
+            eventId: true,
+            ticketTypeId: true,
+            quantity: true,
+            status: true,
+            cancelledAt: true,
+          },
+        });
+
+        if (!registration) {
+          throw new NotFoundException('Registration not found.');
+        }
+
+        if (registration.userId !== userId) {
+          throw new ForbiddenException(
+            'You do not have permission to cancel this registration.',
+          );
+        }
+
+        const lockedData = await tx.$queryRaw<
+          Array<{
+            eventId: string;
+            eventStatus: string;
+            startsAt: Date;
+            ticketTypeId: string;
+            soldQuantity: number;
+            registrationId: string;
+            registrationStatus: string;
+            registrationQuantity: number;
+          }>
+        >`
+          SELECT
+            e.id AS "eventId",
+            e.status AS "eventStatus",
+            e."startsAt" AS "startsAt",
+            tt.id AS "ticketTypeId",
+            tt."soldQuantity" AS "soldQuantity",
+            r.id AS "registrationId",
+            r.status AS "registrationStatus",
+            r.quantity AS "registrationQuantity"
+          FROM "Registration" r
+          INNER JOIN "Event" e
+            ON e.id = r."eventId"
+          INNER JOIN "TicketType" tt
+            ON tt.id = r."ticketTypeId"
+          WHERE r.id = ${id}
+          FOR UPDATE OF r, e, tt
+        `;
+
+        const locked = lockedData[0];
+
+        if (!locked) {
+          throw new NotFoundException('Registration not found.');
+        }
+
+        if (locked.registrationStatus !== 'CONFIRMED') {
+          throw new ConflictException(
+            'Registration has already been cancelled.',
+          );
+        }
+
+        const now = new Date();
+
+        if (locked.startsAt <= now) {
+          throw new ConflictException(
+            'Registration can no longer be cancelled because the event has started.',
+          );
+        }
+
+        if (
+          locked.eventStatus === 'ONGOING' ||
+          locked.eventStatus === 'COMPLETED' ||
+          locked.eventStatus === 'CANCELLED'
+        ) {
+          throw new ConflictException(
+            'Registration cannot be cancelled in the current event state.',
+          );
+        }
+
+        if (locked.soldQuantity < locked.registrationQuantity) {
+          throw new ConflictException(
+            'Ticket inventory is inconsistent. Registration cannot be cancelled.',
+          );
+        }
+
+        const checkedInTicket = await tx.ticket.findFirst({
+          where: {
+            registrationId: id,
+            status: 'CHECKED_IN',
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (checkedInTicket) {
+          throw new ConflictException(
+            'A checked-in ticket cannot be cancelled.',
+          );
+        }
+
+        const updatedRegistration = await tx.registration.update({
+          where: {
+            id,
+          },
+          data: {
+            status: 'CANCELLED',
+            cancelledAt: now,
+          },
+          include: {
+            event: {
+              select: {
+                id: true,
+                title: true,
+                slug: true,
+                startsAt: true,
+                endsAt: true,
+              },
+            },
+            ticketType: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+              },
+            },
+            tickets: {
+              select: {
+                id: true,
+                ticketNumber: true,
+                qrToken: true,
+                status: true,
+                checkedInAt: true,
+              },
+            },
+          },
+        });
+
+        await tx.ticketType.update({
+          where: {
+            id: locked.ticketTypeId,
+          },
+          data: {
+            soldQuantity: {
+              decrement: locked.registrationQuantity,
+            },
+          },
+        });
+
+        await tx.ticket.updateMany({
+          where: {
+            registrationId: id,
+            status: 'VALID',
+          },
+          data: {
+            status: 'CANCELLED',
+          },
+        });
+
+        return {
+          message: 'Registration cancelled successfully.',
+          registration: updatedRegistration,
+        };
+      },
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+      },
+    );
   }
 
   private generateTicketNumber(): string {

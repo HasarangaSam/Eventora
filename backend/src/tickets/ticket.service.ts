@@ -147,6 +147,7 @@ export class TicketService {
         eventId: true,
         name: true,
         quantity: true,
+        soldQuantity: true,
         event: {
           select: {
             organizerId: true,
@@ -161,6 +162,14 @@ export class TicketService {
     }
 
     this.assertCanManage(ticketType.event.organizerId, user);
+
+    const newQuantity = dto.quantity ?? ticketType.quantity;
+
+    if (newQuantity < ticketType.soldQuantity) {
+      throw new ConflictException(
+        `Ticket quantity cannot be lower than the number of tickets already sold (${ticketType.soldQuantity}).`,
+      );
+    }
 
     const newName = dto.name?.trim();
 
@@ -230,7 +239,7 @@ export class TicketService {
           : {}),
         ...(dto.quantity !== undefined
           ? {
-              quantity: dto.quantity,
+              quantity: newQuantity,
             }
           : {}),
       },
@@ -241,6 +250,7 @@ export class TicketService {
         description: true,
         price: true,
         quantity: true,
+        soldQuantity: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -252,9 +262,16 @@ export class TicketService {
       where: { id },
       select: {
         id: true,
+        eventId: true,
+        soldQuantity: true,
         event: {
           select: {
             organizerId: true,
+          },
+        },
+        _count: {
+          select: {
+            registrations: true,
           },
         },
       },
@@ -265,6 +282,12 @@ export class TicketService {
     }
 
     this.assertCanManage(ticketType.event.organizerId, user);
+
+    if (ticketType._count.registrations > 0) {
+      throw new ConflictException(
+        'A ticket type with registrations cannot be deleted.',
+      );
+    }
 
     await this.prisma.ticketType.delete({
       where: { id },

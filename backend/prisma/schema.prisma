@@ -218,7 +218,7 @@ model Registration {
   ticketType TicketType @relation(fields: [ticketTypeId], references: [id], onDelete: Restrict)
   tickets    Ticket[]
 
-  @@unique([userId, eventId])
+  @@index([userId, eventId])
   @@index([eventId])
   @@index([userId])
   @@index([ticketTypeId])

@@ -33,4 +33,9 @@ export class RegistrationController {
   findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.registrationService.findOne(id, user.id);
   }
+
+  @Post(':id/cancel')
+  cancel(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.registrationService.cancel(id, user.id);
+  }
 }
