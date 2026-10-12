@@ -158,6 +158,12 @@ npm run lint
 
 ## Setup & Local Development
 
+### 0. Install Dependencies
+From the `backend/` directory, install the exact dependency versions recorded in the lockfile:
+```bash
+npm ci
+```
+
 ### 1. Prerequisites
 - Node.js 20+
 - PostgreSQL database (e.g., Supabase Session Pooler)
@@ -209,3 +215,4 @@ npm run build
 npm run start:prod
 ```
 The API listens on port `3000` (or `PORT` if specified) under the `/api` prefix.
+After startup, confirm the server is responding at `http://localhost:3000/api/health`; a healthy response is `{"status":"ok"}`.
