@@ -96,39 +96,45 @@ export function AccountPage() {
     if (!isLoaded || !isSignedIn || !userId) return
     let active = true
 
-    // Fetch user details
-    authenticatedRequest<CurrentUser>({ method: 'GET', url: '/auth/me' })
-      .then(({ data }) => {
+    async function loadUser() {
+      try {
+        const { data } = await authenticatedRequest<CurrentUser>({ method: 'GET', url: '/auth/me' })
         if (active) setUser(data)
-      })
-      .catch(() => {
+      } catch {
         if (active) setError('Could not load account details.')
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoading(false)
-      })
+      }
+    }
 
-    // Fetch attendee dashboard metrics & registrations
-    authenticatedRequest<AttendeeDashboardData>({ method: 'GET', url: '/attendee/dashboard' })
-      .then(({ data }) => {
+    async function loadDashboard() {
+      try {
+        const { data } = await authenticatedRequest<AttendeeDashboardData>({ method: 'GET', url: '/attendee/dashboard' })
         if (active) setDashboardData(data)
-      })
-      .catch(() => {})
+      } catch {
+        // The dashboard summary is optional; ticket and profile data can still render.
+      }
+    }
 
-    // Fetch attendee's digital tickets
-    authenticatedRequest<TicketSummary[]>({ method: 'GET', url: '/tickets/me' })
-      .then(({ data }) => {
+    async function loadTickets() {
+      try {
+        const { data } = await authenticatedRequest<TicketSummary[]>({ method: 'GET', url: '/tickets/me' })
         if (active) setTickets(data)
-      })
-      .catch(() => {})
+      } catch {
+        // Ticket loading has a separate error state on the wallet view.
+      }
+    }
 
-    // Fetch curated events as recommendations
-    api
-      .get<EventPage>('/events?sort=newest&direction=desc&page=1&pageSize=3')
-      .then(({ data }) => {
+    async function loadRecommendations() {
+      try {
+        const { data } = await api.get<EventPage>('/events?sort=newest&direction=desc&page=1&pageSize=3')
         if (active) setRecommendedEvents(data.items)
-      })
-      .catch(() => {})
+      } catch {
+        // Recommendations are supplementary to the account dashboard.
+      }
+    }
+
+    void Promise.all([loadUser(), loadDashboard(), loadTickets(), loadRecommendations()])
 
     return () => {
       active = false

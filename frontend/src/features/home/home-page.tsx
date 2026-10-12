@@ -69,27 +69,28 @@ export function HomePage() {
 
   useEffect(() => {
     let active = true
-
-    // Fetch upcoming events
-    api
-      .get<EventPage>('/events?sort=newest&direction=desc&page=1&pageSize=6')
-      .then(({ data }) => {
+    async function loadEvents() {
+      try {
+        const { data } = await api.get<EventPage>('/events?sort=newest&direction=desc&page=1&pageSize=6')
         if (active) {
           setEvents(data.items)
           setEventsState('ready')
         }
-      })
-      .catch(() => {
+      } catch {
         if (active) setEventsState('error')
-      })
+      }
+    }
 
-    // Fetch categories
-    api
-      .get<Category[]>('/categories')
-      .then(({ data }) => {
+    async function loadCategories() {
+      try {
+        const { data } = await api.get<Category[]>('/categories')
         if (active) setCategories(data)
-      })
-      .catch(() => {})
+      } catch {
+        // Categories are an optional homepage enhancement.
+      }
+    }
+
+    void Promise.all([loadEvents(), loadCategories()])
 
     return () => {
       active = false

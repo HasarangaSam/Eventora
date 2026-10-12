@@ -75,22 +75,23 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
 
   useEffect(() => {
     let active = true
-    void Promise.all([
-      request<Application[]>({ method: 'GET', url: '/organizer-applications/me' }),
-      request<Category[]>({ method: 'GET', url: '/categories' }),
-    ])
-      .then(([appRes, catRes]) => {
+    async function loadRequirements() {
+      try {
+        const [appRes, catRes] = await Promise.all([
+          request<Application[]>({ method: 'GET', url: '/organizer-applications/me' }),
+          request<Category[]>({ method: 'GET', url: '/categories' }),
+        ])
         if (active) {
           setApplications(appRes.data)
           setCategories(catRes.data)
         }
-      })
-      .catch(() => {
+      } catch {
         if (active) toast.error('Load Error', 'Could not fetch organizer application requirements.')
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoading(false)
-      })
+      }
+    }
+    void loadRequirements()
     return () => {
       active = false
     }

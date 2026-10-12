@@ -92,21 +92,22 @@ export function AdminPage() {
 
   useEffect(() => {
     let active = true
-    void Promise.all([
-      request<Application[]>({ method: 'GET', url: '/organizer-applications?status=PENDING' }),
-      request<UserRecord[]>({ method: 'GET', url: '/users' }),
-    ])
-      .then(([applicationResponse, userResponse]) => {
+    async function loadAdminData() {
+      try {
+        const [applicationResponse, userResponse] = await Promise.all([
+          request<Application[]>({ method: 'GET', url: '/organizer-applications?status=PENDING' }),
+          request<UserRecord[]>({ method: 'GET', url: '/users' }),
+        ])
         if (!active) return
         setApplications(applicationResponse.data)
         setUsers(userResponse.data)
-      })
-      .catch(() => {
+      } catch {
         if (active) toast.error('Admin Access Error', 'Confirm that this account has administrator privileges.')
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoading(false)
-      })
+      }
+    }
+    void loadAdminData()
     return () => {
       active = false
     }

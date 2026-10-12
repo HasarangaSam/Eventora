@@ -20,22 +20,26 @@ export function DashboardPanel({ role }: { role: Role }) {
     let active = true
     const path =
       role === 'ADMIN' ? '/admin/dashboard' : role === 'ORGANIZER' ? '/organizer/dashboard' : '/attendee/dashboard'
-    void request<Payload>({ method: 'GET', url: path })
-      .then(({ data }) => {
+    async function loadDashboard() {
+      try {
+        const { data } = await request<Payload>({ method: 'GET', url: path })
         if (active) setState({ loading: false, error: null, data })
-      })
-      .catch(() => {
+      } catch {
         if (active) setState({ loading: false, error: 'Dashboard data could not be loaded.', data: null })
-      })
+      }
+    }
 
-    if (role === 'ORGANIZER')
-      void request<{ months: SalesMonth[] }>({ method: 'GET', url: '/organizer/analytics/sales' })
-        .then(({ data }) => {
-          if (active) setSalesTrend(data.months)
-        })
-        .catch(() => {
-          if (active) setSalesTrend([])
-        })
+    async function loadSalesTrend() {
+      try {
+        const { data } = await request<{ months: SalesMonth[] }>({ method: 'GET', url: '/organizer/analytics/sales' })
+        if (active) setSalesTrend(data.months)
+      } catch {
+        if (active) setSalesTrend([])
+      }
+    }
+
+    void loadDashboard()
+    if (role === 'ORGANIZER') void loadSalesTrend()
 
     return () => {
       active = false

@@ -61,9 +61,17 @@ export function AdminOverviewPage() {
   useEffect(() => {
     let active = true
     setLoading(true)
-    void request<Payload>({ method: 'GET', url: '/admin/dashboard' })
-      .then(({ data: d }) => { if (active) { setData(d); setLoading(false) } })
-      .catch(() => { if (active) { setData(null); setLoading(false) } })
+    async function loadDashboard() {
+      try {
+        const { data } = await request<Payload>({ method: 'GET', url: '/admin/dashboard' })
+        if (active) setData(data)
+      } catch {
+        if (active) setData(null)
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    void loadDashboard()
     return () => { active = false }
   }, [attempt, request])
 

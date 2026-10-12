@@ -98,12 +98,13 @@ export function EventDetailPage() {
 
   useEffect(() => {
     let active = true
-    void Promise.all([
-      api.get<EventDetails>(`/events/${encodeURIComponent(eventId)}`),
-      api.get<Session[]>(`/events/${encodeURIComponent(eventId)}/sessions`),
-      api.get<TicketType[]>(`/events/${encodeURIComponent(eventId)}/ticket-types`),
-    ])
-      .then(([eventResponse, sessionResponse, ticketResponse]) => {
+    async function loadEventDetails() {
+      try {
+        const [eventResponse, sessionResponse, ticketResponse] = await Promise.all([
+          api.get<EventDetails>(`/events/${encodeURIComponent(eventId)}`),
+          api.get<Session[]>(`/events/${encodeURIComponent(eventId)}/sessions`),
+          api.get<TicketType[]>(`/events/${encodeURIComponent(eventId)}/ticket-types`),
+        ])
         if (active) {
           setState({
             identifier: eventId,
@@ -117,15 +118,16 @@ export function EventDetailPage() {
             if (firstAvailable) setSelectedTicketId(firstAvailable.id)
           }
         }
-      })
-      .catch((error: unknown) => {
+      } catch (error: unknown) {
         if (!active) return
         const status =
           typeof error === 'object' && error !== null && 'response' in error
             ? (error.response as { status?: number } | undefined)?.status
             : undefined
         setState(status === 404 ? { identifier: eventId, status: 'not-found' } : { identifier: eventId, status: 'error' })
-      })
+      }
+    }
+    void loadEventDetails()
 
     return () => {
       active = false

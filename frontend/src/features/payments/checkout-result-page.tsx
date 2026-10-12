@@ -26,8 +26,9 @@ export function CheckoutResultPage({ cancelled = false }: { cancelled?: boolean 
     if (!isLoaded || !isSignedIn || !registrationId) return
     let active = true
 
-    request<RegistrationStatus>({ method: 'GET', url: `/registrations/${encodeURIComponent(registrationId)}` })
-      .then(({ data }) => {
+    async function loadRegistrationStatus() {
+      try {
+        const { data } = await request<RegistrationStatus>({ method: 'GET', url: `/registrations/${encodeURIComponent(registrationId)}` })
         if (!active) return
         if (data.status === 'CONFIRMED') {
           try {
@@ -35,10 +36,11 @@ export function CheckoutResultPage({ cancelled = false }: { cancelled?: boolean 
           } catch {}
         }
         setState({ kind: 'ready', registration: data })
-      })
-      .catch(() => {
+      } catch {
         if (active) setState({ kind: 'error' })
-      })
+      }
+    }
+    void loadRegistrationStatus()
 
     return () => {
       active = false

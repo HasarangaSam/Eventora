@@ -67,20 +67,21 @@ export function EventCheckinPage() {
 
   useEffect(() => {
     let active = true
-    request<Attendance>({
-      method: 'GET',
-      url: `/organizer/events/${eventId}/check-ins`,
-      params: { page, pageSize: 25 },
-    })
-      .then((res) => {
+    async function loadAttendance() {
+      try {
+        const res = await request<Attendance>({
+          method: 'GET',
+          url: `/organizer/events/${eventId}/check-ins`,
+          params: { page, pageSize: 25 },
+        })
         if (active) setAttendance(res.data)
-      })
-      .catch(() => {
+      } catch {
         if (active) toast.error('Attendance Error', 'Confirm organizer access for this event.')
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoading(false)
-      })
+      }
+    }
+    void loadAttendance()
     return () => {
       active = false
     }
@@ -128,11 +129,12 @@ export function EventCheckinPage() {
     let active = true
     handledRef.current = false
 
-    void import('@zxing/browser')
-      .then(({ BrowserQRCodeReader }) => {
+    async function startScanner() {
+      try {
+        const { BrowserQRCodeReader } = await import('@zxing/browser')
         if (!active || !videoRef.current) return
         const reader = new BrowserQRCodeReader()
-        return reader.decodeFromVideoDevice(undefined, videoRef.current, (decoded, _err, controls) => {
+        const controls = await reader.decodeFromVideoDevice(undefined, videoRef.current, (decoded, _err, controls) => {
           controlsRef.current = controls
           if (!active || !decoded || handledRef.current) return
           handledRef.current = true
@@ -140,18 +142,17 @@ export function EventCheckinPage() {
           setScanning(false)
           void checkIn(decoded.getText(), 'QR_SCAN')
         })
-      })
-      .then((controls) => {
         if (!controls) return
         controlsRef.current = controls
         if (!active) controls.stop()
-      })
-      .catch(() => {
+      } catch {
         if (active) {
           toast.error('Camera Error', 'Camera could not be accessed. Allow camera permission or use manual reference entry.')
           setScanning(false)
         }
-      })
+      }
+    }
+    void startScanner()
 
     return () => {
       active = false

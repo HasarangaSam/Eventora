@@ -48,14 +48,20 @@ export function OrganizerOverviewPage() {
   useEffect(() => {
     let active = true
     setLoading(true)
-    Promise.all([
-      request<Payload>({ method: 'GET', url: '/organizer/dashboard' }),
-      request<{ months: SalesMonth[] }>({ method: 'GET', url: '/organizer/analytics/sales' }),
-    ])
-      .then(([{ data: d }, { data: s }]) => {
-        if (active) { setData(d); setSalesTrend(s.months); setLoading(false) }
-      })
-      .catch(() => { if (active) { setData(null); setLoading(false) } })
+    async function loadDashboard() {
+      try {
+        const [{ data }, { data: sales }] = await Promise.all([
+          request<Payload>({ method: 'GET', url: '/organizer/dashboard' }),
+          request<{ months: SalesMonth[] }>({ method: 'GET', url: '/organizer/analytics/sales' }),
+        ])
+        if (active) { setData(data); setSalesTrend(sales.months) }
+      } catch {
+        if (active) setData(null)
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    void loadDashboard()
     return () => { active = false }
   }, [attempt, request])
 

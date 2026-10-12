@@ -46,13 +46,15 @@ export function TicketsPage() {
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return
     let active = true
-    authenticatedRequest<TicketSummary[]>({ method: 'GET', url: '/tickets/me' })
-      .then(({ data }) => {
+    async function loadTickets() {
+      try {
+        const { data } = await authenticatedRequest<TicketSummary[]>({ method: 'GET', url: '/tickets/me' })
         if (active) setTickets(data)
-      })
-      .catch(() => {
+      } catch {
         if (active) setError('Could not load your digital tickets. Please refresh.')
-      })
+      }
+    }
+    void loadTickets()
     return () => {
       active = false
     }

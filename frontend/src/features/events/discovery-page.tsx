@@ -26,17 +26,18 @@ export function RecentEvents() {
 
   useEffect(() => {
     let active = true
-    api
-      .get<EventPage>('/events?sort=newest&direction=desc&page=1&pageSize=4')
-      .then(({ data }) => {
+    async function loadRecentEvents() {
+      try {
+        const { data } = await api.get<EventPage>('/events?sort=newest&direction=desc&page=1&pageSize=4')
         if (active) {
           setEvents(data.items)
           setState('ready')
         }
-      })
-      .catch(() => {
+      } catch {
         if (active) setState('error')
-      })
+      }
+    }
+    void loadRecentEvents()
     return () => {
       active = false
     }
@@ -89,12 +90,15 @@ export function ExploreCategories() {
 
   useEffect(() => {
     let active = true
-    api
-      .get<Category[]>('/categories')
-      .then(({ data }) => {
+    async function loadCategories() {
+      try {
+        const { data } = await api.get<Category[]>('/categories')
         if (active) setCategories(data)
-      })
-      .catch(() => {})
+      } catch {
+        // Category filtering remains optional while the request is unavailable.
+      }
+    }
+    void loadCategories()
     return () => {
       active = false
     }
@@ -147,12 +151,15 @@ export function DiscoveryPage() {
 
   useEffect(() => {
     let active = true
-    api
-      .get<Category[]>('/categories')
-      .then(({ data }) => {
+    async function loadCategories() {
+      try {
+        const { data } = await api.get<Category[]>('/categories')
         if (active) setCategories(data)
-      })
-      .catch(() => {})
+      } catch {
+        // Category filters are unavailable; event search can still be used.
+      }
+    }
+    void loadCategories()
     return () => {
       active = false
     }
@@ -166,17 +173,17 @@ export function DiscoveryPage() {
     params.set('pageSize', '9')
     if (!params.has('sort')) params.set('sort', 'startAt')
 
-    api
-      .get<EventPage>(`/events?${params.toString()}`)
-      .then(({ data }) => {
+    async function loadEvents() {
+      try {
+        const { data } = await api.get<EventPage>(`/events?${params.toString()}`)
         if (active) setResults(data)
-      })
-      .catch(() => {
+      } catch {
         if (active) setError(true)
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoading(false)
-      })
+      }
+    }
+    void loadEvents()
 
     return () => {
       active = false
