@@ -53,7 +53,7 @@ The overall status must be updated as work progresses. It must reflect verified 
 | Registration and inventory   | IMPLEMENTED | Phase 7 APIs, atomic holds, expiry, cancellation release, and PostgreSQL concurrency verification |
 | PayHere integration          | IMPLEMENTED | Hosted checkout UI/API, signed notification processing, late-payment handling; merchant sandbox verification awaits credentials |
 | Digital tickets and email    | IMPLEMENTED | Phase 9 code, owner checks, Gmail SMTP authentication; no email sent |
-| Check-in                     | NOT_STARTED | Phase 10                                                        |
+| Check-in                     | IMPLEMENTED | Phase 10 implementation and PostgreSQL concurrency checks pass; physical camera verification remains |
 | Dashboards and analytics     | NOT_STARTED | Phase 11                                                        |
 | Final quality review         | NOT_STARTED | Phase 12                                                        |
 
@@ -456,39 +456,39 @@ Review ticket security and email reliability before Phase 10.
 
 ## 13. Phase 10 — Check-In and Attendance
 
-**Status:** NOT_STARTED
+**Status:** IMPLEMENTED
 
 ### Tasks
 
-- [ ] Implement ticket validation.
-- [ ] Implement browser camera QR scanning.
-- [ ] Implement manual ticket-reference entry.
-- [ ] Use the same backend validation rules for both methods.
-- [ ] Enforce active, approved organizer authorization.
-- [ ] Enforce event ownership.
-- [ ] Verify ticket, registration, and payment state.
-- [ ] Implement atomic, concurrency-safe check-in.
-- [ ] Return clear validation outcomes.
-- [ ] Implement event check-in history and attendance reporting.
-- [ ] Handle camera permission failures and resource cleanup.
-- [ ] Test duplicate and concurrent check-ins.
+- [x] Implement ticket validation.
+- [x] Implement browser camera QR scanning with lazy-loaded `@zxing/browser`.
+- [x] Implement manual ticket-reference entry.
+- [x] Use the same backend validation rules for both methods.
+- [x] Enforce active, approved organizer authorization through the existing backend guards.
+- [x] Enforce event ownership in the check-in service.
+- [x] Verify ticket, registration, and current successful payment state.
+- [x] Implement atomic, concurrency-safe check-in with event/ticket row locks and the unique check-in constraint.
+- [x] Return clear validation outcomes without attendee PII.
+- [x] Implement paginated event check-in history and attendance counts.
+- [x] Handle camera permission failures and scanner resource cleanup; manual entry remains available.
+- [x] Test duplicate and concurrent check-ins against PostgreSQL.
 
 ### Acceptance criteria
 
-- [ ] Unauthorized organizers cannot validate or check in tickets.
-- [ ] Tickets for another event are rejected.
-- [ ] Invalid, unpaid, or already checked-in tickets are handled correctly.
-- [ ] Two concurrent attempts cannot produce duplicate successful check-ins.
-- [ ] QR scanning and manual entry enforce the same rules.
-- [ ] Camera failures do not prevent manual check-in.
-- [ ] Attendance reports use accurate backend records.
+- [x] Unauthorized organizers cannot validate or check in tickets.
+- [x] Tickets for another event are rejected.
+- [x] Invalid, unpaid, cancelled-event, or already checked-in tickets are handled correctly.
+- [x] Two concurrent attempts cannot produce duplicate successful check-ins.
+- [x] QR scanning and manual entry enforce the same backend rules.
+- [x] Camera failures leave manual entry available.
+- [x] Attendance reports use persisted check-in records and confirmed issued tickets.
 
 ### Verification record
 
-- Backend tests:
-- Camera and manual-entry verification:
-- Concurrency tests:
-- Outstanding issues:
+- Backend checks: `npm.cmd run build`, `npm.cmd run lint`, `npm.cmd run test -- --run` (10 files / 31 tests), `npm.cmd run test:e2e -- --run` (3 files / 3 tests), and `npm.cmd run prisma:validate` passed. E2E includes a non-mutating valid-ticket check, the QR/manual mixed concurrent check-in race, invalid QR, unauthorized user, and report counts.
+- Frontend checks: `npm.cmd run lint` and `npm.cmd run build` passed. Scanner is lazy-loaded; manual entry remains available.
+- Camera and manual-entry verification: manual endpoint verified against PostgreSQL. Browser scanner code and cleanup compile/lint; physical camera permission and scanning have not been exercised in a browser.
+- Outstanding issues: perform a real-device/browser camera scan using HTTPS or localhost before marking the phase VERIFIED.
 
 ### Approval gate
 

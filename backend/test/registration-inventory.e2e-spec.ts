@@ -8,6 +8,8 @@ import { InventoryService } from '../src/registrations/inventory.service.js';
 import { RegistrationsService } from '../src/registrations/registrations.service.js';
 import { PaymentsService } from '../src/payments/payments.service.js';
 import { TicketsService } from '../src/tickets/tickets.service.js';
+import { ticketQrToken } from '../src/tickets/ticket-crypto.js';
+import { CheckinsService } from '../src/checkins/checkins.service.js';
 
 describe('registration inventory concurrency (PostgreSQL)', () => {
   let prisma: PrismaService;
@@ -132,6 +134,7 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
     await prisma.ticketType.update({ where: { id: ticketTypeId }, data: { quantity: 2 } });
     const merchantSecret = 'phase8-integration-secret';
     const ticketConfig = new ConfigService({ TICKET_QR_SECRET: 'phase9-integration-qr-secret-with-sufficient-length' });
+    const checkins = new CheckinsService(prisma, ticketConfig);
     const payments = new PaymentsService(prisma, new ConfigService({
       PAYHERE_MERCHANT_ID: '1234567',
       PAYHERE_MERCHANT_SECRET: merchantSecret,
@@ -168,6 +171,18 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
     const tickets = new TicketsService(prisma, ticketConfig);
     await expect(tickets.getMine(attendeeIds[1 - winnerIndex], issuedTicket.id)).resolves.toMatchObject({ reference: issuedTicket.reference, qrCode: expect.stringMatching(/^data:image\/png;base64,/) });
     await expect(tickets.getMine(attendeeIds[winnerIndex], issuedTicket.id)).rejects.toThrow('Ticket not found');
+    const qrToken = ticketQrToken(issuedTicket.reference, ticketConfig);
+    await expect(checkins.checkIn(organizerId, eventId, qrToken, 'QR_SCAN', false)).resolves.toMatchObject({ outcome: 'VALID', reference: issuedTicket.reference });
+    expect(await prisma.checkIn.count({ where: { eventId } })).toBe(0);
+    const simultaneousCheckins = await Promise.all([
+      checkins.checkIn(organizerId, eventId, qrToken, 'QR_SCAN'),
+      checkins.checkIn(organizerId, eventId, issuedTicket.reference, 'MANUAL_REFERENCE'),
+    ]);
+    expect(simultaneousCheckins.filter(({ outcome }) => outcome === 'CHECKED_IN')).toHaveLength(1);
+    expect(simultaneousCheckins.filter(({ outcome }) => outcome === 'ALREADY_CHECKED_IN')).toHaveLength(1);
+    await expect(checkins.checkIn(organizerId, eventId, 'not-a-valid-token', 'QR_SCAN')).resolves.toMatchObject({ outcome: 'INVALID' });
+    await expect(checkins.checkIn(attendeeIds[0], eventId, issuedTicket.reference, 'MANUAL_REFERENCE')).rejects.toThrow('Event not found');
+    await expect(checkins.attendance(organizerId, eventId, 1, 25)).resolves.toMatchObject({ summary: { totalIssued: 1, checkedIn: 1, remaining: 0 }, records: [{ reference: issuedTicket.reference }] });
     const duplicateDeliveries = await Promise.all([payments.handleNotification(notification), payments.handleNotification(notification)]);
     expect(duplicateDeliveries.every(({ status }) => status === 'SUCCEEDED')).toBe(true);
     expect(await prisma.ticket.count({ where: { registrationId: next.id } })).toBe(1);

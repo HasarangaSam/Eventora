@@ -16,6 +16,7 @@
 - `RegistrationsModule`: authenticated registration requests, idempotent request handling, transactional inventory holds, pending payment attempts, attendee-owned registration reads, and database-clock reservation expiry/release.
 - `PaymentsModule`: backend-generated PayHere hosted checkout forms, attendee-owned payment reads, and the public signature-verified form notification route. Verified success commits inventory and confirms registrations; late unfulfillable successes are retained as payment exceptions.
 - `TicketsModule`: attendee-owned digital ticket list/detail APIs; ticket details generate a QR image only after confirming registration ownership and payment state.
+- Check-in endpoints in `EventsModule`: approved organizers validate QR tokens or manual references, check in event tickets, and page through attendance history.
 - `EmailModule`: database-backed outbox worker with Gmail SMTP, stable message IDs, safe delivery errors, and bounded retries. Purchase ticket rows and their email outbox row commit atomically with verified payment fulfillment.
 - `PrismaModule`: shared Prisma client connected through the PostgreSQL adapter.
 
@@ -34,6 +35,7 @@ The administrator category inventory is `GET /api/categories/admin/list`; create
 - `/`: event discovery, featured events, search and filters, pagination, and the local hero asset.
 - `/events/:eventId`: event information, schedule, ticket prices, and availability.
 - `/tickets`: signed-in attendee ticket wallet with private QR codes.
+- `/organizer/events/:eventId/check-in`: organizer camera scanner, manual ticket-reference entry, and paginated event attendance.
 - `/account`: synchronized account details and the attendee organizer-application panel.
 - `/admin`: administrator application review, account management, and category management.
 
@@ -42,3 +44,5 @@ Registration APIs are implemented at `POST /api/registrations`, `GET /api/regist
 Organizer management is available under `/api/organizer/events` and requires a Clerk session, active Eventora account, organizer role, and approved organizer application. Organizers can create drafts, list and edit their own events, publish/unpublish/cancel, manage schedule entries and paid ticket types, upload/remove cover images, and delete events only before registration or inventory history exists. Publication requires valid future event dates, an active category, complete public details, and at least one active paid ticket type with inventory and a usable sales window. Unpublishing is refused after registrations or inventory commitments; cancellation preserves those records and adds idempotent `EVENT_CANCELLATION` deliveries for confirmed attendees.
 
 The organizer frontend is available on the signed-in `/account` page for organizer accounts. Cover uploads are limited to 5 MiB JPEG, PNG, or WebP and checked by file signature before the backend streams them to Cloudinary. Configure `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` in `backend/.env`. A cover must be removed before an otherwise history-free event can be deleted.
+
+Check-in uses `POST /api/check-ins/validate` for a non-mutating validation and `POST /api/check-ins` to commit attendance; both accept an event ID, input value, and input method and share the same validation rules. Event history is available from `GET /api/organizer/events/:eventId/check-ins` and `GET /api/organizer/events/:eventId/attendance`. Both check-in actions also have an event-scoped route used by the organizer page. The page loads `@zxing/browser` only when starting the camera. Camera access requires HTTPS or localhost; reference entry remains available if scanning is stopped or unavailable.

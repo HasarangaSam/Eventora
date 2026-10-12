@@ -8,6 +8,7 @@ import { DiscoveryPage, FeaturedEvents } from './features/events/discovery-page'
 import { EventDetailPage } from './features/events/event-detail-page'
 import { CheckoutResultPage } from './features/payments/checkout-result-page'
 import { TicketsPage } from './features/tickets/tickets-page'
+import { EventCheckinPage } from './features/organizer/event-checkin-page'
 import './App.css'
 
 function HomePage() {
@@ -78,6 +79,7 @@ export default function App() {
         <Route path="/checkout/result" element={<CheckoutResultPage />} />
         <Route path="/checkout/cancelled" element={<CheckoutResultPage cancelled />} />
         <Route path="/tickets" element={publishableKey ? <TicketsPage /> : <NotFoundPage />} />
+        <Route path="/organizer/events/:eventId/check-in" element={publishableKey ? <EventCheckinPage /> : <NotFoundPage />} />
         <Route path="/account" element={publishableKey ? <AccountPage /> : <NotFoundPage />} />
         <Route path="/admin" element={publishableKey ? <AdminPage /> : <NotFoundPage />} />
         <Route path="*" element={<NotFoundPage />} />
