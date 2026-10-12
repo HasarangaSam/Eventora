@@ -23,7 +23,7 @@
 ## Design System & UX Standards
 
 The interface is engineered around an editorial, premium aesthetic:
-- **Warm Identity:** Rooted in vibrant amber/orange (`#F97316`), warm charcoal accents (`#0F172A`), and clean slate borders.
+- **Refined Modern Palette:** Rooted in electric Indigo (`#6366f1`), deep Slate surfaces (`#0F172A`), Rose highlights (`#f43f5e`), warm off-white backgrounds (`#f8fafc`), and clean slate borders.
 - **Glassmorphism & Micro-Interactions:** Subtle backdrop filters, smooth hover card lifts, and transition states across cards, buttons, and badges.
 - **Dual Shell Layouts:**
   - **Public Shell:** Used for homepage, event discovery, event details, checkout results, and attendee wallet. Features sticky navigation and comprehensive footer.

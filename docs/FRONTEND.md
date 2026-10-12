@@ -4,7 +4,7 @@ This is Eventora's authoritative frontend UX and design direction. `docs/project
 
 ## Product experience
 
-- Keep the warm orange identity (`#F97316`) with warm off-white surfaces, dark readable text, and restrained borders and shadows.
+- Brand identity is centered on modern high-end Indigo (`#6366f1`), dark Slate accents (`#0f172a`), warm off-white surfaces (`#f8fafc`), Rose highlights (`#f43f5e`), and restrained borders and shadows.
 - Treat Eventora as event discovery and ticketing. Keep actual event API data, accessible controls, and useful loading, empty, error, and success states ahead of decorative dashboard elements.
 - Do not show fabricated activity, sales, testimonials, social accounts, or organizer metrics.
 - Use Clerk for identity and the backend's synchronized database role/status for access decisions. Frontend role routing improves navigation only; backend guards remain authoritative.
@@ -60,7 +60,7 @@ The separate Discover page reads filters and pagination from URL query parameter
 
 ## Shared chrome and dashboard presentation
 
-- Guests and attendees use the public navbar and footer. The public chrome uses a dark charcoal/navy surface, clear large navigation text, and the established warm orange accent.
+- Guests and attendees use the public navbar and footer. The public chrome uses a dark charcoal/navy surface, clear large navigation text, and vibrant Indigo accents.
 - Organizer and admin workspaces use a full-height sidebar layout and omit the public navbar and footer. Attendee dashboards retain the public shell.
 - Organizer sales charts use verified monthly gross sales grouped by currency. Admin role distribution and attendance visuals use the existing admin dashboard aggregates. Do not add decorative or fabricated analytics.
 - Footer social marks remain non-interactive until Eventora's official social URLs are supplied; do not point users to generic platform pages or unrelated accounts.

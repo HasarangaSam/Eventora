@@ -50,3 +50,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Internal project planning and notes
+agents.md
+IMPLEMENTATION_PLAN.md

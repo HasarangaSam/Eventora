@@ -146,13 +146,22 @@ export function HomePage() {
                 </button>
               </form>
 
-              {/* Functional Category Filter Links */}
+              {/* Functional Category Filter Links (dynamically loaded from API) */}
               <div className="home-quick-tags">
                 <span className="home-quick-tags-label">Popular:</span>
-                <Link to="/discover?search=Tech" className="home-tag-pill">Technology</Link>
-                <Link to="/discover?search=Music" className="home-tag-pill">Concerts</Link>
-                <Link to="/discover?search=Summit" className="home-tag-pill">Summits</Link>
-                <Link to="/discover?search=Workshop" className="home-tag-pill">Workshops</Link>
+                {categories.length > 0 ? (
+                  categories.slice(0, 4).map((cat) => (
+                    <Link key={cat.id} to={`/discover?categoryId=${cat.id}`} className="home-tag-pill">
+                      {cat.name}
+                    </Link>
+                  ))
+                ) : (
+                  <>
+                    <Link to="/discover?search=Tech" className="home-tag-pill">Technology</Link>
+                    <Link to="/discover?search=Music" className="home-tag-pill">Concerts</Link>
+                    <Link to="/discover?search=Workshop" className="home-tag-pill">Workshops</Link>
+                  </>
+                )}
                 <Link to="/discover" className="home-tag-pill home-tag-pill-all">All Events →</Link>
               </div>
             </div>
