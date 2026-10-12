@@ -16,6 +16,21 @@ const applicationSelect = {
   status: true,
   organizationName: true,
   description: true,
+  contactName: true,
+  applicantEmail: true,
+  contactPhone: true,
+  organizerType: true,
+  country: true,
+  city: true,
+  websiteUrl: true,
+  experience: true,
+  eventFrequency: true,
+  expectedAttendance: true,
+  accuracyConfirmed: true,
+  rulesAccepted: true,
+  rulesVersion: true,
+  agreedAt: true,
+  eventCategories: { select: { category: { select: { id: true, name: true } } } },
   submittedAt: true,
   reviewedAt: true,
   decisionNote: true,
@@ -31,7 +46,20 @@ const applicationSelect = {
 export class OrganizerApplicationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async submit(user: User, organizationName: string, description: string) {
+  async submit(user: User, application: {
+    organizationName: string;
+    description: string;
+    contactName: string;
+    contactPhone: string;
+    organizerType: 'INDIVIDUAL' | 'COMPANY' | 'EDUCATIONAL_INSTITUTION' | 'NONPROFIT' | 'OTHER';
+    country: string;
+    city: string;
+    websiteUrl: string | null;
+    experience: string;
+    eventFrequency: 'ONE_TIME' | 'OCCASIONALLY' | 'MONTHLY' | 'FREQUENTLY';
+    expectedAttendance: number;
+    categoryIds: string[];
+  }, verifiedEmail: string) {
     const approved = await this.prisma.organizerApplication.findFirst({
       where: { applicantId: user.id, status: 'APPROVED' },
       select: { id: true },
@@ -44,9 +72,36 @@ export class OrganizerApplicationsService {
     });
     if (pending) throw new ConflictException('You already have a pending application');
 
+    const categories = await this.prisma.category.findMany({
+      where: { id: { in: application.categoryIds }, isActive: true },
+      select: { id: true },
+    });
+    if (categories.length !== application.categoryIds.length) {
+      throw new ConflictException('Choose active Eventora categories');
+    }
+
     try {
       return await this.prisma.organizerApplication.create({
-        data: { applicantId: user.id, organizationName, description },
+        data: {
+          applicantId: user.id,
+          applicantEmail: verifiedEmail,
+          organizationName: application.organizationName,
+          description: application.description,
+          contactName: application.contactName,
+          contactPhone: application.contactPhone,
+          organizerType: application.organizerType,
+          country: application.country,
+          city: application.city,
+          websiteUrl: application.websiteUrl,
+          experience: application.experience,
+          eventFrequency: application.eventFrequency,
+          expectedAttendance: application.expectedAttendance,
+          accuracyConfirmed: true,
+          rulesAccepted: true,
+          rulesVersion: 'organizer-rules-v1',
+          agreedAt: new Date(),
+          eventCategories: { create: application.categoryIds.map((categoryId) => ({ categoryId })) },
+        },
         select: applicationSelect,
       });
     } catch (error) {

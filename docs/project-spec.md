@@ -160,8 +160,21 @@ Eventora. There is no free-ticket flow.
 
 ### Organizer
 
-Users apply to become organizers. An administrator must approve the
-application before organizer-management endpoints become available.
+Users apply to become organizers using a reviewable application. Prefill a
+separate editable contact name from Clerk's first and last names, and display
+the verified Clerk email read-only; the backend snapshots that email from the
+authenticated account. Require a contact phone, public organizer/organization
+name, organizer type, country, city, motivation, one or more active Eventora
+categories, experience (including an explicit beginner option), expected
+frequency, typical expected attendance, and confirmations of accurate
+information and acceptance of the organizer rules. Website/social URL is
+optional, and individuals may apply without a registered business or website.
+Do not collect identity documents or business-registration documents without
+a separately defined verification requirement. Admin reviewers can inspect
+the submitted information before deciding. Preserve rejected applications
+and allow reapplication; only one application may be pending per applicant.
+An administrator must approve the application before organizer-management
+endpoints become available.
 
 Approved, active organizers can manage only their own events; configure
 publication, cover images, sessions, and paid ticket types; view event

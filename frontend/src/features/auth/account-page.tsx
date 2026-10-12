@@ -85,7 +85,7 @@ export function AccountPage() {
       {!accountLoading && account.status === 'ready' && account.user.status === 'ACTIVE' && <>
         {account.user.role === 'ADMIN' && <Link className="account-home-link" to="/admin">Open administrator workspace</Link>}
         {account.user.role === 'ORGANIZER' && <OrganizerEventsDashboard />}
-        <OrganizerApplicationPanel role={account.user.role} />
+        <OrganizerApplicationPanel role={account.user.role} firstName={account.user.firstName} lastName={account.user.lastName} email={account.user.email} />
       </>}
       <Link className="account-home-link" to="/">Back to event discovery</Link>
     </main>

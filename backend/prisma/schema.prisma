@@ -24,6 +24,21 @@ enum OrganizerApplicationStatus {
   REJECTED
 }
 
+enum OrganizerType {
+  INDIVIDUAL
+  COMPANY
+  EDUCATIONAL_INSTITUTION
+  NONPROFIT
+  OTHER
+}
+
+enum OrganizerEventFrequency {
+  ONE_TIME
+  OCCASIONALLY
+  MONTHLY
+  FREQUENTLY
+}
+
 enum EventStatus {
   DRAFT
   PUBLISHED
@@ -109,6 +124,20 @@ model OrganizerApplication {
   status           OrganizerApplicationStatus @default(PENDING)
   organizationName String                     @db.VarChar(200)
   description      String                     @db.Text
+  contactName      String?                    @db.VarChar(200)
+  applicantEmail   String?                    @db.VarChar(320)
+  contactPhone     String?                    @db.VarChar(40)
+  organizerType    OrganizerType?
+  country          String?                    @db.VarChar(100)
+  city             String?                    @db.VarChar(120)
+  websiteUrl       String?                    @db.VarChar(2048)
+  experience       String?                    @db.Text
+  eventFrequency   OrganizerEventFrequency?
+  expectedAttendance Int?
+  accuracyConfirmed Boolean                   @default(false)
+  rulesAccepted     Boolean                   @default(false)
+  rulesVersion      String?                   @db.VarChar(40)
+  agreedAt          DateTime?                 @db.Timestamptz(6)
   submittedAt      DateTime                   @default(now()) @db.Timestamptz(6)
   reviewedAt       DateTime?                  @db.Timestamptz(6)
   reviewerId       String?
@@ -119,9 +148,22 @@ model OrganizerApplication {
   applicant       User            @relation("ApplicationApplicant", fields: [applicantId], references: [id], onDelete: Restrict)
   reviewer        User?           @relation("ApplicationReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
   emailDeliveries EmailDelivery[]
+  eventCategories OrganizerApplicationCategory[]
 
   @@index([applicantId, status])
   @@index([status, submittedAt])
+}
+
+model OrganizerApplicationCategory {
+  organizerApplicationId String
+  categoryId             String
+  createdAt              DateTime @default(now()) @db.Timestamptz(6)
+
+  organizerApplication OrganizerApplication @relation(fields: [organizerApplicationId], references: [id], onDelete: Cascade)
+  category             Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@id([organizerApplicationId, categoryId])
+  @@index([categoryId, organizerApplicationId])
 }
 
 model Category {
@@ -134,6 +176,7 @@ model Category {
   updatedAt   DateTime @updatedAt @db.Timestamptz(6)
 
   events Event[]
+  organizerApplicationCategories OrganizerApplicationCategory[]
 }
 
 model Event {

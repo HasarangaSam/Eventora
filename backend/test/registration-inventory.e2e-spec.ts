@@ -10,6 +10,7 @@ import { PaymentsService } from '../src/payments/payments.service.js';
 import { TicketsService } from '../src/tickets/tickets.service.js';
 import { ticketQrToken } from '../src/tickets/ticket-crypto.js';
 import { CheckinsService } from '../src/checkins/checkins.service.js';
+import { OrganizerApplicationsService } from '../src/organizer-applications/organizer-applications.service.js';
 
 describe('registration inventory concurrency (PostgreSQL)', () => {
   let prisma: PrismaService;
@@ -38,6 +39,34 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
     }));
     const category = await prisma.category.create({ data: { name: `Phase 7 ${suffix}`, slug: `phase-7-${suffix}` } });
     categoryId = category.id;
+    const organizerApplications = new OrganizerApplicationsService(prisma);
+    const application = await organizerApplications.submit(
+      await prisma.user.findUniqueOrThrow({ where: { id: attendeeIds[0] } }),
+      {
+        organizationName: 'Community Events',
+        description: 'I want to bring community events to Eventora attendees.',
+        contactName: 'Test Applicant',
+        contactPhone: '+94770000000',
+        organizerType: 'INDIVIDUAL',
+        country: 'Sri Lanka',
+        city: 'Colombo',
+        websiteUrl: null,
+        experience: 'I am a beginner and plan my first event.',
+        eventFrequency: 'ONE_TIME',
+        expectedAttendance: 80,
+        categoryIds: [categoryId],
+      },
+      `phase7-attendee-1-${suffix}@example.invalid`,
+    );
+    expect(application).toMatchObject({
+      organizationName: 'Community Events',
+      applicantEmail: `phase7-attendee-1-${suffix}@example.invalid`,
+      accuracyConfirmed: true,
+      rulesAccepted: true,
+      rulesVersion: 'organizer-rules-v1',
+      eventCategories: [{ category: { id: categoryId, name: category.name } }],
+    });
+    expect(application.agreedAt).toBeInstanceOf(Date);
     const startAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     const event = await prisma.event.create({
       data: {
@@ -79,6 +108,8 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
           await tx.eventSession.deleteMany({ where: { eventId } });
           await tx.ticketType.deleteMany({ where: { eventId } });
           await tx.event.delete({ where: { id: eventId } });
+          await tx.emailDelivery.deleteMany({ where: { organizerApplication: { applicantId: { in: attendeeIds } } } });
+          await tx.organizerApplication.deleteMany({ where: { applicantId: { in: attendeeIds } } });
           await tx.category.delete({ where: { id: categoryId } });
           await tx.user.deleteMany({ where: { id: { in: [organizerId, ...attendeeIds] } } });
         });

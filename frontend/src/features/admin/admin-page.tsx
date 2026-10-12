@@ -8,6 +8,21 @@ interface Application {
   status: 'PENDING' | 'APPROVED' | 'REJECTED'
   organizationName: string
   description: string
+  contactName: string | null
+  applicantEmail: string | null
+  contactPhone: string | null
+  organizerType: string | null
+  country: string | null
+  city: string | null
+  websiteUrl: string | null
+  experience: string | null
+  eventFrequency: string | null
+  expectedAttendance: number | null
+  accuracyConfirmed: boolean
+  rulesAccepted: boolean
+  rulesVersion: string | null
+  agreedAt: string | null
+  eventCategories: Array<{ category: { id: string; name: string } }>
   submittedAt: string
   applicant: { id: string; email: string; firstName: string | null; lastName: string | null }
 }
@@ -91,6 +106,17 @@ export function AdminPage() {
       <section className="admin-section"><h2>Organizer applications</h2>
         {applications.length === 0 ? <p>No pending applications.</p> : applications.map((application) => <article className="admin-application" key={application.id}>
           <div><strong>{application.organizationName}</strong><span>{application.applicant.firstName} {application.applicant.lastName} · {application.applicant.email}</span></div>
+          <dl className="application-review-grid">
+            <dt>Applicant contact</dt><dd>{application.contactName ?? ([application.applicant.firstName, application.applicant.lastName].filter(Boolean).join(' ') || 'Not provided')} · {application.applicantEmail ?? application.applicant.email} · {application.contactPhone ?? 'No phone provided'}</dd>
+            <dt>Organizer type</dt><dd>{application.organizerType?.replaceAll('_', ' ').toLowerCase() ?? 'Legacy application'}</dd>
+            <dt>Location</dt><dd>{[application.city, application.country].filter(Boolean).join(', ') || 'Not provided'}</dd>
+            <dt>Website / social</dt><dd>{application.websiteUrl ? <a href={application.websiteUrl} target="_blank" rel="noreferrer">{application.websiteUrl}</a> : 'Not provided'}</dd>
+            <dt>Event categories</dt><dd>{application.eventCategories.map(({ category }) => category.name).join(', ') || 'Not provided'}</dd>
+            <dt>Experience</dt><dd>{application.experience ?? 'Not provided'}</dd>
+            <dt>Expected frequency</dt><dd>{application.eventFrequency?.replaceAll('_', ' ').toLowerCase() ?? 'Not provided'}</dd>
+            <dt>Typical attendance</dt><dd>{application.expectedAttendance?.toLocaleString() ?? 'Not provided'}</dd>
+            <dt>Agreements</dt><dd>{application.accuracyConfirmed && application.rulesAccepted ? `Accuracy and rules accepted (${application.rulesVersion ?? 'version not recorded'}${application.agreedAt ? ` · ${new Date(application.agreedAt).toLocaleString()}` : ''})` : 'Legacy application; no recorded agreement'}</dd>
+          </dl>
           <p>{application.description}</p>
           <small>Submitted {new Date(application.submittedAt).toLocaleString()}</small>
           <div className="admin-actions">

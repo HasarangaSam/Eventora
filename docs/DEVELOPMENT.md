@@ -45,6 +45,8 @@ Approved organizers manage events at `/api/organizer/events`; see `ARCHITECTURE.
 
 Approved organizers can open an event’s check-in page from the organizer workspace. `POST /api/check-ins/validate` checks a ticket without recording attendance; `POST /api/check-ins` records check-in. The event-scoped organizer routes use the same service. `@zxing/browser` requests camera access only after the scanner is started; use HTTPS or localhost and allow camera permission. If a camera is unavailable or permission is denied, enter the attendee’s ticket reference manually. Attendance history is available in pages of 25 rows.
 
+Organizer applications are submitted from the signed-in attendee account page. The API fetches the primary email from Clerk and requires Clerk to report it as verified. Applicants select from active Eventora categories; at least one active category must exist. The additive details migration is included in `npm run db:deploy`.
+
 ## Clerk authentication and webhooks
 
 The frontend Clerk provider uses `VITE_CLERK_PUBLISHABLE_KEY`. Signed-in users can open `/account`; that page requests `GET /api/auth/me` with the Clerk session token in an `Authorization: Bearer ...` header. The backend verifies the token, synchronizes the identity by Clerk user ID, and returns the Eventora role and account status from PostgreSQL. Clerk profile updates do not set or reset those application-controlled fields.

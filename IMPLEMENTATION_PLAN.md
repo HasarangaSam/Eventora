@@ -57,6 +57,16 @@ The overall status must be updated as work progresses. It must reflect verified 
 | Dashboards and analytics     | NOT_STARTED | Phase 11                                                        |
 | Final quality review         | NOT_STARTED | Phase 12                                                        |
 
+### Organizer application review improvement (before Phase 11)
+
+- [x] Replace the minimal application with contact, organization, location, event interests, experience, expected frequency/attendance, and required agreements.
+- [x] Prefill the editable contact name from the synchronized Clerk profile and source the applicant email directly from Clerk's verified primary email on the backend.
+- [x] Validate and persist active category associations and snapshot agreement version/time.
+- [x] Expand administrator review with the submitted details while preserving the existing approve/reject and reapply-after-rejection flow.
+- [x] Add and apply the additive migration `20261012140000_organizer_application_review_details`; legacy application rows remain readable and display missing new fields as legacy data.
+- Verification: backend `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test -- --run` (11 files / 34 tests) passed. PostgreSQL `npm.cmd run test:e2e -- --run` (3 files / 3 tests) passed, including verified email snapshot, category relation, and agreement audit values. `npm.cmd run prisma:validate` passed; `npm.cmd run db:deploy` applied the additive migration. Frontend lint passed; production build passed with a 501.43 kB main chunk size warning.
+- Privacy: no identity-document or business-registration uploads are collected.
+
 These are initial tracking values, not claims about the existing repository. Update them after inspecting the implementation.
 
 ## 4. Phase 1 — Project Setup
