@@ -5,6 +5,7 @@ import { Link } from 'react-router'
 import { useAuthenticatedApi } from './use-authenticated-api'
 import { OrganizerApplicationPanel } from '../organizer/organizer-application-panel'
 import { OrganizerEventsDashboard } from '../organizer/organizer-events-dashboard'
+import { DashboardPanel } from '../analytics/dashboard-panel'
 
 interface CurrentUser {
   email: string
@@ -83,6 +84,7 @@ export function AccountPage() {
         </section>
       )}
       {!accountLoading && account.status === 'ready' && account.user.status === 'ACTIVE' && <>
+        <DashboardPanel role={account.user.role} />
         {account.user.role === 'ADMIN' && <Link className="account-home-link" to="/admin">Open administrator workspace</Link>}
         {account.user.role === 'ORGANIZER' && <OrganizerEventsDashboard />}
         <OrganizerApplicationPanel role={account.user.role} firstName={account.user.firstName} lastName={account.user.lastName} email={account.user.email} />

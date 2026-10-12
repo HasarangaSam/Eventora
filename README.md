@@ -267,6 +267,7 @@ Run these commands from the appropriate workspace and adjust them to the actual 
 
 - [`agents.md`](./agents.md): Coding-agent workflow and implementation rules.
 - [`docs/project-spec.md`](./docs/project-spec.md): Authoritative product requirements.
+- [`docs/FRONTEND.md`](./docs/FRONTEND.md): Current frontend structure, UX direction, and dashboard API contracts.
 - [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md): Implementation progress and verification.
 - [`docs/DATABASE.md`](./docs/DATABASE.md): Prisma schema, integrity notes, and database setup.
 - [`docs/SECURITY.md`](./docs/SECURITY.md): Authentication boundaries, account status, and webhook verification.

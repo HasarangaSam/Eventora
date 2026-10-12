@@ -267,6 +267,29 @@
 .checkin-record time { flex: none; color: #746e66; font-size: 10px; }
 .checkin-pagination { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; font-size: 11px; }
 .checkin-pagination button:disabled { opacity: .45; cursor: not-allowed; }
+.analytics-panel { margin: 28px 0; padding: 24px; border: 1px solid #e7e5e4; background: #fffdfa; }
+.analytics-heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 22px; }
+.analytics-heading h2 { margin: 7px 0 0; font: 400 32px/1.15 Georgia, serif; }
+.analytics-heading > a, .analytics-row > a { color: #9a3412; font-size: 12px; }
+.analytics-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; margin: 18px 0 28px; }
+.analytics-metric { display: grid; gap: 9px; padding: 16px; background: #fff3e9; }
+.analytics-metric span, .analytics-money span { color: #746e66; font-size: 11px; }
+.analytics-metric strong { font: 400 28px Georgia, serif; }
+.analytics-panel h3 { margin: 24px 0 10px; font-size: 13px; }
+.analytics-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.analytics-list { display: grid; }
+.analytics-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid #e7e5e4; }
+.analytics-row > div { display: grid; gap: 5px; min-width: 0; }
+.analytics-row strong { font-size: 12px; }
+.analytics-row span, .analytics-badge, .analytics-note, .analytics-empty, .analytics-attendance { color: #746e66; font-size: 11px; line-height: 1.6; }
+.analytics-badge { flex: none; padding: 4px 8px; background: #f5f1ec; text-transform: capitalize; }
+.analytics-status-list { display: grid; gap: 8px; padding: 0; list-style: none; }
+.analytics-status-list li { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #e7e5e4; font-size: 12px; text-transform: capitalize; }
+.analytics-money { display: grid; gap: 4px; margin: 12px 0; }
+.analytics-money strong { font: 400 24px Georgia, serif; }
+.analytics-note { max-width: 360px; }
+.analytics-month-sales { display: block; text-align: right; }
+@media (max-width: 640px) { .analytics-panel { padding: 16px; } .analytics-heading { align-items: start; flex-direction: column; } .analytics-columns { grid-template-columns: 1fr; gap: 8px; } }
 @media (max-width: 760px) { .ticket-wallet__layout { grid-template-columns: 1fr; } .ticket-wallet__detail { position: static; } }
 @media (max-width: 760px) { .checkin-layout { grid-template-columns: 1fr; } .checkin-page { width: min(100% - 32px, 1120px); padding-top: 38px; } .checkin-card { padding: 16px; } .checkin-summary > div { padding: 9px; } }
 @media (max-width: 560px) { .ticket-wallet { width: min(100% - 32px, 1080px); padding-top: 42px; } .ticket-wallet__item { grid-template-columns: 72px minmax(0, 1fr); gap: 10px; } .ticket-wallet__item > img { width: 72px; height: 78px; } .ticket-wallet__item > .button { grid-column: 1 / -1; } }

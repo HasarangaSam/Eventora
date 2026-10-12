@@ -54,7 +54,7 @@ The overall status must be updated as work progresses. It must reflect verified 
 | PayHere integration          | IMPLEMENTED | Hosted checkout UI/API, signed notification processing, late-payment handling; merchant sandbox verification awaits credentials |
 | Digital tickets and email    | IMPLEMENTED | Phase 9 code, owner checks, Gmail SMTP authentication; no email sent |
 | Check-in                     | IMPLEMENTED | Phase 10 implementation and PostgreSQL concurrency checks pass; physical camera verification remains |
-| Dashboards and analytics     | NOT_STARTED | Phase 11                                                        |
+| Dashboards and analytics     | IMPLEMENTED | Phase 11                                                        |
 | Final quality review         | NOT_STARTED | Phase 12                                                        |
 
 ### Organizer application review improvement (before Phase 11)
@@ -506,40 +506,41 @@ Review check-in correctness before Phase 11.
 
 ## 14. Phase 11 — Dashboards and Analytics
 
-**Status:** NOT_STARTED
+**Status:** IMPLEMENTED — pending live database/API and browser verification
 
 ### Tasks
 
-- [ ] Implement the attendee dashboard.
-- [ ] Show upcoming and past events, registrations, active tickets, and payment statuses.
-- [ ] Implement the organizer dashboard.
-- [ ] Show event counts, tickets sold, confirmed registrations, and gross confirmed sales.
-- [ ] Add sales trends and payment-status breakdowns.
-- [ ] Add attendance and check-in metrics.
-- [ ] Implement event-specific analytics.
-- [ ] Implement the administrator dashboard.
-- [ ] Add user, organizer application, event, registration, payment, and attendance metrics.
-- [ ] Restrict organizer analytics to the organizer's own events.
-- [ ] Calculate financial metrics from verified payment records.
-- [ ] Use efficient database aggregations and pagination.
-- [ ] Add loading, empty, and error states.
+- [x] Implement the attendee dashboard.
+- [x] Show upcoming and past events, registrations, active tickets, and payment statuses.
+- [x] Implement the organizer dashboard.
+- [x] Show event counts, tickets sold, confirmed registrations, and gross confirmed sales.
+- [x] Add six-month sales trends and payment-status breakdowns.
+- [x] Add attendance and check-in metrics.
+- [x] Implement event-specific analytics with event ownership enforcement.
+- [x] Implement the administrator dashboard.
+- [x] Add user, organizer application, event, registration, payment, and attendance metrics.
+- [x] Restrict organizer analytics to the organizer's own events in each query.
+- [x] Calculate financial metrics from verified successful payment records and retain currency separation.
+- [x] Use database aggregates and bounded recent/event records; do not load the full history into application memory.
+- [x] Add loading, empty, and error states.
 
 ### Acceptance criteria
 
-- [ ] Each dashboard displays the correct role-specific information.
-- [ ] Organizers cannot access other organizers' analytics.
-- [ ] Financial figures use verified payments.
-- [ ] Sales are labelled gross sales, not profit or organizer payout.
-- [ ] Aggregations avoid unnecessarily loading all records into application memory.
-- [ ] Metrics respect cancelled events and preserved historical records.
-- [ ] Relevant authorization and aggregation tests pass.
+- [x] Each dashboard displays role-specific information.
+- [x] Organizer analytics query only the authenticated organizer's own events; event analytics return not found outside that scope.
+- [x] Financial figures use successful records with a verification timestamp.
+- [x] Sales are labelled gross sales, not profit or organizer payout.
+- [x] Aggregations avoid loading full record sets into application memory.
+- [x] Historical registrations, payments, tickets, and events are included regardless of event status.
+- [x] Relevant aggregation and ownership tests pass.
 
 ### Verification record
 
-- API and aggregation tests:
-- Authorization tests:
-- Frontend checks:
-- Outstanding issues:
+- API and aggregation tests: `backend npm.cmd run test` — 12 files, 36 tests passed (including verified-payment scoping and cross-owner event rejection).
+- Authorization tests: backend unit suite includes role guard/account guard coverage; role decorators are applied to each analytics route.
+- Frontend checks: `frontend npm.cmd run build` and `frontend npm.cmd run lint` passed. The build reports an existing bundle-size advisory above 500 kB.
+- Backend checks: `backend npm.cmd run build` and `backend npm.cmd run lint` passed after the attendee upcoming/past queries and per-event attendance aggregation were added.
+- Outstanding issues: live database/API response verification and desktop/mobile browser review remain for Phase 12. The frontend guide documents the current structure and contracts in `docs/FRONTEND.md`.
 
 ### Approval gate
 

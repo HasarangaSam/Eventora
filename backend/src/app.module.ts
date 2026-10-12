@@ -10,9 +10,10 @@ import { RegistrationsModule } from './registrations/registrations.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
 import { EmailModule } from './email/email.module.js';
 import { TicketsModule } from './tickets/tickets.module.js';
+import { AnalyticsModule } from './analytics/analytics.module.js';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, EmailModule, TicketsModule, AuthModule, OrganizerApplicationsModule, CategoriesModule, EventsModule, RegistrationsModule, PaymentsModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, EmailModule, TicketsModule, AnalyticsModule, AuthModule, OrganizerApplicationsModule, CategoriesModule, EventsModule, RegistrationsModule, PaymentsModule],
   controllers: [AppController],
 })
 export class AppModule {}
