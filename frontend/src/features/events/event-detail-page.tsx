@@ -17,6 +17,7 @@ interface EventDetails {
   endAt: string
   timezone: string
   coverImageUrl: string | null
+  organizerName: string | null
   category: { name: string; slug: string }
 }
 interface Session { id: string; title: string; description: string | null; speaker: string | null; venue: string | null; startAt: string; endAt: string }
@@ -83,8 +84,8 @@ export function EventDetailPage() {
 
   const pageState: PageState = state.identifier === eventId ? state : { identifier: eventId, status: 'loading' }
   if (pageState.status === 'loading') return <main className="detail-page" aria-live="polite"><p>Loading event details…</p></main>
-  if (pageState.status === 'not-found') return <main className="detail-page"><span className="eyebrow">Event unavailable</span><h1>We couldn’t find that event.</h1><Link to="/#discover">Browse events</Link></main>
-  if (pageState.status === 'error') return <main className="detail-page" role="alert"><h1>Event details are temporarily unavailable.</h1><Link to="/#discover">Back to event discovery</Link></main>
+  if (pageState.status === 'not-found') return <main className="detail-page"><span className="eyebrow">Event unavailable</span><h1>We couldn’t find that event.</h1><Link to="/discover">Browse events</Link></main>
+  if (pageState.status === 'error') return <main className="detail-page" role="alert"><h1>Event details are temporarily unavailable.</h1><Link to="/discover">Back to event discovery</Link></main>
 
   const { event, sessions, tickets } = pageState
   const selectedTicket = tickets.find((ticket) => ticket.id === selectedTicketId)
@@ -155,14 +156,14 @@ export function EventDetailPage() {
   }
 
   return <main className="detail-page">
-    <Link className="back-link" to="/#discover">← All events</Link>
+    <Link className="back-link" to="/discover">← All events</Link>
     <div className="event-detail-hero">
       <img src={event.coverImageUrl || heroImage} alt={`${event.title} event`} />
       <div><span className="eyebrow">{event.category.name}</span><h1>{event.title}</h1><p>{formatEventDate(event.startAt, event.timezone)}</p><p>{event.venue} · {event.city}</p></div>
     </div>
     <div className="event-detail-layout">
       <div className="event-detail-main">
-        <section><h2>About this event</h2><p className="event-long-description">{event.description}</p></section>
+        <section><h2>About this event</h2><p className="event-long-description">{event.description}</p>{event.organizerName && <p className="event-organizer">Presented by <strong>{event.organizerName}</strong></p>}</section>
         <section><h2>Schedule</h2>
           {sessions.length ? <ol className="schedule-list">{sessions.map((session) => <li key={session.id}>
             <time>{formatEventDate(session.startAt, event.timezone)} – {new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: safeTimezone(event.timezone) }).format(new Date(session.endAt))}</time>

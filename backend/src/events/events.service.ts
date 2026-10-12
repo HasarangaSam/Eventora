@@ -153,10 +153,12 @@ export class EventsService {
         timezone: true,
         coverImageUrl: true,
         category: { select: { id: true, name: true, slug: true } },
+        organizer: { select: { organizerApplications: { where: { status: 'APPROVED' }, orderBy: { submittedAt: 'desc' }, take: 1, select: { organizationName: true } } } },
       },
     });
     if (!event) throw new NotFoundException('Event not found');
-    return event;
+    const { organizer, ...publicEvent } = event;
+    return { ...publicEvent, organizerName: organizer.organizerApplications[0]?.organizationName ?? null };
   }
 
   async sessions(identifier: string) {

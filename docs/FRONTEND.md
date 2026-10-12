@@ -1,6 +1,6 @@
 # Eventora Frontend Guide
 
-This guide records the frontend direction and structure that match the current Eventora application. `docs/project-spec.md` remains authoritative for product and business requirements. The supplied design direction is a visual and UX reference; its mock content and proposed tree are not implementation evidence.
+This is Eventora's authoritative frontend UX and design direction. `docs/project-spec.md` remains the source of truth for business rules and technology. The design examples and proposed file tree are visual/structural references, not proof of implemented pages.
 
 ## Product experience
 
@@ -9,6 +9,7 @@ This guide records the frontend direction and structure that match the current E
 - Do not show fabricated activity, sales, testimonials, social accounts, or organizer metrics.
 - Use Clerk for identity and the backend's synchronized database role/status for access decisions. Frontend role routing improves navigation only; backend guards remain authoritative.
 - Be explicit that analytics sales are **gross sales**, derived from verified successful payment attempts, and are not profit or organizer payouts. Preserve separate currency totals; do not combine currencies.
+- The homepage is the editorial entry point and `/discover` is a separate, searchable event catalogue. Never collapse the catalogue into the landing page.
 
 ## Current frontend structure
 
@@ -34,7 +35,7 @@ Keep feature code in its feature folder; add shared layout/UI abstractions only 
 
 ## Existing routes and dashboard behavior
 
-`App.tsx` currently registers `/`, `/events/:eventId`, checkout result/cancelled, `/tickets`, organizer event check-in, `/account`, and `/admin`. The account view loads `/auth/me`; role-specific dashboard content is then loaded from:
+`App.tsx` registers `/` (home), `/discover` (the separate event catalogue), `/sign-in`, `/sign-up`, `/events/:eventId`, checkout result/cancelled, `/tickets`, organizer event check-in, `/account`, and `/admin`. The account view loads `/auth/me`; role-specific dashboard content is then loaded from:
 
 | Database role | Dashboard API | Current responsibilities |
 | --- | --- | --- |
@@ -42,9 +43,9 @@ Keep feature code in its feature folder; add shared layout/UI abstractions only 
 | approved `ORGANIZER` | `GET /api/organizer/dashboard` | Owned event/status summary, confirmed registrations, tickets, verified gross sales by currency, payment statuses, check-in rate, recent owned events |
 | `ADMIN` | `GET /api/admin/dashboard` | User/role counts, active users, pending organizer applications, event/registration/payment totals, gross sales, attendance |
 
-Organizer event detail analytics are available at `GET /api/organizer/events/:eventId/analytics`; the backend verifies ownership. `/account` is the current role-aware dashboard surface. Existing event-authoring, check-in, application-review, and ticket tools remain in their current feature views.
+Organizer event detail analytics are available at `GET /api/organizer/events/:eventId/analytics`; the backend verifies ownership. `/account` is the role-aware dashboard surface, with role-specific navigation. Existing event-authoring, check-in, application-review, and ticket tools remain in their current feature views.
 
-Dashboard values come from database counts/grouped aggregates and bounded recent-record queries. Keep empty states honest. Currency totals remain distinct. A payment redirect is never evidence of success; show only server-confirmed statuses. Do not use cancelled events as bookable events, but preserve historical metrics and records.
+Dashboard values come from database counts/grouped aggregates and bounded recent-record queries. Keep empty states honest. Currency totals remain distinct. A payment redirect is never evidence of success; show only server-confirmed statuses. Do not use cancelled events as bookable events, but preserve historical metrics and records. Role navigation stays distinct while reusing the established orange/warm palette.
 
 ## UX and accessibility
 
@@ -55,6 +56,4 @@ Dashboard values come from database counts/grouped aggregates and bounded recent
 - Use real cover images returned by the API with a deliberate fallback.
 - Keep dashboards role-specific and scoped. Never use a client-supplied role, event organizer ID, price, payment result, or ownership field as authorization evidence.
 
-## Next UI work
-
-The project spec remains the acceptance source for discovery, ticketing, organizer, and admin experience. Dashboard trend charts, rich filters, URL-synchronized catalog state, and a dedicated persistent sidebar shell should be added only with their complete API/data behavior and responsive/accessibility states; this guide does not claim those are already implemented.
+The separate Discover page reads filters and pagination from URL query parameters. The home page requests at most four recent published, eligible events and real category records. Build on these contracts without inserting sample event or sales data. Do not add social, legal, or support destinations until Eventora has real URLs and contact details to publish.

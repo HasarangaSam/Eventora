@@ -6,6 +6,7 @@ import { useAuthenticatedApi } from './use-authenticated-api'
 import { OrganizerApplicationPanel } from '../organizer/organizer-application-panel'
 import { OrganizerEventsDashboard } from '../organizer/organizer-events-dashboard'
 import { DashboardPanel } from '../analytics/dashboard-panel'
+import { DashboardShell } from '../analytics/dashboard-shell'
 
 interface CurrentUser {
   email: string
@@ -62,8 +63,8 @@ export function AccountPage() {
 
   const accountLoading = account.status === 'loading' || account.clerkUserId !== userId
 
-  return (
-    <main className="account-page" aria-labelledby="account-title" aria-live="polite">
+  const currentRole = account.status === 'ready' ? account.user.role : 'ATTENDEE'
+  return <DashboardShell role={currentRole}><main className="account-page" aria-labelledby="account-title" aria-live="polite">
       <span className="eyebrow">Your Eventora account</span>
       <h1 id="account-title">Welcome{!accountLoading && account.status === 'ready' && account.user.firstName ? `, ${account.user.firstName}` : ''}.</h1>
       {accountLoading && <p>Loading your profile…</p>}
@@ -84,12 +85,11 @@ export function AccountPage() {
         </section>
       )}
       {!accountLoading && account.status === 'ready' && account.user.status === 'ACTIVE' && <>
-        <DashboardPanel role={account.user.role} />
+        <div id="analytics"><DashboardPanel role={account.user.role} /></div>
         {account.user.role === 'ADMIN' && <Link className="account-home-link" to="/admin">Open administrator workspace</Link>}
-        {account.user.role === 'ORGANIZER' && <OrganizerEventsDashboard />}
+        {account.user.role === 'ORGANIZER' && <div id="organizer-events"><OrganizerEventsDashboard /></div>}
         <OrganizerApplicationPanel role={account.user.role} firstName={account.user.firstName} lastName={account.user.lastName} email={account.user.email} />
       </>}
       <Link className="account-home-link" to="/">Back to event discovery</Link>
-    </main>
-  )
+    </main></DashboardShell>
 }

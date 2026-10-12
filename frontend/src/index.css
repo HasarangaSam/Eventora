@@ -2,19 +2,21 @@
 
 :root {
   font-family: Inter, "Avenir Next", Avenir, "Segoe UI", sans-serif;
-  color: #26221f;
-  background: #fcfaf7;
+  color: #1c1917;
+  background: #fffbf7;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --orange: #ef6b38;
-  --ink: #26221f;
+  --orange: #f97316;
+  --ink: #1c1917;
+  --warm: #fffbf7;
+  --border: #e7e5e4;
 }
 
 * { box-sizing: border-box; }
-html { min-width: 360px; scroll-behavior: smooth; }
-body { margin: 0; min-width: 360px; min-height: 100vh; }
+html { min-width: 320px; scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
 button, a { font: inherit; }
 a { color: inherit; }
 button:focus-visible, a:focus-visible { outline: 3px solid #cf4c1c; outline-offset: 4px; }

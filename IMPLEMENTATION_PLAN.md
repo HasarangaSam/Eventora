@@ -48,7 +48,7 @@ The overall status must be updated as work progresses. It must reflect verified 
 | Database                     | VERIFIED    | Initial migration applied to configured Supabase DB; Prisma adapter query succeeded |
 | Authentication               | IMPLEMENTED | Auth routes and signed webhook handling are implemented; real-session sync, DB account-status integration, and Dashboard delivery remain unverified |
 | Roles and organizer approval | IMPLEMENTED | Migration applied; focused authorization tests pass; external admin provisioning and full flow verification remain |
-| Public event discovery       | IMPLEMENTED | Public catalog APIs, category administration, discovery/detail UI, builds and unit checks; live HTTP and visual review remain |
+| Public event discovery       | IMPLEMENTED | Distinct `/discover`, URL-backed filters, recent-event/category home sections, Clerk pages, approved public organizer name; builds pass, configured-service browser verification remains |
 | Organizer event management   | IMPLEMENTED | Phase 6 organizer APIs and dashboard; build and route checks passed |
 | Registration and inventory   | IMPLEMENTED | Phase 7 APIs, atomic holds, expiry, cancellation release, and PostgreSQL concurrency verification |
 | PayHere integration          | IMPLEMENTED | Hosted checkout UI/API, signed notification processing, late-payment handling; merchant sandbox verification awaits credentials |
@@ -63,6 +63,14 @@ The overall status must be updated as work progresses. It must reflect verified 
 - [x] Prefill the editable contact name from the synchronized Clerk profile and source the applicant email directly from Clerk's verified primary email on the backend.
 - [x] Validate and persist active category associations and snapshot agreement version/time.
 - [x] Expand administrator review with the submitted details while preserving the existing approve/reject and reapply-after-rejection flow.
+
+### Frontend UX and design direction
+
+- [x] Establish the supplied warm-orange visual direction, editorial home sections, distinct event catalogue route, Clerk sign-in/sign-up pages, and role-aware dashboard navigation.
+- [x] Keep discovery, event, payment, ticket, application, check-in, and dashboard content connected to implemented APIs; do not add sample event or sales data.
+- [x] Document the active UI structure and contracts in `docs/FRONTEND.md`.
+- [ ] Verify with configured APIs/Clerk and review desktop/mobile layouts in the running application.
+- Outstanding: the current local hero asset is a stylized illustration rather than the requested event photography; no image-generation tool or approved stock photo asset is available in this workspace. Footer contact/legal links also await real Eventora destinations.
 - [x] Add and apply the additive migration `20261012140000_organizer_application_review_details`; legacy application rows remain readable and display missing new fields as legacy data.
 - Verification: backend `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run test -- --run` (11 files / 34 tests) passed. PostgreSQL `npm.cmd run test:e2e -- --run` (3 files / 3 tests) passed, including verified email snapshot, category relation, and agreement audit values. `npm.cmd run prisma:validate` passed; `npm.cmd run db:deploy` applied the additive migration. Frontend lint passed; production build passed with a 501.43 kB main chunk size warning.
 - Privacy: no identity-document or business-registration uploads are collected.

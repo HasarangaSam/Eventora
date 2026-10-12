@@ -79,6 +79,19 @@ describe('EventsService', () => {
     expect(eventSessionFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { eventId: 'event_1' } }));
   });
 
+  it('exposes only the approved organizer public name on published event details', async () => {
+    const findFirst = vi.fn().mockResolvedValue({ id: 'event_1', title: 'Summer Market', organizer: { organizerApplications: [{ organizationName: 'Market Collective' }] } });
+    const service = new EventsService({ event: { findFirst } } as unknown as PrismaService);
+    await expect(service.get('summer-market')).resolves.toEqual({ id: 'event_1', title: 'Summer Market', organizerName: 'Market Collective' });
+    expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({
+        organizer: { select: { organizerApplications: expect.objectContaining({
+          where: { status: 'APPROVED' }, take: 1, select: { organizationName: true },
+        }) } },
+      }),
+    }));
+  });
+
   it('returns public ticket prices as exact strings and clamps inventory by event capacity', async () => {
     const findFirst = vi.fn().mockResolvedValue({ id: 'event_1', capacity: 20, ticketsReserved: 17, ticketsSold: 2 });
     const findMany = vi.fn().mockResolvedValue([{

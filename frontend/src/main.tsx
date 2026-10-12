@@ -10,7 +10,7 @@ const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      {publishableKey ? <ClerkProvider publishableKey={publishableKey}><App /></ClerkProvider> : <App />}
+      {publishableKey ? <ClerkProvider publishableKey={publishableKey} appearance={{ variables: { colorPrimary: '#F97316' } }}><App /></ClerkProvider> : <App />}
     </BrowserRouter>
   </StrictMode>,
 )

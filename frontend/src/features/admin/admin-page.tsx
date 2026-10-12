@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router'
 import { useAuthenticatedApi } from '../auth/use-authenticated-api'
+import { DashboardShell } from '../analytics/dashboard-shell'
 
 interface Application {
   id: string
@@ -97,7 +98,7 @@ export function AdminPage() {
     }
   }
 
-  return <main className="admin-page">
+  return <DashboardShell role="ADMIN"><main className="admin-page">
     <span className="eyebrow">Eventora operations</span>
     <h1>Administrator workspace</h1>
     <Link className="account-home-link" to="/account">Back to account</Link>
@@ -140,7 +141,7 @@ export function AdminPage() {
       </section>
       <CategoryManager />
     </>}
-  </main>
+  </main></DashboardShell>
 }
 
 function CategoryManager() {

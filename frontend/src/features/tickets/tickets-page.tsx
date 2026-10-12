@@ -49,7 +49,7 @@ export function TicketsPage() {
     <p className="ticket-wallet__intro">Only tickets from confirmed payments appear here. Keep QR codes private and have them ready at the door.</p>
     {!tickets && !error && <p aria-live="polite">Loading your tickets…</p>}
     {error && <p role="alert" className="ticket-wallet__error">{error} <button className="text-button" onClick={() => { setError(''); setReload((value) => value + 1) }} type="button">Try again</button></p>}
-    {tickets?.length === 0 && <div className="ticket-wallet__empty"><p>No tickets yet.</p><Link to="/#discover">Find an event</Link></div>}
+    {tickets?.length === 0 && <div className="ticket-wallet__empty"><p>No tickets yet.</p><Link to="/discover">Find an event</Link></div>}
     {tickets && tickets.length > 0 && <div className="ticket-wallet__layout">
       <div className="ticket-wallet__list" aria-label="Your tickets">
         {tickets.map((ticket) => <article className="ticket-wallet__item" key={ticket.id}>
