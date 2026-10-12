@@ -11,6 +11,7 @@ import {
   UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { OrganizerApplicationStatus, UserRole, UserStatus } from '../generated/prisma/client.js';
 import { AccountGuard } from '../auth/account.guard.js';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
@@ -26,6 +27,7 @@ export class OrganizerApplicationsController {
 
   @Post('organizer-applications')
   @RequireRoles('ATTENDEE')
+  @Throttle({ default: { limit: 5, ttl: 600000 } })
   async submit(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
     const input = objectBody(body);
     onlyKeys(input, ['organizationName', 'description', 'contactName', 'contactPhone', 'organizerType', 'country', 'city', 'websiteUrl', 'experience', 'eventFrequency', 'expectedAttendance', 'categoryIds', 'accuracyConfirmed', 'rulesAccepted']);

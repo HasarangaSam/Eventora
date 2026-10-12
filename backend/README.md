@@ -71,6 +71,12 @@ Preventing overselling in ticketing systems requires absolute serialization of r
 - **Asynchronous Worker:** The outbox processor executes every 30 seconds, locks pending records with `FOR UPDATE SKIP LOCKED`, and dispatches emails via Gmail SMTP with inline CID QR code attachments.
 - **Exponential Backoff:** Configured with bounded retries (max 5 attempts, capping at 1 hour) and sanitized failure codes (`SMTP_DELIVERY_FAILED`).
 
+### 5. Multi-Tier Rate Limiting & Bot Prevention (`@nestjs/throttler`)
+- **Dual Throttler Architecture:** Configured with a 15 req/sec burst limiter and a 100 req/min baseline sustained limiter.
+- **Session-Aware Tracking:** `AppThrottlerGuard` isolates buckets by authenticated Bearer session token signatures when present, preventing false-positive blocking across shared NATs/corporate Wi-Fi networks, while falling back to normalized IP for anonymous traffic.
+- **Scalper & Bot Protection:** High-risk mutation routes (`POST /api/registrations`) are throttled to 10 requests per minute to prevent inventory hold hogging.
+- **Webhook Immunity:** Critical payment gateway and identity webhooks carry `@SkipThrottle()` so external state synchronization is never dropped.
+
 ---
 
 ## Directory Structure & Modules

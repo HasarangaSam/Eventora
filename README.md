@@ -7,6 +7,7 @@
 - **Cryptographic Security & Timing Safety:** HMAC-SHA256 signed ticket QR tokens with SHA-256 storage hashes; `crypto.timingSafeEqual` prevents timing attacks on both ticket check-in and PayHere gateway webhook signatures.
 - **Transactional Outbox Pattern:** High-reliability email delivery pipeline committed atomically with business transactions, processed asynchronously by a resilient background worker with exponential backoff and inline CID QR rendering.
 - **Zero-Trust RBAC Pipeline:** Multi-tier server-side authorization cascade (`ClerkAuthGuard` → `AccountGuard` → `RolesGuard` → `OrganizerApplicationGuard`). Roles are strictly database-owned; client claims are never trusted.
+- **Multi-Tier Rate Limiting & Scalper Protection:** Global burst (15 req/s) and sustained (100 req/m) throttling via `@nestjs/throttler` with Bearer token session isolation and strict limits on ticket reservations to prevent scalping bots.
 - **Enterprise UI & Real-Time Scanning:** React 19 SPA with dual-shell layouts (public consumer portal vs. full-height workspace studio), live Recharts data visualizations (Area, Bar, Donut), and camera-based QR check-in station via `@zxing/browser`.
 
 ---

@@ -1,4 +1,5 @@
 import { BadRequestException, Body, Controller, Get, Headers, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AccountGuard } from '../auth/account.guard.js';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
 import type { AuthenticatedRequest } from '../auth/auth.types.js';
@@ -10,6 +11,7 @@ export class RegistrationsController {
   constructor(private readonly registrations: RegistrationsService) {}
 
   @Post()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   create(
     @Req() request: AuthenticatedRequest,
     @Headers('idempotency-key') idempotencyKey: string | undefined,

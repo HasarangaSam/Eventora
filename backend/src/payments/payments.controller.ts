@@ -1,4 +1,5 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { AccountGuard } from '../auth/account.guard.js';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
 import type { AuthenticatedRequest } from '../auth/auth.types.js';
@@ -10,6 +11,7 @@ export class PaymentsController {
   constructor(private readonly payments: PaymentsService) {}
 
   @Post(':registrationId/checkout')
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
   checkout(@Req() request: AuthenticatedRequest, @Param('registrationId') registrationId: string, @Body() body: unknown) {
     const input = objectBody(body);
     onlyKeys(input, ['firstName', 'lastName', 'phone', 'address', 'city', 'country']);
@@ -35,6 +37,7 @@ export class PaymentsController {
 }
 
 @Controller('webhooks/payhere')
+@SkipThrottle()
 export class PayHereWebhookController {
   constructor(private readonly payments: PaymentsService) {}
 

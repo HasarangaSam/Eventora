@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service.js';
 import { ClerkAuthGuard } from './clerk-auth.guard.js';
@@ -29,6 +30,7 @@ export class AuthController {
   }
 
   @Post('webhooks/clerk')
+  @SkipThrottle()
   @HttpCode(200)
   async clerkWebhook(@Req() request: RawBodyRequest<ExpressRequest>) {
     if (!request.rawBody) {

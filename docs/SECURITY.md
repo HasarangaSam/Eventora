@@ -55,4 +55,13 @@ Public event list, featured, detail, schedule, and ticket-type queries filter by
 
 Local configuration and invalid-token/webhook-signature behavior have been checked. Phase 3 still needs a real Clerk-issued session through `/api/auth/me`, database-backed account-status verification, and delivery from the configured Clerk Dashboard endpoint before authentication can be marked fully verified.
 
-The current backend does not implement distributed request rate limiting. Add a shared limiter (for example, the planned Redis-backed option) before public production launch, with limits designed for Clerk synchronization, checkout creation, and webhook traffic. Do not rely on an in-memory per-process counter for a multi-instance deployment. Upload endpoints have explicit file-count/size limits, MIME checks, byte-signature validation, and ownership checks; production webhook delivery and provider-level abuse controls still require deployment verification.
+## Rate Limiting & Abuse Prevention
+
+The backend implements multi-tier request rate limiting powered by `@nestjs/throttler` and `AppThrottlerGuard`:
+- **Dual-Tier Baseline:** Global 15 req/sec burst limit and 100 req/min sustained limit.
+- **Session-Aware Tracker:** When `Authorization: Bearer <token>` is present, rate limit buckets are isolated by user session token. Anonymous traffic is isolated by normalized client IP (`trust proxy` enabled).
+- **Anti-Scalping / Bot Protection:** `POST /api/registrations` is throttled to 10 requests per minute to prevent ticket scalping and inventory lock exhaustion.
+- **Payment Flood Prevention:** `POST /api/payments/:id/checkout` is throttled to 15 requests per minute.
+- **Application Anti-Spam:** `POST /api/organizer-applications` is throttled to 5 requests per 10 minutes.
+- **Webhook Exemption:** `POST /api/webhooks/payhere/notify` and `POST /api/auth/webhooks/clerk` explicitly use `@SkipThrottle()` to ensure critical asynchronous payment receipts and identity sync events are never dropped.
+For distributed multi-instance clustering in production, swap the storage provider to Redis via `@nestjs/throttler-storage-redis`.

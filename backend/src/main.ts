@@ -12,6 +12,7 @@ async function bootstrap() {
     throw new Error('PORT must be an integer between 1 and 65535');
   }
 
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.setGlobalPrefix('api');
   app.enableCors({
     origin: (
