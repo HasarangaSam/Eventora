@@ -31,6 +31,12 @@ Subscribe the Clerk endpoint only to `user.created`, `user.updated`, and `user.d
 
 The organizer decision outbox currently records pending notifications only. Gmail delivery configuration and retry behavior remain for the email implementation phase.
 
+Organizer event APIs require the approved-organizer role guard and additionally filter every event and child-record operation by both the requested event ID and the authenticated database organizer ID. Request bodies accept only documented fields; organizers cannot submit status, ownership, slug, or featured flags. Draft-to-published transitions require complete details, an active category, future dates, and an active paid ticket type with remaining inventory. Unpublishing is blocked after registrations or reservations exist. Cancellation is transactional with idempotent outbox entries for confirmed attendees and does not alter payment, ticket, or registration history.
+
+Ticket prices are validated as positive decimal strings (at most two fractional digits); sales windows, currency, quantities, and event capacity are checked server-side. Ticket quantities cannot fall below reserved and sold commitments; price, currency, name, and sales-window terms cannot change after commitments. Referenced ticket types are deactivated rather than deleted. Sessions must lie within the event schedule and are not independently bookable. Events with registration, reservation, ticket, or check-in history cannot be deleted.
+
+Cloudinary credentials remain in backend configuration. The upload route limits request size, allows JPEG/PNG/WebP MIME types, then verifies file signatures before streaming bytes to Cloudinary. The database is updated only after a successful upload; failed DB updates trigger cleanup of the newly uploaded asset. Replacing/removing a cover retains the prior database reference if Cloudinary deletion fails.
+
 ## Public catalog
 
 Public event list, featured, detail, schedule, and ticket-type queries filter by `PUBLISHED` in the database. A draft or missing event returns the same not-found response from detail/schedule/ticket endpoints. Public projections omit organizer records, event capacity, and internal ticket reservation/sold counters; ticket availability is derived from those counters without exposing the raw values. Public category reads include active categories only. Administrator category writes use the database-backed guards, and deletion checks both existing event references and the restrictive foreign key to preserve historical category associations.

@@ -282,42 +282,42 @@ Review public discovery and the frontend foundation before Phase 6.
 
 ## 9. Phase 6 — Organizer Event Management
 
-**Status:** NOT_STARTED
+**Status:** IMPLEMENTED — pending configured-service and browser verification
 
 ### Tasks
 
-- [ ] Implement organizer-owned event creation and editing.
-- [ ] Implement valid event publication transitions.
-- [ ] Implement event unpublishing and cancellation rules.
-- [ ] Prevent unauthorized access to other organizers' events.
-- [ ] Implement Cloudinary cover image uploads and deletion.
-- [ ] Validate image types and file sizes.
-- [ ] Implement informational event sessions.
-- [ ] Validate session times against event dates.
-- [ ] Implement paid ticket-type management.
-- [ ] Enforce prices greater than zero.
-- [ ] Validate currency, quantity, sales windows, and ticket activation.
-- [ ] Prevent quantity changes that violate existing commitments.
-- [ ] Restrict edits that could invalidate completed or pending transactions.
-- [ ] Preserve historical event data.
+- [x] Implement organizer-owned event creation and editing.
+- [x] Implement valid event publication transitions.
+- [x] Implement event unpublishing and cancellation rules.
+- [x] Prevent unauthorized access to other organizers' events.
+- [x] Implement Cloudinary cover image uploads and deletion.
+- [x] Validate image types and file sizes.
+- [x] Implement informational event sessions.
+- [x] Validate session times against event dates.
+- [x] Implement paid ticket-type management.
+- [x] Enforce prices greater than zero.
+- [x] Validate currency, quantity, sales windows, and ticket activation.
+- [x] Prevent quantity changes that violate existing commitments.
+- [x] Restrict edits that could invalidate completed or pending transactions.
+- [x] Preserve historical event data.
 
 ### Acceptance criteria
 
-- [ ] Organizers can manage only their own events.
-- [ ] Publication requirements are enforced.
-- [ ] Public APIs do not expose unpublished events.
-- [ ] Cover image operations are ownership-checked and safe.
-- [ ] Sessions are informational and cannot be booked separately.
-- [ ] Free ticket types are rejected.
-- [ ] Sold ticket types cannot be modified in ways that invalidate history.
-- [ ] Event and ticket-type business rules are tested.
+- [x] Organizers can manage only their own events.
+- [x] Publication requirements are enforced.
+- [x] Public APIs do not expose unpublished events.
+- [x] Cover image operations are ownership-checked and safe.
+- [x] Sessions are informational and cannot be booked separately.
+- [x] Free ticket types are rejected.
+- [x] Sold ticket types cannot be modified in ways that invalidate history.
+- [x] Event and ticket-type business rules are tested.
 
 ### Verification record
 
-- API tests:
-- Cloudinary configuration and tests:
-- Ownership and business-rule tests:
-- Outstanding issues:
+- API/service tests: `npm.cmd run test -- --reporter=dot` passed (7 files, 25 tests); coverage includes ownership, free-ticket rejection, quantity commitments, publication requirements, schedule range, and image signature validation.
+- Cloudinary configuration and tests: backend integration uses the Cloudinary Node SDK, checks required server-side configuration at use time, streams image buffers, and cleans up replacement assets on persistence failures. Live upload/delete was not exercised because Cloudinary credentials and a real asset were not provided for this verification.
+- Ownership and business-rule tests: backend `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run prisma:validate` passed; frontend `npm.cmd run build` and `npm.cmd run lint` passed. Nest started successfully with Prisma initialized and all organizer routes registered. No schema migration was required.
+- Outstanding issues: Configure Cloudinary values in `backend/.env`; verify image upload/delete and organizer API responses against the configured services; visually inspect the organizer workspace in desktop and mobile browsers. Cancellation notifications are queued in the database outbox; provider delivery remains Phase 9.
 
 ### Approval gate
 
