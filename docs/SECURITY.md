@@ -21,4 +21,4 @@ Subscribe the Clerk endpoint only to `user.created`, `user.updated`, and `user.d
 - `FRONTEND_ORIGIN` must be the exact frontend origin allowed to issue Clerk session tokens.
 - Require Clerk sign-ups to provide a primary email address; Eventora's user schema requires one.
 
-The current local Clerk setup is not fully verified until the backend keys and webhook endpoint are configured and valid/invalid session and webhook requests have been checked.
+Local configuration and invalid-token/webhook-signature behavior have been checked. Phase 3 still needs a real Clerk-issued session through `/api/auth/me`, database-backed account-status verification, and delivery from the configured Clerk Dashboard endpoint before authentication can be marked fully verified.

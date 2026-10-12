@@ -46,7 +46,7 @@ The overall status must be updated as work progresses. It must reflect verified 
 | Repository inspection        | IMPLEMENTED | Docs inspected; folder had no source files or Git metadata      |
 | Project foundation           | IMPLEMENTED | Phase 1 committed; runtime checks remain                         |
 | Database                     | VERIFIED    | Initial migration applied to configured Supabase DB; Prisma adapter query succeeded |
-| Authentication               | IMPLEMENTED | Clerk session verification, current-user sync, account route, and webhook code written; live Clerk configuration/checks pending |
+| Authentication               | IMPLEMENTED | Auth routes and signed webhook handling are implemented; real-session sync, DB account-status integration, and Dashboard delivery remain unverified |
 | Roles and organizer approval | NOT_STARTED | Phase 4                                                         |
 | Public event discovery       | NOT_STARTED | Phase 5                                                         |
 | Organizer event management   | NOT_STARTED | Phase 6                                                         |
@@ -156,7 +156,7 @@ Review the schema and migration results before proceeding to Phase 3.
 
 ### Tasks
 
-- [ ] Configure the Clerk application.
+- [x] Configure the Clerk application keys in local environment files.
 - [x] Configure the frontend Clerk provider using `@clerk/react`.
 - [x] Implement sign-in, sign-up, and session-aware UI.
 - [ ] Configure Google login if enabled in Clerk.
@@ -170,25 +170,25 @@ Review the schema and migration results before proceeding to Phase 3.
 - [x] Verify webhook signatures.
 - [x] Handle duplicate webhook deliveries safely through idempotent upserts/deactivation.
 - [x] Document local webhook testing with ngrok.
-- [ ] Test authentication failures and account deactivation.
+- [x] Test unauthenticated/malformed-token rejection and the deactivated-account service rule.
 
 ### Acceptance criteria
 
-- [ ] Unauthenticated requests to protected endpoints are rejected.
+- [x] Unauthenticated requests to protected endpoints are rejected.
 - [ ] Valid Clerk tokens are verified by the backend.
-- [ ] Invalid or expired tokens are rejected.
-- [ ] Repeated user synchronization does not create duplicate users.
+- [x] Malformed bearer tokens are rejected.
+- [x] Repeated synchronization uses an idempotent upsert keyed by the unique Clerk user ID.
 - [ ] Database-backed account status is enforced.
 - [ ] Deactivated users cannot perform protected actions.
 - [ ] Webhook processing is signature-verified and duplicate-safe.
 
 ### Verification record
 
-- Commands and checks: `npm install @clerk/backend` (installed `@clerk/backend` 3.23.2); `npm run build` (pass); `npm run lint` (pass). Authentication test suites were not run.
-- Clerk configuration verified: Frontend publishable key is configured; backend secret and webhook signing secret are not set in the local backend environment.
-- Webhook configuration verified: Handler and instructions are implemented; Clerk Dashboard endpoint and ngrok delivery are not yet configured/verified.
-- Authorization results: Backend guard requires a verified session bearer token, restricts authorized parties to `FRONTEND_ORIGIN`, and current-user sync preserves database role/status and rejects deactivated accounts. Runtime token/deactivation checks remain pending Clerk server keys.
-- Outstanding issues: Add `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and `CLERK_WEBHOOK_SIGNING_SECRET` to `backend/.env`, configure the Clerk Dashboard webhook for `user.created`, `user.updated`, and `user.deleted`, then perform live authentication and webhook verification before marking Phase 3 verified.
+- Commands and checks: `npm install @clerk/backend` (installed `@clerk/backend` 3.23.2); frontend/backend `npm run build` and `npm run lint` (pass); `npm run test -- src/auth/auth.service.spec.ts` (3 tests passed); backend `npm run start:dev` (started with configured database); HTTP integration checks returned `200` for `/api/health`, `401` for missing and malformed bearer tokens, `200` for a locally signed non-mutating webhook event, and `400` for an invalid webhook signature.
+- Clerk configuration verified: Frontend publishable key and backend Clerk keys are present in local environment files; values were not displayed.
+- Webhook configuration verified: The configured signing secret successfully verified a locally signed event and rejected an invalid signature. The Clerk Dashboard endpoint and ngrok delivery were not verified.
+- Authorization results: Missing and malformed bearer tokens are rejected. The unit test covers idempotent sync keyed by Clerk ID, preserving database role/status fields, and rejecting a deactivated record. A real Clerk-issued valid/expired token, current-user synchronization against a real Clerk identity, and database account-status integration remain unverified.
+- Outstanding issues: Configure or verify the Clerk Dashboard webhook for `user.created`, `user.updated`, and `user.deleted`; exercise a real Clerk session through `/api/auth/me`; verify account-status behavior against the configured database before marking Phase 3 verified.
 
 ### Approval gate
 
