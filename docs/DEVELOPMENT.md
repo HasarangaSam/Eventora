@@ -49,7 +49,7 @@ Configure a Clerk webhook endpoint at `https://<public-host>/api/auth/webhooks/c
 
 Configure the Clerk sign-up methods to collect a primary email address because the Eventora user record requires one. A profile without a primary email cannot be synchronized.
 
-For local webhook delivery, run the backend, then start a tunnel with `ngrok http 3000`. Create a Clerk webhook endpoint using the ngrok HTTPS URL plus `/api/auth/webhooks/clerk`, select the three user events above, and place that endpoint's signing secret in `backend/.env`. Recreate or update the endpoint when the ngrok URL changes. Set `FRONTEND_ORIGIN` to the exact browser origin used by the frontend; the backend checks this origin when accepting Clerk session tokens.
+For local webhook delivery, run the backend, then start a tunnel with `ngrok http 3000`. Create a Clerk webhook endpoint using the ngrok HTTPS URL plus `/api/auth/webhooks/clerk`, select the three user events above, and place that endpoint's signing secret in `backend/.env`. Recreate or update the endpoint when the ngrok URL changes. Set `FRONTEND_ORIGIN` to the exact browser origin used by the frontend; the backend checks this origin when accepting Clerk session tokens. PayHere sandbox setup, configuration, and notification testing are documented in [`PAYMENTS.md`](PAYMENTS.md).
 
 Google sign-in is controlled in the Clerk Dashboard and remains optional. Enable Google there only if the Eventora Clerk application has that OAuth connection configured.
 

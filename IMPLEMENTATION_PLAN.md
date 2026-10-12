@@ -49,9 +49,9 @@ The overall status must be updated as work progresses. It must reflect verified 
 | Authentication               | IMPLEMENTED | Auth routes and signed webhook handling are implemented; real-session sync, DB account-status integration, and Dashboard delivery remain unverified |
 | Roles and organizer approval | IMPLEMENTED | Migration applied; focused authorization tests pass; external admin provisioning and full flow verification remain |
 | Public event discovery       | IMPLEMENTED | Public catalog APIs, category administration, discovery/detail UI, builds and unit checks; live HTTP and visual review remain |
-| Organizer event management   | NOT_STARTED | Phase 6                                                         |
-| Registration and inventory   | IMPLEMENTED | Phase 7 API, atomic holds, expiry, cancellation release, PostgreSQL concurrency test; late-payment reconciliation belongs to Phase 8 |
-| PayHere integration          | NOT_STARTED | Phase 8                                                         |
+| Organizer event management   | IMPLEMENTED | Phase 6 organizer APIs and dashboard; build and route checks passed |
+| Registration and inventory   | IMPLEMENTED | Phase 7 APIs, atomic holds, expiry, cancellation release, and PostgreSQL concurrency verification |
+| PayHere integration          | IMPLEMENTED | Hosted checkout UI/API, signed notification processing, late-payment handling; merchant sandbox verification awaits credentials |
 | Digital tickets and email    | NOT_STARTED | Phase 9                                                         |
 | Check-in                     | NOT_STARTED | Phase 10                                                        |
 | Dashboards and analytics     | NOT_STARTED | Phase 11                                                        |
@@ -338,8 +338,8 @@ Review organizer management before Phase 7.
 - [x] Set reservation expiry to exactly 10 minutes from its database-clock creation time.
 - [x] Protect duplicate registration requests with a caller-provided idempotency key and unique constraint.
 - [x] Implement a startup sweep, periodic expiry worker, and purchase-path expiry reconciliation.
-- [ ] Reconcile expiry during verified payment notification processing (Phase 8 dependency).
-- [ ] Handle races between expiry and verified successful payment (Phase 8 dependency).
+- [x] Reconcile expiry during verified payment notification processing (implemented in Phase 8).
+- [x] Handle races between expiry and verified successful payment (implemented in Phase 8).
 - [x] Test concurrent purchases and inventory invariants against configured PostgreSQL.
 
 ### Acceptance criteria
@@ -356,11 +356,11 @@ Review organizer management before Phase 7.
 ### Verification record
 
 - Transaction strategy: interactive Prisma transaction; event row then ticket-type row guarded updates; create registration, DB-clock reservation, and initiated payment attempt atomically.
-- Concurrency tests: `npm run test:e2e -- --run` — 2 test files, 2 tests passed, including real PostgreSQL concurrent oversell, idempotency, cancellation release, and inventory counters.
+- Concurrency tests: `npm run test:e2e -- --run` — 3 test files, 3 tests passed, including real PostgreSQL concurrent oversell, idempotency, cancellation release, and inventory counters.
 - Expiry tests: same PostgreSQL integration test moves only its temporary hold past expiry, then verifies registration/payment/reservation status and counters after release.
 - Unit tests: `npm run test -- --run` — 8 test files, 28 tests passed.
 - Backend build/lint and frontend lint/build passed during this phase; see turn verification record.
-- Outstanding issues: PayHere verification, late-success reconciliation, and expiry/payment races are Phase 8 requirements; no checkout UI is exposed before real payment is available.
+- Outstanding issues: Digital ticket issuance and attendee ticket access remain Phase 9.
 
 ### Approval gate
 
@@ -368,44 +368,44 @@ Review the inventory strategy and concurrency tests before Phase 8.
 
 ## 11. Phase 8 — Real PayHere Integration
 
-**Status:** NOT_STARTED
+**Status:** IMPLEMENTED
 
 ### Tasks
 
-- [ ] Verify current official PayHere integration requirements.
-- [ ] Configure backend-only merchant credentials.
-- [ ] Implement backend-generated checkout data.
-- [ ] Associate checkout attempts with trusted registration/payment records.
-- [ ] Implement the PayHere notification endpoint.
-- [ ] Verify notifications using the official signature/hash requirements.
-- [ ] Validate merchant identity, payment reference, amount, currency, status, and registration association.
-- [ ] Implement idempotent payment state transitions.
-- [ ] Prevent duplicate ticket issuance and repeated inventory changes.
-- [ ] Handle concurrent and out-of-order notifications.
-- [ ] Reconcile late successful payments.
-- [ ] Record payment exceptions for administrative review.
-- [ ] Test invalid notifications and mismatched amounts.
-- [ ] Document local webhook testing through ngrok.
+- [x] Verify current official PayHere Checkout API, hash, notification, and status requirements.
+- [ ] Configure live/sandbox merchant credentials in `backend/.env` (user setup required; no values are currently configured).
+- [x] Implement backend-generated hosted checkout data and attendee checkout handoff.
+- [x] Associate checkout attempts with trusted registration/payment records.
+- [x] Implement the public PayHere notification endpoint for form-encoded callbacks.
+- [x] Verify notifications using PayHere's official MD5 signature and constant-time comparison.
+- [x] Validate merchant identity, order reference, amount, currency, status, and registration association.
+- [x] Implement idempotent payment state transitions and preserve provider-reported amount/currency.
+- [x] Prevent duplicate inventory changes; ticket issuance/idempotency belongs to Phase 9.
+- [x] Serialize concurrent callbacks and handle out-of-order success from multiple attempts.
+- [x] Reconcile late successful payments against current event/ticket capacity.
+- [x] Record unfulfillable success, amount/currency mismatch, duplicate success, and chargeback exceptions for review.
+- [x] Test invalid signatures, mismatched amounts, repeated/concurrent callbacks, late success, and checkout retry against PostgreSQL.
+- [x] Document ngrok and PayHere local webhook setup in `docs/PAYMENTS.md`.
 
 ### Acceptance criteria
 
-- [ ] Real PayHere checkout is configured and verified in the appropriate test environment.
-- [ ] Invalid signatures and payment mismatches are rejected safely.
-- [ ] Browser redirects cannot independently confirm payment.
-- [ ] Only verified success can trigger registration confirmation and ticket issuance.
-- [ ] Duplicate notifications do not duplicate financial or ticketing operations.
-- [ ] Late successful payments are preserved and reconciled.
-- [ ] Unfulfillable successful payments are recorded for explicit administrative review.
-- [ ] No automated refunds are introduced.
+- [ ] Real PayHere checkout is configured and verified in the provider sandbox (awaiting merchant credentials and public notify URL).
+- [x] Invalid signatures and payment mismatches are handled safely and recorded where the notification is verified.
+- [x] Browser redirects cannot independently confirm payment.
+- [x] Only verified success can confirm a registration; ticket issuance is deferred to Phase 9 and must consume confirmed registrations only.
+- [x] Duplicate notifications do not duplicate payment/inventory state changes; ticket duplicate protection is Phase 9.
+- [x] Late successful payments are preserved and reconciled against current capacity.
+- [x] Unfulfillable successful payments are stored as payment exceptions for administrator review; no resolution action is invented.
+- [x] No automated refunds are introduced.
 
 ### Verification record
 
-- PayHere environment:
-- Notification verification tests:
-- Idempotency tests:
-- Late-payment tests:
-- Manual merchant configuration:
-- Outstanding issues:
+- PayHere environment: sandbox settings are templated; no merchant credentials are configured and no external PayHere sandbox transaction was run.
+- Notification verification tests: `npm run test:e2e -- --run` — real PostgreSQL flow with signed fixture callbacks, invalid signature, amount mismatch, chargeback, and successful transaction.
+- Idempotency tests: same checkout request reuses its attempt; a failed attempt receives a new reference on retry; concurrent duplicate callbacks preserve one inventory commit.
+- Late-payment tests: verified success after event cancellation is retained as succeeded with `LATE_PAYMENT_UNFULFILLED`; sold counters are unchanged.
+- Manual merchant configuration: set `PAYHERE_MERCHANT_ID`, `PAYHERE_MERCHANT_SECRET`, `PAYHERE_ENVIRONMENT`, `PAYHERE_NOTIFY_URL`, `PAYHERE_RETURN_URL`, and `PAYHERE_CANCEL_URL` in `backend/.env`; register the approved merchant domain and use ngrok for local callbacks.
+- Outstanding issues: real sandbox verification awaits merchant credentials and a reachable ngrok URL. Digital ticket issuance and purchase email are Phase 9.
 
 ### Approval gate
 
