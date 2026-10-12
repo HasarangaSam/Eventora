@@ -13,6 +13,7 @@
 - `OrganizerApplicationsModule`: applicant history, admin decisions, database role/status management, and the transactional organizer-decision email outbox entry.
 - `CategoriesModule`: public active-category reads and administrator category create/update/disable/delete operations. Deletion is refused while any event references a category.
 - `EventsModule`: public published-event discovery and organizer-owned event management, including publication transitions, Cloudinary covers, schedule entries, and paid ticket types.
+- `RegistrationsModule`: authenticated registration requests, idempotent request handling, transactional inventory holds, pending payment attempts, attendee-owned registration reads, and database-clock reservation expiry/release.
 - `PrismaModule`: shared Prisma client connected through the PostgreSQL adapter.
 
 ## Public catalog behavior
@@ -32,7 +33,7 @@ The administrator category inventory is `GET /api/categories/admin/list`; create
 - `/account`: synchronized account details and the attendee organizer-application panel.
 - `/admin`: administrator application review, account management, and category management.
 
-Registration, checkout, and ticket issuance remain future phases; the catalog currently presents purchase availability without a checkout action.
+Registration APIs are implemented at `POST /api/registrations`, `GET /api/registrations/me`, and `GET /api/registrations/:registrationId`. A request accepts only a ticket type, positive integer quantity, and `Idempotency-Key`; the server snapshots price/currency from the ticket type, reserves event and ticket inventory atomically, and creates a pending registration, exact ten-minute reservation, and initiated payment attempt in one transaction. A background worker and the purchase path expire due holds safely. No checkout UI or payment confirmation is exposed until real PayHere processing is implemented in Phase 8; tickets are not issued at registration time.
 
 Organizer management is available under `/api/organizer/events` and requires a Clerk session, active Eventora account, organizer role, and approved organizer application. Organizers can create drafts, list and edit their own events, publish/unpublish/cancel, manage schedule entries and paid ticket types, upload/remove cover images, and delete events only before registration or inventory history exists. Publication requires valid future event dates, an active category, complete public details, and at least one active paid ticket type with inventory and a usable sales window. Unpublishing is refused after registrations or inventory commitments; cancellation preserves those records and adds idempotent `EVENT_CANCELLATION` deliveries for confirmed attendees.
 

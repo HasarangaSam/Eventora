@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { OrganizerEventsService } from './organizer-events.service.js';
 import type { CloudinaryService } from './cloudinary.service.js';
+import type { InventoryService } from '../registrations/inventory.service.js';
 
 const baseEvent = {
   id: 'event-1', organizerId: 'organizer-1', categoryId: 'category-1', title: 'Concert', slug: 'concert', description: 'Description',
@@ -20,10 +21,11 @@ function setup() {
     registration: { findMany: vi.fn() }, $transaction: vi.fn(),
   };
   const cloudinary = { upload: vi.fn(), destroy: vi.fn() };
+  const inventory = { releaseEventReservations: vi.fn().mockResolvedValue(0) };
   return {
     prisma,
     cloudinary,
-    service: new OrganizerEventsService(prisma as unknown as PrismaService, cloudinary as unknown as CloudinaryService),
+    service: new OrganizerEventsService(prisma as unknown as PrismaService, cloudinary as unknown as CloudinaryService, inventory as unknown as InventoryService),
   };
 }
 

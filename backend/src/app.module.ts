@@ -6,9 +6,10 @@ import { AuthModule } from './auth/auth.module.js';
 import { OrganizerApplicationsModule } from './organizer-applications/organizer-applications.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { EventsModule } from './events/events.module.js';
+import { RegistrationsModule } from './registrations/registrations.module.js';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, AuthModule, OrganizerApplicationsModule, CategoriesModule, EventsModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, AuthModule, OrganizerApplicationsModule, CategoriesModule, EventsModule, RegistrationsModule],
   controllers: [AppController],
 })
 export class AppModule {}

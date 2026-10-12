@@ -50,7 +50,7 @@ The overall status must be updated as work progresses. It must reflect verified 
 | Roles and organizer approval | IMPLEMENTED | Migration applied; focused authorization tests pass; external admin provisioning and full flow verification remain |
 | Public event discovery       | IMPLEMENTED | Public catalog APIs, category administration, discovery/detail UI, builds and unit checks; live HTTP and visual review remain |
 | Organizer event management   | NOT_STARTED | Phase 6                                                         |
-| Registration and inventory   | NOT_STARTED | Phase 7                                                         |
+| Registration and inventory   | IMPLEMENTED | Phase 7 API, atomic holds, expiry, cancellation release, PostgreSQL concurrency test; late-payment reconciliation belongs to Phase 8 |
 | PayHere integration          | NOT_STARTED | Phase 8                                                         |
 | Digital tickets and email    | NOT_STARTED | Phase 9                                                         |
 | Check-in                     | NOT_STARTED | Phase 10                                                        |
@@ -325,40 +325,42 @@ Review organizer management before Phase 7.
 
 ## 10. Phase 7 — Registrations and Inventory
 
-**Status:** NOT_STARTED
+**Status:** IMPLEMENTED
 
 ### Tasks
 
-- [ ] Implement authenticated registration requests.
-- [ ] Validate ticket types and purchase quantities.
-- [ ] Calculate totals using trusted database records.
-- [ ] Enforce sales windows and event capacity.
-- [ ] Design a concurrency-safe inventory reservation strategy.
-- [ ] Reserve inventory and create pending registration/payment records atomically where required.
-- [ ] Set reservation expiry to 10 minutes after creation.
-- [ ] Protect duplicate checkout requests.
-- [ ] Implement reliable server-side expiry processing.
-- [ ] Reconcile expiry during payment notification processing.
-- [ ] Handle races between expiry and successful payment.
-- [ ] Test concurrent purchases and inventory invariants.
+- [x] Implement authenticated registration requests.
+- [x] Validate ticket types and positive, bounded integer quantities.
+- [x] Calculate totals using trusted database ticket price and currency.
+- [x] Enforce sales windows, published event state, future event dates, and event/ticket capacity.
+- [x] Use guarded PostgreSQL updates and consistent row-lock ordering for concurrent inventory operations.
+- [x] Reserve inventory and create pending registration/payment records atomically.
+- [x] Set reservation expiry to exactly 10 minutes from its database-clock creation time.
+- [x] Protect duplicate registration requests with a caller-provided idempotency key and unique constraint.
+- [x] Implement a startup sweep, periodic expiry worker, and purchase-path expiry reconciliation.
+- [ ] Reconcile expiry during verified payment notification processing (Phase 8 dependency).
+- [ ] Handle races between expiry and verified successful payment (Phase 8 dependency).
+- [x] Test concurrent purchases and inventory invariants against configured PostgreSQL.
 
 ### Acceptance criteria
 
-- [ ] Invalid purchases are rejected.
-- [ ] Concurrent purchases cannot oversell inventory.
-- [ ] Pending reservations expire according to the 10-minute rule.
-- [ ] Expired reservations release inventory safely.
-- [ ] Duplicate checkout requests do not create duplicate commitments.
-- [ ] Registration and payment records remain consistent.
-- [ ] Cancelled events cannot accept purchases.
-- [ ] Reservation and concurrency tests pass.
+- [x] Invalid purchases are rejected.
+- [x] Concurrent purchases cannot oversell inventory.
+- [x] Pending reservations expire according to the 10-minute rule.
+- [x] Expired reservations release inventory safely.
+- [x] Duplicate registration requests do not create duplicate commitments.
+- [x] Registration and initiated payment-attempt records remain consistent.
+- [x] Cancelled events cannot accept purchases; cancellation releases outstanding holds.
+- [x] Reservation and concurrency tests pass.
 
 ### Verification record
 
-- Transaction strategy:
-- Concurrency tests:
-- Expiry tests:
-- Outstanding issues:
+- Transaction strategy: interactive Prisma transaction; event row then ticket-type row guarded updates; create registration, DB-clock reservation, and initiated payment attempt atomically.
+- Concurrency tests: `npm run test:e2e -- --run` — 2 test files, 2 tests passed, including real PostgreSQL concurrent oversell, idempotency, cancellation release, and inventory counters.
+- Expiry tests: same PostgreSQL integration test moves only its temporary hold past expiry, then verifies registration/payment/reservation status and counters after release.
+- Unit tests: `npm run test -- --run` — 8 test files, 28 tests passed.
+- Backend build/lint and frontend lint/build passed during this phase; see turn verification record.
+- Outstanding issues: PayHere verification, late-success reconciliation, and expiry/payment races are Phase 8 requirements; no checkout UI is exposed before real payment is available.
 
 ### Approval gate
 

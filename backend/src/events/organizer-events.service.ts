@@ -7,6 +7,7 @@ import {
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CloudinaryService } from './cloudinary.service.js';
+import { InventoryService } from '../registrations/inventory.service.js';
 
 const ownerDetails = {
   category: { select: { id: true, name: true, slug: true } },
@@ -25,7 +26,11 @@ export type UploadedImage = { buffer: Buffer; mimetype: string };
 
 @Injectable()
 export class OrganizerEventsService {
-  constructor(private readonly prisma: PrismaService, private readonly cloudinary: CloudinaryService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cloudinary: CloudinaryService,
+    private readonly inventory: InventoryService,
+  ) {}
 
   list(organizerId: string) {
     return this.prisma.event.findMany({ where: { organizerId }, orderBy: { updatedAt: 'desc' }, include: ownerDetails });
@@ -127,6 +132,7 @@ export class OrganizerEventsService {
     // Persist cancellation and one idempotent outbox row per confirmed registration together.
     await this.prisma.$transaction(async (tx) => {
       await tx.event.update({ where: { id: eventId }, data: { status: 'CANCELLED', cancelledAt: now, cancelledById: organizerId, cancellationReason: reason } });
+      await this.inventory.releaseEventReservations(tx, eventId);
       const recipients = await tx.registration.findMany({ where: { eventId, status: 'CONFIRMED' }, select: { id: true, attendee: { select: { email: true } } } });
       if (recipients.length) noticesQueued = (await tx.emailDelivery.createMany({
         data: recipients.map((registration) => ({ type: 'EVENT_CANCELLATION', idempotencyKey: `event-cancel:${eventId}:${registration.id}`, recipient: registration.attendee.email, registrationId: registration.id, eventId })),

@@ -20,7 +20,7 @@ The Prisma config loads `.env` for CLI commands. Schema validation and client ge
 - Email delivery rows carry an idempotency key and retry state; they are not the source of truth for purchases.
 - Organizer applications retain every submission and decision; migration `20261012090000_pending_organizer_application_unique` adds a partial unique index so an applicant can have only one pending application while reapplying after rejection.
 
-Prisma models express foreign keys and indexes. The initial SQL migration adds check constraints for positive prices/quantities, valid time ranges, ticket counts within capacity, amount snapshots, reservation expiry, and required success timestamps. The initial migration and organizer-application index migration have been applied to the configured Supabase database; application-level payment and inventory transactions remain for their later phases.
+Prisma models express foreign keys and indexes. The initial SQL migration adds check constraints for positive prices/quantities, valid time ranges, ticket counts within capacity, amount snapshots, reservation expiry, and required success timestamps. The initial migration and organizer-application index migration have been applied to the configured Supabase database. Registration and reservation creation run in one interactive transaction; guarded event and ticket-type updates serialize competing reservations, and the database clock supplies the exact shared registration/reservation creation time. A server-side worker releases due holds and expires the pending registration and payment attempt. Phase 8 still needs to reconcile a verified late PayHere success against an expired hold.
 
 ## Commands
 
