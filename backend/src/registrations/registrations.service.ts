@@ -16,6 +16,7 @@ export class RegistrationsService {
   constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService) {}
 
   async create(userId: string, ticketTypeId: string, quantity: number, idempotencyKey: string) {
+    // Fast-path retries; the unique key and recovery below handle simultaneous first requests.
     const existing = await this.findByIdempotency(userId, idempotencyKey);
     if (existing) return this.replay(existing, ticketTypeId, quantity);
 
@@ -65,6 +66,7 @@ export class RegistrationsService {
       });
       return formatRegistration(registration);
     } catch (error) {
+      // A concurrent request may have won the unique-key race; replay only if its payload matches.
       if (!isUniqueViolation(error) && !(error instanceof ConflictException)) throw error;
       const raced = await this.findByIdempotency(userId, idempotencyKey);
       if (!raced) {

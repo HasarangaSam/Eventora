@@ -4,6 +4,8 @@ import { useAuth } from '@clerk/react'
 import { useAuthenticatedApi } from '../auth/use-authenticated-api'
 import { Modal } from '../../components/ui/modal'
 import { getEventPlaceholder } from '../../lib/placeholders'
+import { PageIntro } from '../../components/layout/page-intro'
+import { LinkButton } from '../../components/ui/link-button'
 import {
   IconCalendar,
   IconMapPin,
@@ -77,8 +79,8 @@ export function TicketsPage() {
 
   if (!isLoaded) {
     return (
-      <div className="fullscreen-loading">
-        <div className="spinner" />
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 text-[var(--text-muted)] font-medium">
+        <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" />
         <p>Loading digital ticket wallet…</p>
       </div>
     )
@@ -86,34 +88,32 @@ export function TicketsPage() {
 
   if (!isSignedIn) {
     return (
-      <div className="fullscreen-loading">
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 text-[var(--text-muted)] font-medium">
         <IconTicket style={{ width: '48px', height: '48px', color: 'var(--primary)', marginBottom: '12px' }} />
         <h2 style={{ fontSize: '24px', fontWeight: 800 }}>Sign in to View Tickets</h2>
         <p className="text-muted">Your tickets and QR access passes are linked to your Eventora account.</p>
-        <Link to="/sign-in" className="btn btn-primary">
+        <LinkButton to="/sign-in">
           Sign In
-        </Link>
+        </LinkButton>
       </div>
     )
   }
 
   return (
-    <main className="public-container ticket-wallet-page">
-      <div style={{ maxWidth: '800px', margin: '0 auto 40px', textAlign: 'center' }}>
-        <h1 style={{ margin: '0 0 10px', fontSize: 'clamp(28px, 4vw, 36px)', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.8px' }}>
-          Your Digital Passes &amp; Tickets
-        </h1>
-        <p className="text-muted" style={{ margin: 0, fontSize: '15px' }}>
-          Present your scannable QR pass at the venue door for rapid &lt;1s admission. Single-use and cryptographically verified.
-        </p>
-      </div>
+    <main className="mx-auto w-full max-w-[1280px] px-6 pt-12 pb-20">
+      <PageIntro
+        centered
+        eyebrow="Your Eventora wallet"
+        title="Your digital passes & tickets"
+        description="Present your scannable QR pass at the venue door for rapid <1s admission. Single-use and cryptographically verified."
+      />
 
       {error && (
-        <div className="toast-card toast-card--error" style={{ maxWidth: '600px', margin: '0 auto 24px' }}>
-          <div className="toast-card__content">{error}</div>
+        <div className="mx-auto mb-6 flex max-w-[600px] items-start gap-3 rounded-[var(--radius-md)] border-l-4 border-l-[var(--danger)] bg-white px-[18px] py-3.5 shadow-[0_10px_25px_-5px_rgba(15,23,42,0.2),0_8px_10px_-6px_rgba(15,23,42,0.1)] animate-[toastSlideIn_0.25s_cubic-bezier(0.16,1,0.3,1)]">
+          <div className="flex-1">{error}</div>
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
+            className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
             onClick={() => {
               setError('')
               setReload((r) => r + 1)
@@ -126,40 +126,41 @@ export function TicketsPage() {
 
       {!tickets && (
         <div style={{ textAlign: 'center', padding: '60px' }}>
-          <div className="spinner" style={{ margin: '0 auto 12px' }} />
+          <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" style={{ margin: '0 auto 12px' }} />
           <p className="text-muted">Loading your tickets…</p>
         </div>
       )}
 
       {tickets && tickets.length === 0 && (
-        <div className="table-card" style={{ maxWidth: '600px', margin: '0 auto', padding: '60px', textAlign: 'center' }}>
+        <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ maxWidth: '600px', margin: '0 auto', padding: '60px', textAlign: 'center' }}>
           <IconTicket style={{ width: '48px', height: '48px', color: 'var(--text-muted)', margin: '0 auto 16px' }} />
           <h3 style={{ margin: '0 0 8px', fontSize: '20px', fontWeight: 700 }}>No Tickets Yet</h3>
           <p className="text-muted" style={{ margin: '0 0 24px', fontSize: '14px' }}>
             When you register for an event, your digital entry pass and verification code will appear here.
           </p>
-          <Link to="/discover" className="btn btn-primary">
+          <Link to="/discover" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]">
             Explore Upcoming Events
           </Link>
         </div>
       )}
 
       {tickets && tickets.length > 0 && (
-        <div className="ticket-wallet-grid">
+        <div className="mt-8 grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-6">
           {tickets.map((t) => (
-            <article className="wallet-ticket-card" key={t.id}>
-              <div className="wallet-ticket-cover">
+            <article className="relative flex flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)] before:absolute after:absolute before:top-[130px] after:top-[130px] before:left-[-10px] after:right-[-10px] before:z-[2] after:z-[2] before:h-5 after:h-5 before:w-5 after:w-5 before:rounded-full after:rounded-full before:bg-[var(--surface-alt)] after:bg-[var(--surface-alt)] before:content-[''] after:content-['']" key={t.id}>
+              <div className="relative h-[140px] overflow-hidden bg-slate-900">
                 <img
+                  className="h-full w-full object-cover"
                   src={t.event.coverImageUrl || getEventPlaceholder(t.event.title)}
                   alt={t.event.title}
                 />
               </div>
 
-              <div className="wallet-ticket-info">
+              <div className="flex flex-col gap-3 p-6">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className="badge badge-indigo">{t.ticketType.name}</span>
-                  <span className="badge badge-emerald">
-                    <span className="badge-dot" /> Confirmed
+                  <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5] [--badge-dot-color:#6366f1]">{t.ticketType.name}</span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]">
+                    <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" /> Confirmed
                   </span>
                 </div>
 
@@ -191,7 +192,7 @@ export function TicketsPage() {
                   </code>
                   <button
                     type="button"
-                    className="btn btn-primary btn-sm"
+                    className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
                     onClick={() => void openTicket(t)}
                     disabled={loadingModal}
                   >
@@ -213,7 +214,7 @@ export function TicketsPage() {
         >
           <div style={{ textAlign: 'center', padding: '10px 0' }}>
             <h4 style={{ margin: '0 0 6px', fontSize: '20px', fontWeight: 800 }}>{selected.event.title}</h4>
-            <span className="badge badge-indigo" style={{ marginBottom: '20px' }}>
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5] [--badge-dot-color:#6366f1]" style={{ marginBottom: '20px' }}>
               {selected.ticketType.name} · {selected.reference}
             </span>
 

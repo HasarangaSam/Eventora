@@ -9,8 +9,8 @@ export function OrganizerProfilePage() {
     <DashboardShell role="ORGANIZER" pageTitle="Organizer Profile">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
         {/* Profile Card */}
-        <section className="table-card" style={{ margin: 0 }}>
-          <div className="table-header">
+        <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
+          <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
             <div>
               <h3>Organizer Profile</h3>
               <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -53,8 +53,8 @@ export function OrganizerProfilePage() {
                 <p className="text-muted" style={{ margin: '0 0 10px', fontSize: '14px' }}>
                   {user?.email}
                 </p>
-                <span className="badge badge-emerald">
-                  <span className="badge-dot" />
+                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]">
+                  <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" />
                   Verified Organizer
                 </span>
               </div>

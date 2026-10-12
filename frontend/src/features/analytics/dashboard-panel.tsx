@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useAuthenticatedApi } from '../auth/use-authenticated-api'
+import { metricCardClass, metricsGridClass, metricHintClass, metricLabelClass, metricValueClass } from '../../components/ui/metric-card-classes'
 
 type Role = 'ATTENDEE' | 'ORGANIZER' | 'ADMIN'
 type Payload = Record<string, unknown>
@@ -48,8 +49,8 @@ export function DashboardPanel({ role }: { role: Role }) {
 
   if (state.loading) {
     return (
-      <div className="table-card" style={{ padding: '40px', textAlign: 'center' }}>
-        <div className="spinner" style={{ margin: '0 auto 12px' }} />
+      <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ padding: '40px', textAlign: 'center' }}>
+        <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" style={{ margin: '0 auto 12px' }} />
         <p className="text-muted">Loading metrics…</p>
       </div>
     )
@@ -57,9 +58,9 @@ export function DashboardPanel({ role }: { role: Role }) {
 
   if (state.error || !state.data) {
     return (
-      <div className="table-card" style={{ padding: '32px', textAlign: 'center' }}>
+      <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ padding: '32px', textAlign: 'center' }}>
         <p className="text-muted">{state.error ?? 'Analytics data unavailable.'}</p>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => setAttempt((v) => v + 1)}>
+        <button type="button" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]" onClick={() => setAttempt((v) => v + 1)}>
           Retry
         </button>
       </div>
@@ -72,23 +73,23 @@ export function DashboardPanel({ role }: { role: Role }) {
     const registrations = Array.isArray(data.registrations) ? (data.registrations as Array<Record<string, unknown>>) : []
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        <div className="metrics-grid">
-          <div className="metric-card">
-            <span className="metric-label">Active Tickets</span>
-            <strong className="metric-value">{Number(data.activeTickets ?? 0).toLocaleString()}</strong>
-            <span className="metric-hint">Ready for event check-in</span>
+        <div className={metricsGridClass}>
+          <div className={metricCardClass}>
+            <span className={metricLabelClass}>Active Tickets</span>
+            <strong className={metricValueClass}>{Number(data.activeTickets ?? 0).toLocaleString()}</strong>
+            <span className={metricHintClass}>Ready for event check-in</span>
           </div>
-          <div className="metric-card">
-            <span className="metric-label">Total Registrations</span>
-            <strong className="metric-value">{Number(data.registrationCount ?? 0).toLocaleString()}</strong>
-            <span className="metric-hint">All-time bookings</span>
+          <div className={metricCardClass}>
+            <span className={metricLabelClass}>Total Registrations</span>
+            <strong className={metricValueClass}>{Number(data.registrationCount ?? 0).toLocaleString()}</strong>
+            <span className={metricHintClass}>All-time bookings</span>
           </div>
         </div>
 
-        <div className="table-card">
-          <div className="table-header">
+        <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]">
+          <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
             <h3>Recent Event Registrations</h3>
-            <Link to="/tickets" className="text-button">
+            <Link to="/tickets" className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]">
               View Digital Wallet →
             </Link>
           </div>
@@ -116,8 +117,8 @@ export function DashboardPanel({ role }: { role: Role }) {
                           {new Date(String(ev?.startAt)).toLocaleDateString()} · {String(ev?.city ?? '')}
                         </div>
                       </div>
-                      <span className="badge badge-emerald">
-                        <span className="badge-dot" />
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]">
+                        <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" />
                         {String(reg.status).toLowerCase()}
                       </span>
                     </div>
@@ -143,52 +144,52 @@ export function DashboardPanel({ role }: { role: Role }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       {/* Top Metrics Grid */}
-      <div className="metrics-grid">
+      <div className={metricsGridClass}>
         {isOrganizer ? (
           <>
-            <div className="metric-card">
-              <span className="metric-label">Published Events</span>
-              <strong className="metric-value">{Number(data.eventCount ?? 0).toLocaleString()}</strong>
-              <span className="metric-hint">Events created</span>
+            <div className={metricCardClass}>
+              <span className={metricLabelClass}>Published Events</span>
+              <strong className={metricValueClass}>{Number(data.eventCount ?? 0).toLocaleString()}</strong>
+              <span className={metricHintClass}>Events created</span>
             </div>
-            <div className="metric-card">
-              <span className="metric-label">Confirmed Attendees</span>
-              <strong className="metric-value" style={{ color: 'var(--primary)' }}>
+            <div className={metricCardClass}>
+              <span className={metricLabelClass}>Confirmed Attendees</span>
+              <strong className={metricValueClass} style={{ color: 'var(--primary)' }}>
                 {Number(data.confirmedRegistrations ?? 0).toLocaleString()}
               </strong>
-              <span className="metric-hint">Registrations completed</span>
+              <span className={metricHintClass}>Registrations completed</span>
             </div>
-            <div className="metric-card">
-              <span className="metric-label">Tickets Issued</span>
-              <strong className="metric-value">{Number(data.ticketsSold ?? 0).toLocaleString()}</strong>
-              <span className="metric-hint">Digital passes generated</span>
+            <div className={metricCardClass}>
+              <span className={metricLabelClass}>Tickets Issued</span>
+              <strong className={metricValueClass}>{Number(data.ticketsSold ?? 0).toLocaleString()}</strong>
+              <span className={metricHintClass}>Digital passes generated</span>
             </div>
           </>
         ) : (
           <>
-            <div className="metric-card">
-              <span className="metric-label">Total Users</span>
-              <strong className="metric-value">{Number(data.totalUsers ?? 0).toLocaleString()}</strong>
-              <span className="metric-hint">Registered accounts</span>
+            <div className={metricCardClass}>
+              <span className={metricLabelClass}>Total Users</span>
+              <strong className={metricValueClass}>{Number(data.totalUsers ?? 0).toLocaleString()}</strong>
+              <span className={metricHintClass}>Registered accounts</span>
             </div>
-            <div className="metric-card">
-              <span className="metric-label">Active Users</span>
-              <strong className="metric-value" style={{ color: 'var(--success)' }}>
+            <div className={metricCardClass}>
+              <span className={metricLabelClass}>Active Users</span>
+              <strong className={metricValueClass} style={{ color: 'var(--success)' }}>
                 {Number(data.activeUsers ?? 0).toLocaleString()}
               </strong>
-              <span className="metric-hint">Active accounts</span>
+              <span className={metricHintClass}>Active accounts</span>
             </div>
-            <div className="metric-card">
-              <span className="metric-label">Pending Applications</span>
-              <strong className="metric-value" style={{ color: 'var(--warning)' }}>
+            <div className={metricCardClass}>
+              <span className={metricLabelClass}>Pending Applications</span>
+              <strong className={metricValueClass} style={{ color: 'var(--warning)' }}>
                 {Number(data.pendingApplications ?? 0).toLocaleString()}
               </strong>
-              <span className="metric-hint">Awaiting review</span>
+              <span className={metricHintClass}>Awaiting review</span>
             </div>
-            <div className="metric-card">
-              <span className="metric-label">Platform Registrations</span>
-              <strong className="metric-value">{Number(data.registrationCount ?? 0).toLocaleString()}</strong>
-              <span className="metric-hint">Total volume</span>
+            <div className={metricCardClass}>
+              <span className={metricLabelClass}>Platform Registrations</span>
+              <strong className={metricValueClass}>{Number(data.registrationCount ?? 0).toLocaleString()}</strong>
+              <span className={metricHintClass}>Total volume</span>
             </div>
           </>
         )}
@@ -197,7 +198,7 @@ export function DashboardPanel({ role }: { role: Role }) {
       {/* Analytics Insights Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
         {/* Left Column: Distribution or Status */}
-        <div className="table-card" style={{ margin: 0, padding: '24px' }}>
+        <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0, padding: '24px' }}>
           <h4 style={{ margin: '0 0 16px', fontSize: '16px' }}>
             {isOrganizer ? 'Events Breakdown by Status' : 'User Base by Role'}
           </h4>
@@ -249,7 +250,7 @@ export function DashboardPanel({ role }: { role: Role }) {
         </div>
 
         {/* Right Column: Gross Sales Volume */}
-        <div className="table-card" style={{ margin: 0, padding: '24px' }}>
+        <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0, padding: '24px' }}>
           <h4 style={{ margin: '0 0 16px', fontSize: '16px' }}>Verified Gross Sales</h4>
           {gross.length ? (
             gross.map((item) => (
@@ -272,7 +273,7 @@ export function DashboardPanel({ role }: { role: Role }) {
       </div>
 
       {isOrganizer && salesTrend.length > 0 && (
-        <div className="table-card" style={{ padding: '24px' }}>
+        <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ padding: '24px' }}>
           <h4 style={{ margin: '0 0 16px', fontSize: '16px' }}>6-Month Revenue Trend</h4>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px' }}>
             {salesTrend.map((m) => (

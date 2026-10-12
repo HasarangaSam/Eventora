@@ -79,8 +79,8 @@ export function AdminEventsPage() {
 
   return (
     <DashboardShell role="ADMIN" pageTitle="Platform Events Oversight">
-      <section className="table-card" style={{ margin: 0 }}>
-        <div className="table-header" style={{ flexWrap: 'wrap', gap: '16px' }}>
+      <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold" style={{ flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h3>All Platform Events ({events.length})</h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -101,7 +101,7 @@ export function AdminEventsPage() {
               />
               <input
                 type="search"
-                className="form-input"
+                className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                 style={{ paddingLeft: '34px', width: '240px' }}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -109,7 +109,7 @@ export function AdminEventsPage() {
               />
             </div>
             <select
-              className="form-select"
+              className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
               style={{ width: '150px' }}
               value={status}
               onChange={(e) => setStatus(e.target.value)}
@@ -124,7 +124,7 @@ export function AdminEventsPage() {
         </div>
 
         <div style={{ overflowX: 'auto' }}>
-          <table className="data-table">
+          <table className="w-full border-collapse text-left [&_th]:border-b [&_th]:border-[var(--border)] [&_th]:bg-slate-50 [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-[0.5px] [&_th]:text-[var(--text-muted)] [&_th]:uppercase [&_td]:border-b [&_td]:border-[var(--border)] [&_td]:px-5 [&_td]:py-4 [&_td]:text-sm [&_td]:text-[var(--text-main)] [&_td]:align-middle [&_tr:last-child_td]:border-b-0 [&_tr:hover_td]:bg-slate-50">
             <thead>
               <tr>
                 <th>Event Title</th>
@@ -139,7 +139,7 @@ export function AdminEventsPage() {
               {loading ? (
                 <tr>
                   <td colSpan={6} style={{ textAlign: 'center', padding: '40px' }}>
-                    <div className="spinner" style={{ margin: '0 auto 8px' }} />
+                    <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" style={{ margin: '0 auto 8px' }} />
                     <span className="text-muted">Loading events…</span>
                   </td>
                 </tr>
@@ -158,15 +158,13 @@ export function AdminEventsPage() {
                     </td>
                     <td>
                       <span
-                        className={`badge ${
-                          e.status === 'PUBLISHED'
-                            ? 'badge-emerald'
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize ${e.status === 'PUBLISHED'
+                            ? "border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]"
                             : e.status === 'CANCELLED'
-                              ? 'badge-rose'
-                              : 'badge-slate'
-                        }`}
+                              ? "border border-[#fecaca] bg-[#fef2f2] text-[#dc2626] [--badge-dot-color:#ef4444]"
+                              : "border border-slate-200 bg-slate-100 text-slate-600 [--badge-dot-color:#64748b]"}`}
                       >
-                        <span className="badge-dot" />
+                        <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" />
                         {e.status.toLowerCase()}
                       </span>
                     </td>
@@ -178,7 +176,7 @@ export function AdminEventsPage() {
                       {e.status !== 'CANCELLED' && e.status !== 'COMPLETED' && (
                         <button
                           type="button"
-                          className="text-button text-button--destructive"
+                          className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))] [--text-button-color:var(--danger)] [--text-button-hover:#b91c1c] [--text-button-bg:var(--danger-bg)]"
                           onClick={() => {
                             setTargetEvent(e)
                             setCancelModalOpen(true)

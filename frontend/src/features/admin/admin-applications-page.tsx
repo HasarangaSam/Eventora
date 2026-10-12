@@ -75,8 +75,8 @@ export function AdminApplicationsPage() {
 
   return (
     <DashboardShell role="ADMIN" pageTitle="Organizer Accreditation Queue">
-      <section className="table-card" style={{ margin: 0 }}>
-        <div className="table-header" style={{ flexWrap: 'wrap', gap: '16px' }}>
+      <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold" style={{ flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h3>Pending Applications ({applications.length})</h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -97,7 +97,7 @@ export function AdminApplicationsPage() {
             />
             <input
               type="search"
-              className="form-input"
+              className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
               style={{ paddingLeft: '36px', width: '260px' }}
               placeholder="Search organization or email…"
               value={query}
@@ -108,7 +108,7 @@ export function AdminApplicationsPage() {
 
         {loading ? (
           <div style={{ padding: '60px', textAlign: 'center' }}>
-            <div className="spinner" style={{ margin: '0 auto 12px' }} />
+            <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" style={{ margin: '0 auto 12px' }} />
             <p className="text-muted">Loading applications…</p>
           </div>
         ) : applications.length === 0 ? (
@@ -148,14 +148,14 @@ export function AdminApplicationsPage() {
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <button
                       type="button"
-                      className="btn btn-primary btn-sm"
+                      className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
                       onClick={() => void decide(app.id, 'APPROVED', app.organizationName)}
                     >
                       <IconCheck /> Approve Application
                     </button>
                     <button
                       type="button"
-                      className="btn btn-secondary btn-sm"
+                      className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
                       style={{ color: 'var(--danger)' }}
                       onClick={() => void decide(app.id, 'REJECTED', app.organizationName)}
                     >

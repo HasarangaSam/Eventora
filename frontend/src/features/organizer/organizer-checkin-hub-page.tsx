@@ -77,8 +77,8 @@ export function OrganizerCheckinHubPage() {
         </div>
 
         {/* Event Selection */}
-        <section className="table-card" style={{ margin: 0 }}>
-          <div className="table-header">
+        <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
+          <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
             <div>
               <h3>Select Event for Check-in</h3>
               <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -89,7 +89,7 @@ export function OrganizerCheckinHubPage() {
 
           {loading ? (
             <div style={{ padding: '60px', textAlign: 'center' }}>
-              <div className="spinner" style={{ margin: '0 auto 12px' }} />
+              <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" style={{ margin: '0 auto 12px' }} />
               <p className="text-muted">Loading your events…</p>
             </div>
           ) : events.length === 0 ? (
@@ -115,7 +115,7 @@ export function OrganizerCheckinHubPage() {
               <p style={{ margin: '0 0 20px', fontSize: '14px' }}>
                 You have no currently published events. Publish an event first to enable check-in.
               </p>
-              <Link to="/organizer/events" className="btn btn-primary btn-sm">
+              <Link to="/organizer/events" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]">
                 Go to Events Studio →
               </Link>
             </div>
@@ -170,13 +170,13 @@ export function OrganizerCheckinHubPage() {
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span className="badge badge-emerald">
-                      <span className="badge-dot" />
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]">
+                      <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" />
                       Live
                     </span>
                     <Link
                       to={`/organizer/events/${event.id}/check-in`}
-                      className="btn btn-primary btn-sm"
+                      className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
                     >
                       <IconCamera style={{ width: '14px', height: '14px' }} />
                       Open Console

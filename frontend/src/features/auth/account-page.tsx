@@ -4,10 +4,12 @@ import { Link, Navigate } from 'react-router'
 import { useAuthenticatedApi } from './use-authenticated-api'
 import { useCurrentUser } from './current-user-context'
 import { OrganizerApplicationPanel } from '../organizer/organizer-application-panel'
-import { EventCard, type PublicEventCard } from '../events/event-card'
+import type { PublicEventCard } from '../events/event-card'
+import { EventGrid } from '../events/event-grid'
 import { formatEventDate } from '../events/event-format'
 import { getEventPlaceholder } from '../../lib/placeholders'
 import { Modal } from '../../components/ui/modal'
+import { LinkButton } from '../../components/ui/link-button'
 import { api } from '../../lib/api'
 import {
   IconCalendar,
@@ -96,12 +98,14 @@ export function AccountPage() {
     if (!isLoaded || !isSignedIn || !userId) return
     let active = true
 
-    async function loadUser() {
+    async function loadUser(): Promise<boolean> {
       try {
         const { data } = await authenticatedRequest<CurrentUser>({ method: 'GET', url: '/auth/me' })
         if (active) setUser(data)
+        return true
       } catch {
         if (active) setError('Could not load account details.')
+        return false
       } finally {
         if (active) setLoading(false)
       }
@@ -134,7 +138,10 @@ export function AccountPage() {
       }
     }
 
-    void Promise.all([loadUser(), loadDashboard(), loadTickets(), loadRecommendations()])
+    void Promise.all([loadUser(), loadRecommendations()]).then(async ([accountLoaded]) => {
+      if (!active || !accountLoaded) return
+      await Promise.all([loadDashboard(), loadTickets()])
+    })
 
     return () => {
       active = false
@@ -158,8 +165,8 @@ export function AccountPage() {
 
   if (!isLoaded) {
     return (
-      <div className="fullscreen-loading">
-        <div className="spinner" />
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 text-[var(--text-muted)] font-medium">
+        <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" />
         <p>Loading Eventora…</p>
       </div>
     )
@@ -167,11 +174,11 @@ export function AccountPage() {
 
   if (!isSignedIn) {
     return (
-      <div className="fullscreen-loading">
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 text-[var(--text-muted)] font-medium">
         <IconTicket style={{ width: '48px', height: '48px', color: 'var(--primary)', marginBottom: '12px' }} />
         <h2 style={{ fontSize: '24px', fontWeight: 800 }}>Sign in to View Your Account</h2>
         <p className="text-muted">Access your tickets, registrations, and account settings.</p>
-        <Link to="/sign-in" className="btn btn-primary">
+        <Link to="/sign-in" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]">
           Sign In to Eventora
         </Link>
       </div>
@@ -180,8 +187,8 @@ export function AccountPage() {
 
   if (loading) {
     return (
-      <div className="fullscreen-loading">
-        <div className="spinner" />
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 text-[var(--text-muted)] font-medium">
+        <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" />
         <p>Loading your attendee account…</p>
       </div>
     )
@@ -207,89 +214,89 @@ export function AccountPage() {
   const registrationsList = dashboardData?.registrations ?? []
 
   return (
-    <main className="public-container attendee-dashboard">
+    <main className="mx-auto w-full max-w-[1280px] px-6 pt-10 px-6 pb-20">
       {/* ── 1. ATTENDEE PROFILE HERO CARD ── */}
-      <section className="attendee-hero-card">
-        <div className="attendee-hero-top">
-          <div className="attendee-profile-info">
-            <div className="attendee-avatar-wrapper">
+      <section className="bg-white border rounded-[18px] py-8 px-9 shadow-[0_2px_10px_rgba(15,_23,_42,_0.04)] mb-7 max-[768px]:py-6 max-[768px]:px-5">
+        <div className="flex justify-between items-center flex-wrap gap-5 max-[768px]:flex-col max-[768px]:items-start">
+          <div className="flex items-center gap-[18px]">
+            <div className="w-16 h-16 rounded-[50%] overflow-hidden border-[2px] border-indigo-100 shrink-0 shadow-[0_2px_6px_rgba(0,_0,_0,_0.06)]">
               {avatarUrl ? (
-                <img src={avatarUrl} alt={displayName} className="attendee-avatar-img" />
+                <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
               ) : (
-                <div className="attendee-avatar-placeholder">
+                <div className="w-full h-full bg-indigo-600 text-white text-[26px] font-extrabold flex items-center justify-center">
                   {displayName.charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
 
-            <div className="attendee-meta">
-              <div className="attendee-name-row">
-                <h1 className="attendee-name">{displayName}</h1>
-                <span className="attendee-badge">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="m-0 text-2xl font-extrabold text-slate-900 tracking-[-0.5px]">{displayName}</h1>
+                <span className="inline-flex items-center gap-[5px] text-xs font-bold text-[#047857] bg-emerald-50 border border-emerald-200 py-[3px] px-2.5 rounded-[var(--radius-full)]">
                   <IconCheckCircle style={{ width: '13px', height: '13px', color: '#10b981' }} />
                   Verified Attendee
                 </span>
               </div>
-              <p className="attendee-email">{userEmail}</p>
+              <p className="m-0 text-sm text-slate-500">{userEmail}</p>
             </div>
           </div>
 
-          <div className="attendee-hero-actions">
-            <Link to="/discover" className="btn btn-secondary btn-sm">
+          <div className="flex items-center gap-2.5">
+            <LinkButton variant="secondary" size="small" to="/discover">
               <IconSearch style={{ width: '15px', height: '15px' }} /> Discover Events
-            </Link>
-            <Link to="/tickets" className="btn btn-primary btn-sm">
+            </LinkButton>
+            <LinkButton size="small" to="/tickets">
               <IconTicket style={{ width: '15px', height: '15px' }} /> Digital Wallet
-            </Link>
+            </LinkButton>
           </div>
         </div>
 
         {/* Quick Metric Pills */}
-        <div className="attendee-stats-strip">
-          <div className="attendee-stat-card">
-            <div className="attendee-stat-icon">
+        <div className="grid [grid-template-columns:repeat(3,_1fr)] gap-4 mt-6 pt-6 border-t border-slate-100 max-[768px]:[grid-template-columns:1fr] max-[768px]:gap-2.5">
+          <div className="bg-slate-50 border border-slate-200 rounded-[12px] py-3.5 px-[18px] flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-[10px] bg-[#eef2ff] text-indigo-600 flex items-center justify-center shrink-0">
               <IconTicket style={{ width: '18px', height: '18px' }} />
             </div>
             <div>
-              <span className="attendee-stat-label">Active Passes</span>
-              <strong className="attendee-stat-num">{activeTicketCount}</strong>
+              <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-[0.5px] mb-0.5">Active Passes</span>
+              <strong className="text-base font-extrabold text-slate-900">{activeTicketCount}</strong>
             </div>
           </div>
 
-          <div className="attendee-stat-card">
-            <div className="attendee-stat-icon">
+          <div className="bg-slate-50 border border-slate-200 rounded-[12px] py-3.5 px-[18px] flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-[10px] bg-[#eef2ff] text-indigo-600 flex items-center justify-center shrink-0">
               <IconUsers style={{ width: '18px', height: '18px' }} />
             </div>
             <div>
-              <span className="attendee-stat-label">Total Bookings</span>
-              <strong className="attendee-stat-num">{totalBookingsCount}</strong>
+              <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-[0.5px] mb-0.5">Total Bookings</span>
+              <strong className="text-base font-extrabold text-slate-900">{totalBookingsCount}</strong>
             </div>
           </div>
 
-          <div className="attendee-stat-card">
-            <div className="attendee-stat-icon">
+          <div className="bg-slate-50 border border-slate-200 rounded-[12px] py-3.5 px-[18px] flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-[10px] bg-[#eef2ff] text-indigo-600 flex items-center justify-center shrink-0">
               <IconCreditCard style={{ width: '18px', height: '18px' }} />
             </div>
             <div>
-              <span className="attendee-stat-label">Payment Security</span>
-              <strong className="attendee-stat-num">PayHere LKR Protected</strong>
+              <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-[0.5px] mb-0.5">Payment Security</span>
+              <strong className="text-base font-extrabold text-slate-900">PayHere LKR Protected</strong>
             </div>
           </div>
         </div>
       </section>
 
       {error && (
-        <div className="toast-card toast-card--error" style={{ margin: '20px 0', width: '100%' }}>
-          <div className="toast-card__content">{error}</div>
+        <div className="my-5 flex w-full items-start gap-3 rounded-[var(--radius-md)] border-l-4 border-l-[var(--danger)] bg-white px-[18px] py-3.5 shadow-[0_10px_25px_-5px_rgba(15,23,42,0.2),0_8px_10px_-6px_rgba(15,23,42,0.1)]">
+          <div className="flex-1">{error}</div>
         </div>
       )}
 
       {/* ── 2. DASHBOARD TABS ── */}
-      <nav className="attendee-tab-bar" aria-label="Attendee Dashboard Tabs">
+      <nav className="flex gap-2 border-b-[1.5px] border-slate-200 mb-7 overflow-x-auto" aria-label="Attendee Dashboard Tabs">
         <button
           type="button"
           onClick={() => setActiveTab('passes')}
-          className={`attendee-tab-btn ${activeTab === 'passes' ? 'attendee-tab-btn-active' : ''}`}
+          className={`inline-flex items-center gap-2 py-3 px-5 text-sm font-bold text-slate-500 bg-transparent border-0 border-b-[2.5px] border-transparent -mb-0.5 cursor-pointer transition-all duration-150 whitespace-nowrap hover:text-slate-900 ${activeTab === 'passes' ? 'text-indigo-600 border-b-[#4f46e5]' : ''}`}
         >
           <IconTicket style={{ width: '16px', height: '16px' }} />
           <span>My Passes ({tickets.length})</span>
@@ -298,7 +305,7 @@ export function AccountPage() {
         <button
           type="button"
           onClick={() => setActiveTab('orders')}
-          className={`attendee-tab-btn ${activeTab === 'orders' ? 'attendee-tab-btn-active' : ''}`}
+          className={`inline-flex items-center gap-2 py-3 px-5 text-sm font-bold text-slate-500 bg-transparent border-0 border-b-[2.5px] border-transparent -mb-0.5 cursor-pointer transition-all duration-150 whitespace-nowrap hover:text-slate-900 ${activeTab === 'orders' ? 'text-indigo-600 border-b-[#4f46e5]' : ''}`}
         >
           <IconCreditCard style={{ width: '16px', height: '16px' }} />
           <span>Order History ({registrationsList.length})</span>
@@ -307,7 +314,7 @@ export function AccountPage() {
         <button
           type="button"
           onClick={() => setActiveTab('organizer')}
-          className={`attendee-tab-btn ${activeTab === 'organizer' ? 'attendee-tab-btn-active' : ''}`}
+          className={`inline-flex items-center gap-2 py-3 px-5 text-sm font-bold text-slate-500 bg-transparent border-0 border-b-[2.5px] border-transparent -mb-0.5 cursor-pointer transition-all duration-150 whitespace-nowrap hover:text-slate-900 ${activeTab === 'organizer' ? 'text-indigo-600 border-b-[#4f46e5]' : ''}`}
         >
           <IconShield style={{ width: '16px', height: '16px' }} />
           <span>Host an Event</span>
@@ -316,7 +323,7 @@ export function AccountPage() {
         <button
           type="button"
           onClick={() => setActiveTab('profile')}
-          className={`attendee-tab-btn ${activeTab === 'profile' ? 'attendee-tab-btn-active' : ''}`}
+          className={`inline-flex items-center gap-2 py-3 px-5 text-sm font-bold text-slate-500 bg-transparent border-0 border-b-[2.5px] border-transparent -mb-0.5 cursor-pointer transition-all duration-150 whitespace-nowrap hover:text-slate-900 ${activeTab === 'profile' ? 'text-indigo-600 border-b-[#4f46e5]' : ''}`}
         >
           <IconUsers style={{ width: '16px', height: '16px' }} />
           <span>Profile &amp; Security</span>
@@ -328,56 +335,56 @@ export function AccountPage() {
         {/* TAB 1: PASSES & TICKETS */}
         {activeTab === 'passes' && (
           <div className="attendee-passes-section">
-            <div className="attendee-section-title-row">
+            <div className="flex justify-between items-end mb-6 gap-4 max-[768px]:flex-col max-[768px]:items-start">
               <div>
-                <h2 className="attendee-content-title">Your Digital Entry Passes</h2>
-                <p className="attendee-content-subtitle">
+                <h2 className="mt-0 mx-0 mb-1 text-xl font-extrabold text-slate-900">Your Digital Entry Passes</h2>
+                <p className="m-0 text-sm text-slate-500">
                   Present your scannable QR pass at the venue entrance. Single-use and cryptographically signed.
                 </p>
               </div>
-              <Link to="/tickets" className="text-button" style={{ fontSize: '14px', fontWeight: 600 }}>
+              <Link to="/tickets" className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]" style={{ fontSize: '14px', fontWeight: 600 }}>
                 Open Dedicated Wallet →
               </Link>
             </div>
 
             {tickets.length > 0 ? (
-              <div className="attendee-tickets-grid">
+              <div className="grid [grid-template-columns:repeat(auto-fill,_minmax(320px,_1fr))] gap-5 max-[768px]:[grid-template-columns:1fr]">
                 {tickets.map((t) => {
                   const cover = t.event.coverImageUrl || getEventPlaceholder(t.event.title)
                   return (
-                    <article key={t.id} className="attendee-ticket-card">
-                      <div className="attendee-ticket-cover">
+                    <article key={t.id} className="bg-white border border-slate-200 rounded-[16px] overflow-hidden shadow-[0_2px_8px_rgba(0,_0,_0,_0.04)] [transition:all_0.2s_ease] flex flex-col hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(15,_23,_42,_0.08)] hover:border-slate-300">
+                      <div className="relative h-[160px] overflow-hidden [&_img]:w-full [&_img]:h-full [&_img]:object-cover">
                         <img src={cover} alt={t.event.title} />
-                        <span className="attendee-ticket-tier-badge">{t.ticketType.name}</span>
+                        <span className="absolute top-[12px] left-[12px] bg-slate-900 text-white text-[11px] font-extrabold py-1 px-2.5 rounded-[6px] tracking-[0.5px]">{t.ticketType.name}</span>
                       </div>
 
-                      <div className="attendee-ticket-body">
-                        <div className="attendee-ticket-status">
-                          <span className="badge badge-emerald">
-                            <span className="badge-dot" /> Verified Entry Pass
+                      <div className="p-5 flex flex-col gap-3 [flex:1]">
+                        <div className="flex justify-between items-center">
+                          <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]">
+                            <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" /> Verified Entry Pass
                           </span>
-                          <span className="attendee-ticket-ref">{t.reference}</span>
+                          <span className="[font-family:monospace] text-xs font-bold text-slate-500">{t.reference}</span>
                         </div>
 
-                        <h3 className="attendee-ticket-event-title">{t.event.title}</h3>
+                        <h3 className="m-0 text-[17px] font-extrabold text-slate-900 leading-[1.3]">{t.event.title}</h3>
 
-                        <div className="attendee-ticket-meta">
-                          <span className="attendee-meta-item">
+                        <div className="flex flex-col gap-1.5 text-[13px] text-slate-500">
+                          <span className="flex items-center gap-1.5">
                             <IconCalendar style={{ width: '14px', height: '14px', flexShrink: 0 }} />
                             {formatEventDate(t.event.startAt, t.event.timezone)}
                           </span>
-                          <span className="attendee-meta-item">
+                          <span className="flex items-center gap-1.5">
                             <IconMapPin style={{ width: '14px', height: '14px', flexShrink: 0 }} />
                             {t.event.venue}, {t.event.city}
                           </span>
                         </div>
 
-                        <div className="attendee-ticket-action-bar">
+                        <div className="pt-3.5 border-t border-dashed border-slate-200 flex justify-end mt-auto">
                           <button
                             type="button"
                             onClick={() => void openQrModal(t)}
                             disabled={loadingQr}
-                            className="btn btn-primary btn-sm attendee-qr-trigger-btn"
+                            className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px] inline-flex items-center gap-1.5 font-bold"
                           >
                             <IconQrCode style={{ width: '16px', height: '16px' }} />
                             Show QR Pass
@@ -389,27 +396,23 @@ export function AccountPage() {
                 })}
               </div>
             ) : (
-              <div className="attendee-empty-passes-box">
-                <div className="attendee-empty-icon-wrap">
+              <div className="text-center py-12 px-6 bg-white border border-slate-200 rounded-[16px]">
+                <div className="w-16 h-16 rounded-[50%] bg-slate-100 flex items-center justify-center mt-0 mx-auto mb-4">
                   <IconTicket style={{ width: '36px', height: '36px', color: '#64748b' }} />
                 </div>
-                <h3 className="attendee-empty-title">No Active Event Passes</h3>
-                <p className="attendee-empty-desc">
+                <h3 className="mt-0 mx-0 mb-2 text-xl font-extrabold text-slate-900">No Active Event Passes</h3>
+                <p className="mt-0 mx-auto mb-4 text-sm text-slate-500 max-w-[480px] leading-[1.6]">
                   You haven't booked any events yet. Once you reserve tickets, your digital QR passes will appear here ready for door admission.
                 </p>
-                <Link to="/discover" className="btn btn-primary" style={{ marginTop: '8px' }}>
+                <Link to="/discover" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]" style={{ marginTop: '8px' }}>
                   Explore Events Happening Soon
                 </Link>
 
                 {/* Recommended events right below empty state */}
                 {recommendedEvents.length > 0 && (
-                  <div className="attendee-recommended-block">
-                    <h4 className="attendee-recommended-heading">Trending Events You Might Like</h4>
-                    <div className="event-grid">
-                      {recommendedEvents.map((event) => (
-                        <EventCard key={event.id} event={event} />
-                      ))}
-                    </div>
+                  <div className="mt-12 text-left border-t border-slate-200 pt-9">
+                    <h4 className="mt-0 mx-0 mb-5 text-lg font-extrabold text-slate-900">Trending Events You Might Like</h4>
+                    <EventGrid events={recommendedEvents} />
                   </div>
                 )}
               </div>
@@ -420,18 +423,18 @@ export function AccountPage() {
         {/* TAB 2: ORDER & REGISTRATION HISTORY */}
         {activeTab === 'orders' && (
           <div className="attendee-orders-section">
-            <div className="attendee-section-title-row">
+            <div className="flex justify-between items-end mb-6 gap-4 max-[768px]:flex-col max-[768px]:items-start">
               <div>
-                <h2 className="attendee-content-title">Order &amp; Booking History</h2>
-                <p className="attendee-content-subtitle">
+                <h2 className="mt-0 mx-0 mb-1 text-xl font-extrabold text-slate-900">Order &amp; Booking History</h2>
+                <p className="m-0 text-sm text-slate-500">
                   All past registrations and payment records processed securely via PayHere.
                 </p>
               </div>
             </div>
 
             {registrationsList.length > 0 ? (
-              <div className="attendee-orders-table-card">
-                <table className="attendee-orders-table">
+              <div className="bg-white border border-slate-200 rounded-[14px] overflow-hidden">
+                <table className="w-full [border-collapse:collapse] [&_th]:bg-slate-50 [&_th]:py-3.5 [&_th]:px-5 [&_th]:text-left [&_th]:text-xs [&_th]:font-bold [&_th]:text-slate-500 [&_th]:uppercase [&_th]:tracking-[0.5px] [&_th]:border-b [&_th]:border-slate-200 [&_td]:py-4 [&_td]:px-5 [&_td]:border-b [&_td]:border-slate-100 [&_td]:text-sm [&_tr:last-child_td]:border-b-0">
                   <thead>
                     <tr>
                       <th>Event</th>
@@ -444,23 +447,23 @@ export function AccountPage() {
                     {registrationsList.map((reg) => (
                       <tr key={reg.id}>
                         <td>
-                          <strong className="attendee-order-title">{reg.event?.title || 'Event'}</strong>
-                          <span className="attendee-order-city">{reg.event?.city}</span>
+                          <strong className="block text-slate-900 text-[15px]">{reg.event?.title || 'Event'}</strong>
+                          <span className="text-xs text-slate-500">{reg.event?.city}</span>
                         </td>
                         <td>
-                          <span className="attendee-order-date">
+                          <span className="font-semibold text-slate-600">
                             {reg.event?.startAt ? new Date(reg.event.startAt).toLocaleDateString() : '—'}
                           </span>
                         </td>
                         <td>
-                          <span className="badge badge-emerald">
-                            <span className="badge-dot" />
+                          <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]">
+                            <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" />
                             {reg.status.toLowerCase()}
                           </span>
                         </td>
                         <td>
                           {reg.event?.slug ? (
-                            <Link to={`/events/${reg.event.slug}`} className="text-button" style={{ fontSize: '13px' }}>
+                            <Link to={`/events/${reg.event.slug}`} className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]" style={{ fontSize: '13px' }}>
                               View Event Details →
                             </Link>
                           ) : (
@@ -473,9 +476,9 @@ export function AccountPage() {
                 </table>
               </div>
             ) : (
-              <div className="attendee-empty-orders-box">
+              <div className="bg-white border border-slate-200 rounded-[14px] p-10 text-center">
                 <p className="text-muted">No booking history recorded yet.</p>
-                <Link to="/discover" className="btn btn-secondary btn-sm">
+                <Link to="/discover" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]">
                   Browse Events Directory
                 </Link>
               </div>
@@ -486,10 +489,10 @@ export function AccountPage() {
         {/* TAB 3: HOST EVENTS / ORGANIZER APPLICATION */}
         {activeTab === 'organizer' && (
           <div className="attendee-organizer-section">
-            <div className="attendee-section-title-row">
+            <div className="flex justify-between items-end mb-6 gap-4 max-[768px]:flex-col max-[768px]:items-start">
               <div>
-                <h2 className="attendee-content-title">Host &amp; Sell Events on Eventora</h2>
-                <p className="attendee-content-subtitle">
+                <h2 className="mt-0 mx-0 mb-1 text-xl font-extrabold text-slate-900">Host &amp; Sell Events on Eventora</h2>
+                <p className="m-0 text-sm text-slate-500">
                   Apply for verified organizer accreditation to publish events, manage ticket tiers, and use our door scanner console.
                 </p>
               </div>
@@ -509,37 +512,37 @@ export function AccountPage() {
         {/* TAB 4: PROFILE & SECURITY */}
         {activeTab === 'profile' && (
           <div className="attendee-profile-section">
-            <div className="attendee-section-title-row">
+            <div className="flex justify-between items-end mb-6 gap-4 max-[768px]:flex-col max-[768px]:items-start">
               <div>
-                <h2 className="attendee-content-title">Profile &amp; Security Settings</h2>
-                <p className="attendee-content-subtitle">
+                <h2 className="mt-0 mx-0 mb-1 text-xl font-extrabold text-slate-900">Profile &amp; Security Settings</h2>
+                <p className="m-0 text-sm text-slate-500">
                   Manage your personal details, email authentication, and security preferences.
                 </p>
               </div>
             </div>
 
-            <div className="attendee-profile-card">
-              <div className="attendee-profile-field-row">
-                <span className="attendee-profile-field-label">Full Name</span>
-                <strong className="attendee-profile-field-val">{displayName}</strong>
+            <div className="bg-white border border-slate-200 rounded-[16px] p-8 flex flex-col gap-[18px] max-w-[680px]">
+              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+                <span className="text-[13px] font-semibold text-slate-500">Full Name</span>
+                <strong className="text-sm font-bold text-slate-900">{displayName}</strong>
               </div>
 
-              <div className="attendee-profile-field-row">
-                <span className="attendee-profile-field-label">Primary Email</span>
-                <strong className="attendee-profile-field-val">{userEmail}</strong>
+              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+                <span className="text-[13px] font-semibold text-slate-500">Primary Email</span>
+                <strong className="text-sm font-bold text-slate-900">{userEmail}</strong>
               </div>
 
-              <div className="attendee-profile-field-row">
-                <span className="attendee-profile-field-label">Account Role</span>
-                <span className="badge badge-indigo">ATTENDEE (Standard Access)</span>
+              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+                <span className="text-[13px] font-semibold text-slate-500">Account Role</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5] [--badge-dot-color:#6366f1]">ATTENDEE (Standard Access)</span>
               </div>
 
-              <div className="attendee-profile-field-row">
-                <span className="attendee-profile-field-label">Authentication Provider</span>
-                <span className="attendee-profile-field-val">Clerk Secure Identity (Google SSO / Email)</span>
+              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+                <span className="text-[13px] font-semibold text-slate-500">Authentication Provider</span>
+                <span className="text-sm font-bold text-slate-900">Clerk Secure Identity (Google SSO / Email)</span>
               </div>
 
-              <div className="attendee-profile-footer-tip">
+              <div className="flex items-center gap-2.5 text-[13px] text-emerald-600 bg-emerald-50 border border-emerald-200 py-3 px-4 rounded-[10px]">
                 <IconShield style={{ width: '16px', height: '16px', color: '#10b981', flexShrink: 0 }} />
                 <span>Your account is protected with multi-factor authentication and encrypted sessions.</span>
               </div>
@@ -555,41 +558,41 @@ export function AccountPage() {
           title="Digital Entry Pass"
           onClose={() => setSelectedTicket(null)}
         >
-          <div className="attendee-qr-modal-content">
+          <div className="text-center py-2 px-0">
             <div className="attendee-qr-modal-top">
-              <span className="attendee-modal-tier-badge">{selectedTicket.ticketType.name}</span>
-              <h3 className="attendee-modal-event-title">{selectedTicket.event.title}</h3>
-              <p className="attendee-modal-event-date">
+              <span className="inline-block bg-slate-900 text-white text-[11px] font-extrabold py-1 px-2.5 rounded-[6px] tracking-[0.5px] mb-2">{selectedTicket.ticketType.name}</span>
+              <h3 className="mt-0 mx-0 mb-1.5 text-xl font-extrabold text-slate-900">{selectedTicket.event.title}</h3>
+              <p className="m-0 text-[13px] font-semibold text-indigo-600">
                 {formatEventDate(selectedTicket.event.startAt, selectedTicket.event.timezone)}
               </p>
-              <p className="attendee-modal-event-venue">
+              <p className="mt-1 mx-0 mb-0 text-[13px] text-slate-500">
                 {selectedTicket.event.venue}, {selectedTicket.event.city}
               </p>
             </div>
 
-            <div className="attendee-qr-modal-divider">
+            <div className="my-[18px] mx-0 border-t-[2px] border-dashed border-slate-200">
               <div className="attendee-modal-notch-left" />
               <div className="attendee-modal-dash" />
               <div className="attendee-modal-notch-right" />
             </div>
 
-            <div className="attendee-qr-display-box">
+            <div className="bg-white border-[2px] border-slate-900 rounded-[16px] p-5 flex flex-col items-center gap-2.5 max-w-[260px] mt-0 mx-auto mb-4 shadow-[0_4px_14px_rgba(15,_23,_42,_0.08)]">
               {selectedTicket.qrCode ? (
                 <img
                   src={selectedTicket.qrCode}
                   alt={`QR Code for ${selectedTicket.reference}`}
-                  className="attendee-qr-modal-img"
+                  className="w-[180px] h-[180px] object-contain"
                 />
               ) : (
                 <div style={{ padding: '24px', textAlign: 'center', color: '#ef4444' }}>
                   QR code unavailable
                 </div>
               )}
-              <code className="attendee-qr-modal-ref">{selectedTicket.reference}</code>
-              <span className="attendee-qr-modal-scan-hint">Scan with organizer door camera</span>
+              <code className="[font-family:monospace] text-sm font-extrabold text-slate-900 tracking-[1px]">{selectedTicket.reference}</code>
+              <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-[0.5px]">Scan with organizer door camera</span>
             </div>
 
-            <div className="attendee-qr-modal-footer">
+            <div className="flex items-center justify-center gap-2 text-xs font-semibold text-emerald-600">
               <IconCheckCircle style={{ width: '15px', height: '15px', color: '#10b981' }} />
               <span>100% Verified Entry · Single-use door token</span>
             </div>

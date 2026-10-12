@@ -87,6 +87,7 @@ export class PaymentsService {
     if (merchantId !== configuredMerchantId || !/^-?\d+$/.test(statusRaw) || !/^[A-Z]{3}$/.test(currency) || paymentId.length > 100) {
       throw new BadRequestException('Invalid PayHere notification');
     }
+    // Reject unsigned or altered callbacks before looking up or changing payment state.
     if (!verifyNotificationSignature(merchantId, orderId, amountRaw, currency, statusRaw, merchantSecret, signature)) {
       throw new BadRequestException('Invalid PayHere notification signature');
     }
@@ -98,6 +99,7 @@ export class PaymentsService {
     const amount = parseProviderAmount(amountRaw);
 
     return this.prisma.$transaction(async (tx) => {
+      // Lock in the same event → ticket type → reservation → payment order used by inventory operations.
       const [event] = await tx.$queryRaw<Array<{ id: string; status: string; startAt: Date; endAt: Date; capacity: number | null; ticketsReserved: number; ticketsSold: number }>>`
         SELECT "id", "status", "startAt", "endAt", "capacity", "ticketsReserved", "ticketsSold" FROM "Event" WHERE "id" = ${snapshot.registration.eventId} FOR UPDATE
       `;
@@ -151,6 +153,7 @@ export class PaymentsService {
       }
 
       if (statusCode === 2) {
+        // A successful charge and a fulfillable reservation are separate facts; never invent inventory when capacity is gone.
         const otherSuccessfulAttempt = await tx.paymentAttempt.findFirst({
           where: { registrationId: snapshot.registrationId, id: { not: current.id }, status: { in: ['SUCCEEDED', 'CHARGEDBACK'] } },
           select: { id: true },
@@ -225,6 +228,7 @@ export class PaymentsService {
       include: { attendee: { select: { email: true } }, event: { select: { id: true } }, tickets: { select: { id: true, reference: true } } },
     });
     if (registration.status !== 'CONFIRMED') throw new Error('TICKETS_REQUIRE_CONFIRMED_REGISTRATION');
+    // Webhooks may be retried, so issue a complete ticket set once and queue its email idempotently.
     if (registration.tickets.length === 0) {
       const tickets = Array.from({ length: registration.quantity }, () => {
         const reference = `EVT-${randomBytes(12).toString('hex').toUpperCase()}`;

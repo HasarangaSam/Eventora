@@ -2,6 +2,7 @@ import { AxiosError } from 'axios'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router'
 import { useAuthenticatedApi } from '../auth/use-authenticated-api'
+import { metricCardClass, metricsGridClass, metricHintClass, metricLabelClass, metricValueClass } from '../../components/ui/metric-card-classes'
 import { useToast } from '../../components/ui/toast'
 import {
   IconCamera,
@@ -171,7 +172,7 @@ export function EventCheckinPage() {
       {/* Top Console Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <Link to="/account" className="text-button" style={{ marginBottom: '8px' }}>
+          <Link to="/account" className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]" style={{ marginBottom: '8px' }}>
             ← Back to Organizer Studio
           </Link>
           <h2 style={{ margin: '4px 0 0', fontSize: '26px', fontWeight: 800 }}>
@@ -185,25 +186,25 @@ export function EventCheckinPage() {
 
       {/* KPI Stats Strip */}
       {attendance && (
-        <div className="metrics-grid">
-          <div className="metric-card">
-            <span className="metric-label">Checked In</span>
-            <strong className="metric-value" style={{ color: 'var(--success)' }}>
+        <div className={metricsGridClass}>
+          <div className={metricCardClass}>
+            <span className={metricLabelClass}>Checked In</span>
+            <strong className={metricValueClass} style={{ color: 'var(--success)' }}>
               {attendance.summary.checkedIn}
             </strong>
-            <span className="metric-hint">Attendees inside venue</span>
+            <span className={metricHintClass}>Attendees inside venue</span>
           </div>
-          <div className="metric-card">
-            <span className="metric-label">Remaining</span>
-            <strong className="metric-value" style={{ color: 'var(--primary)' }}>
+          <div className={metricCardClass}>
+            <span className={metricLabelClass}>Remaining</span>
+            <strong className={metricValueClass} style={{ color: 'var(--primary)' }}>
               {attendance.summary.remaining}
             </strong>
-            <span className="metric-hint">Expected arrivals</span>
+            <span className={metricHintClass}>Expected arrivals</span>
           </div>
-          <div className="metric-card">
-            <span className="metric-label">Total Issued</span>
-            <strong className="metric-value">{attendance.summary.totalIssued}</strong>
-            <span className="metric-hint">Confirmed registrations</span>
+          <div className={metricCardClass}>
+            <span className={metricLabelClass}>Total Issued</span>
+            <strong className={metricValueClass}>{attendance.summary.totalIssued}</strong>
+            <span className={metricHintClass}>Confirmed registrations</span>
           </div>
         </div>
       )}
@@ -211,20 +212,18 @@ export function EventCheckinPage() {
       {/* Result Status Banner */}
       {result && (
         <div
-          className={`toast-card toast-card--${
-            result.outcome === 'CHECKED_IN' ? 'success' : result.outcome === 'ALREADY_CHECKED_IN' ? 'warning' : 'error'
-          }`}
-          style={{ width: '100%', maxWidth: 'none', animation: 'none' }}
+          className="flex w-full max-w-none items-start gap-3 rounded-[var(--radius-md)] border-l-4 bg-white px-[18px] py-3.5 shadow-[0_10px_25px_-5px_rgba(15,23,42,0.2),0_8px_10px_-6px_rgba(15,23,42,0.1)]"
+          style={{ borderLeftColor: result.outcome === 'CHECKED_IN' ? 'var(--success)' : result.outcome === 'ALREADY_CHECKED_IN' ? 'var(--warning)' : 'var(--danger)' }}
         >
-          <div className="toast-card__icon">
+          <div className={`mt-px h-5 w-5 shrink-0 ${result.outcome === 'CHECKED_IN' ? 'text-[var(--success)]' : result.outcome === 'ALREADY_CHECKED_IN' ? 'text-[var(--warning)]' : 'text-[var(--danger)]'}`}>
             {result.outcome === 'CHECKED_IN' ? <IconCheck /> : <IconAlertCircle />}
           </div>
-          <div className="toast-card__content">
-            <strong className="toast-card__title" style={{ fontSize: '16px' }}>
+          <div className="flex-1">
+            <strong className="block text-base leading-[1.3] font-semibold text-[var(--text-main)]">
               {outcomeMessages[result.outcome]}
             </strong>
             {result.reference && (
-              <p className="toast-card__message">
+              <p className="mt-1 text-[13px] leading-[1.4] text-[var(--text-muted)]">
                 Reference: <code>{result.reference}</code> · {result.ticketType}
                 {result.checkedInAt && result.outcome === 'ALREADY_CHECKED_IN' && (
                   <> · Originally admitted {new Date(result.checkedInAt).toLocaleTimeString()}</>
@@ -237,14 +236,14 @@ export function EventCheckinPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '28px' }}>
         {/* Scanner & Manual Entry Card */}
-        <div className="table-card" style={{ margin: 0, padding: '24px' }}>
+        <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0, padding: '24px' }}>
           <h3 style={{ margin: '0 0 16px', fontSize: '18px' }}>Scanner & Entry</h3>
 
           <div style={{ marginBottom: '24px' }}>
             {!scanning ? (
               <button
                 type="button"
-                className="btn btn-primary"
+                className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]"
                 style={{ width: '100%', padding: '16px' }}
                 onClick={() => setScanning(true)}
               >
@@ -253,7 +252,7 @@ export function EventCheckinPage() {
             ) : (
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)]"
                 style={{ width: '100%', padding: '16px' }}
                 onClick={() => setScanning(false)}
               >
@@ -300,7 +299,7 @@ export function EventCheckinPage() {
             <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 600 }}>Manual Ticket Reference</h4>
             <form onSubmit={submitReference} style={{ display: 'flex', gap: '10px' }}>
               <input
-                className="form-input"
+                className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                 maxLength={32}
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
@@ -308,7 +307,7 @@ export function EventCheckinPage() {
               />
               <button
                 type="submit"
-                className="btn btn-secondary"
+                className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)]"
                 disabled={submitting || !reference.trim()}
               >
                 {submitting ? 'Checking…' : 'Admit'}
@@ -318,10 +317,10 @@ export function EventCheckinPage() {
         </div>
 
         {/* Live Admission Roster */}
-        <div className="table-card" style={{ margin: 0 }}>
-          <div className="table-header">
+        <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
+          <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
             <h3>Recent Check-ins</h3>
-            <span className="badge badge-slate">{attendance?.records.length ?? 0} entries</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-slate-200 bg-slate-100 text-slate-600 [--badge-dot-color:#64748b]">{attendance?.records.length ?? 0} entries</span>
           </div>
 
           <div style={{ maxHeight: '420px', overflowY: 'auto', padding: '12px' }}>
@@ -367,7 +366,7 @@ export function EventCheckinPage() {
             >
               <button
                 type="button"
-                className="text-button"
+                className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]"
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
@@ -376,7 +375,7 @@ export function EventCheckinPage() {
               <span>Page {page}</span>
               <button
                 type="button"
-                className="text-button"
+                className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]"
                 disabled={attendance.records.length < attendance.pageSize}
                 onClick={() => setPage((p) => p + 1)}
               >

@@ -59,6 +59,7 @@ export class CategoriesService {
     });
     if (!category) throw new NotFoundException('Category not found');
     if (category._count.events > 0) {
+      // Keep existing events' category references intact; deactivation preserves their history.
       throw new ConflictException('This category is referenced by events; deactivate it instead');
     }
     try {

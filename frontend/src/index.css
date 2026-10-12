@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@source not "../dist";
 
 :root {
   font-family: "Plus Jakarta Sans", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -82,9 +83,11 @@ button, a, input, select, textarea {
   font: inherit;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
@@ -95,6 +98,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 ::selection {
   color: #fff;
   background: var(--primary);
+}
+
+.recharts-wrapper {
+  font-family: var(--font-sans, 'Inter', sans-serif);
 }
 
 /* Custom Scrollbars */
@@ -113,28 +120,35 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background: #94a3b8;
 }
 
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid rgba(99, 102, 241, 0.2);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-.fullscreen-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 70vh;
-  gap: 16px;
-  color: var(--text-muted);
-  font-weight: 500;
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalPop {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }

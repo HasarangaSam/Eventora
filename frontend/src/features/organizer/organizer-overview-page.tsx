@@ -6,6 +6,7 @@ import {
 } from 'recharts'
 import { DashboardShell } from '../analytics/dashboard-shell'
 import { useAuthenticatedApi } from '../auth/use-authenticated-api'
+import { metricHintClass, metricLabelClass } from '../../components/ui/metric-card-classes'
 import { IconCalendar, IconCamera, IconTicket, IconSparkles } from '../../components/ui/icons'
 
 type Payload = Record<string, unknown>
@@ -91,26 +92,26 @@ export function OrganizerOverviewPage() {
     <DashboardShell role="ORGANIZER" pageTitle="Organizer Overview & Analytics">
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '400px', flexDirection: 'column', gap: '16px' }}>
-          <div className="spinner" style={{ width: '40px', height: '40px' }} />
+          <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" style={{ width: '40px', height: '40px' }} />
           <p className="text-muted">Loading your analytics…</p>
         </div>
       ) : !data ? (
         <div style={{ textAlign: 'center', padding: '60px 20px' }}>
           <p className="text-muted" style={{ marginBottom: '16px' }}>Analytics data could not be loaded.</p>
-          <button type="button" className="btn btn-secondary" onClick={() => setAttempt(v => v + 1)}>Retry</button>
+          <button type="button" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)]" onClick={() => setAttempt(v => v + 1)}>Retry</button>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
 
           {/* KPI Row */}
-          <div className="admin-kpi-grid">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-[18px] max-[900px]:grid-cols-[repeat(auto-fit,minmax(170px,1fr))] max-[680px]:grid-cols-2">
             {kpis.map((k) => (
-              <div key={k.label} className="admin-kpi-card" style={{ borderTop: `3px solid ${k.color}` }}>
+              <div key={k.label} className="rounded-[14px] border border-slate-200 bg-white p-[22px] shadow-[0_1px_4px_rgba(0,0,0,0.05)] transition-[box-shadow,transform] duration-[180ms] ease-[ease] hover:translate-y-[-2px] hover:shadow-[0_4px_20px_rgba(0,0,0,0.09)]" style={{ borderTop: `3px solid ${k.color}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
-                    <span className="metric-label">{k.label}</span>
+                    <span className={metricLabelClass}>{k.label}</span>
                     <strong style={{ display: 'block', marginTop: '6px', fontSize: '28px', fontWeight: 800, letterSpacing: '-0.5px', color: k.color }}>{k.value}</strong>
-                    <span className="metric-hint">{k.hint}</span>
+                    <span className={metricHintClass}>{k.hint}</span>
                   </div>
                   <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: k.bg, color: k.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     {k.icon}
@@ -122,9 +123,9 @@ export function OrganizerOverviewPage() {
 
           {/* Revenue Trend Chart */}
           {revenueData.length > 0 && (
-            <div className="analytics-card">
-              <h3 className="analytics-card-title" style={{ marginBottom: '4px' }}>Revenue & Ticket Sales Trend</h3>
-              <p className="analytics-card-subtitle" style={{ marginBottom: '20px' }}>Gross revenue and ticket volume across recent months</p>
+            <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+              <h3 className="m-0 text-[17px] font-bold text-slate-900" style={{ marginBottom: '4px' }}>Revenue & Ticket Sales Trend</h3>
+              <p className="mt-1 text-[13px] text-slate-400" style={{ marginBottom: '20px' }}>Gross revenue and ticket volume across recent months</p>
               <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={revenueData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                   <defs>
@@ -153,9 +154,9 @@ export function OrganizerOverviewPage() {
           <div style={{ display: 'grid', gridTemplateColumns: statusData.length > 0 ? '1fr 1fr' : '1fr', gap: '24px' }}>
             {/* Events by Status */}
             {statusData.length > 0 && (
-              <div className="analytics-card">
-                <h3 className="analytics-card-title" style={{ marginBottom: '4px' }}>Events by Status</h3>
-                <p className="analytics-card-subtitle" style={{ marginBottom: '20px' }}>Your events portfolio breakdown</p>
+              <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+                <h3 className="m-0 text-[17px] font-bold text-slate-900" style={{ marginBottom: '4px' }}>Events by Status</h3>
+                <p className="mt-1 text-[13px] text-slate-400" style={{ marginBottom: '20px' }}>Your events portfolio breakdown</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <ResponsiveContainer width="50%" height={200}>
                     <PieChart>
@@ -186,8 +187,8 @@ export function OrganizerOverviewPage() {
             )}
 
             {/* Quick Nav */}
-            <div className="analytics-card">
-              <h3 className="analytics-card-title" style={{ marginBottom: '20px' }}>Quick Access</h3>
+            <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+              <h3 className="m-0 text-[17px] font-bold text-slate-900" style={{ marginBottom: '20px' }}>Quick Access</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 {[
                   { to: '/organizer/events', label: 'Events Studio', sub: 'Create & manage events', color: '#6366f1', bg: '#eef2ff', icon: <IconCalendar /> },
@@ -198,7 +199,7 @@ export function OrganizerOverviewPage() {
                   <Link
                     key={item.to}
                     to={item.to}
-                    className="quick-nav-link"
+                    className="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 transition-[all] duration-[180ms] ease-[ease] hover:translate-x-[3px] hover:border-[var(--link-color,var(--primary))] hover:bg-[var(--link-bg,#eef2ff)]"
                     style={{ '--link-color': item.color, '--link-bg': item.bg } as React.CSSProperties}
                   >
                     <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: item.bg, color: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -216,9 +217,9 @@ export function OrganizerOverviewPage() {
 
           {/* Revenue Bar Chart (monthly breakdown) */}
           {revenueData.length > 0 && (
-            <div className="analytics-card">
-              <h3 className="analytics-card-title" style={{ marginBottom: '4px' }}>Monthly Revenue Breakdown</h3>
-              <p className="analytics-card-subtitle" style={{ marginBottom: '20px' }}>Gross revenue per month in absolute terms</p>
+            <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+              <h3 className="m-0 text-[17px] font-bold text-slate-900" style={{ marginBottom: '4px' }}>Monthly Revenue Breakdown</h3>
+              <p className="mt-1 text-[13px] text-slate-400" style={{ marginBottom: '20px' }}>Gross revenue per month in absolute terms</p>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={revenueData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }} barSize={28}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />

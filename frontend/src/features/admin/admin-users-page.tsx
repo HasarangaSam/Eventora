@@ -58,8 +58,8 @@ export function AdminUsersPage() {
 
   return (
     <DashboardShell role="ADMIN" pageTitle="User Accounts & Role Governance">
-      <section className="table-card" style={{ margin: 0 }}>
-        <div className="table-header" style={{ flexWrap: 'wrap', gap: '16px' }}>
+      <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
+        <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold" style={{ flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h3>User Directory ({users.length})</h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -81,7 +81,7 @@ export function AdminUsersPage() {
               />
               <input
                 type="search"
-                className="form-input"
+                className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                 style={{ paddingLeft: '34px', width: '220px' }}
                 placeholder="Search name or email…"
                 value={query}
@@ -89,7 +89,7 @@ export function AdminUsersPage() {
               />
             </div>
             <select
-              className="form-select"
+              className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
               style={{ width: '150px' }}
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
@@ -103,7 +103,7 @@ export function AdminUsersPage() {
         </div>
 
         <div style={{ overflowX: 'auto' }}>
-          <table className="data-table">
+          <table className="w-full border-collapse text-left [&_th]:border-b [&_th]:border-[var(--border)] [&_th]:bg-slate-50 [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-[0.5px] [&_th]:text-[var(--text-muted)] [&_th]:uppercase [&_td]:border-b [&_td]:border-[var(--border)] [&_td]:px-5 [&_td]:py-4 [&_td]:text-sm [&_td]:text-[var(--text-main)] [&_td]:align-middle [&_tr:last-child_td]:border-b-0 [&_tr:hover_td]:bg-slate-50">
             <thead>
               <tr>
                 <th>User Profile</th>
@@ -116,7 +116,7 @@ export function AdminUsersPage() {
               {loading ? (
                 <tr>
                   <td colSpan={4} style={{ textAlign: 'center', padding: '40px' }}>
-                    <div className="spinner" style={{ margin: '0 auto 8px' }} />
+                    <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" style={{ margin: '0 auto 8px' }} />
                     <span className="text-muted">Loading user directory…</span>
                   </td>
                 </tr>
@@ -157,7 +157,7 @@ export function AdminUsersPage() {
                     <td>{u.email}</td>
                     <td>
                       <select
-                        className="form-select"
+                        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         style={{ width: '140px', padding: '6px 10px', fontSize: '13px' }}
                         value={u.role}
                         onChange={(e) => void updateUser(u, { role: e.target.value as UserRecord['role'] })}
@@ -169,7 +169,7 @@ export function AdminUsersPage() {
                     </td>
                     <td>
                       <select
-                        className="form-select"
+                        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         style={{ width: '130px', padding: '6px 10px', fontSize: '13px' }}
                         value={u.status}
                         onChange={(e) => void updateUser(u, { status: e.target.value as UserRecord['status'] })}

@@ -146,23 +146,23 @@ export function AdminPage() {
         </div>
 
         {/* Organizer Applications Review */}
-        <section id="applications" className="table-card">
-          <div className="table-header">
+        <section id="applications" className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]">
+          <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
             <div>
               <h3>Pending Organizer Applications</h3>
               <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
                 Review and approve organizations requesting event publishing permissions.
               </p>
             </div>
-            <span className="badge badge-amber">
-              <span className="badge-dot" />
+            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#fde68a] bg-[#fffbeb] text-[#d97706] [--badge-dot-color:#f59e0b]">
+              <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" />
               {applications.length} Pending
             </span>
           </div>
 
           {loading ? (
             <div style={{ padding: '32px', textAlign: 'center' }}>
-              <div className="spinner" style={{ margin: '0 auto 12px' }} />
+              <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" style={{ margin: '0 auto 12px' }} />
               <p className="text-muted">Loading applications…</p>
             </div>
           ) : applications.length === 0 ? (
@@ -196,14 +196,14 @@ export function AdminPage() {
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <button
                         type="button"
-                        className="btn btn-primary btn-sm"
+                        className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
                         onClick={() => void decide(app.id, 'APPROVED', app.organizationName)}
                       >
                         <IconCheck /> Approve
                       </button>
                       <button
                         type="button"
-                        className="btn btn-secondary btn-sm"
+                        className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
                         style={{ color: 'var(--danger)' }}
                         onClick={() => void decide(app.id, 'REJECTED', app.organizationName)}
                       >
@@ -252,8 +252,8 @@ export function AdminPage() {
         <AdminEventOversight />
 
         {/* User Accounts Management */}
-        <section id="accounts" className="table-card">
-          <div className="table-header">
+        <section id="accounts" className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]">
+          <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
             <div>
               <h3>User Accounts & Governance</h3>
               <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -263,7 +263,7 @@ export function AdminPage() {
           </div>
 
           <div style={{ overflowX: 'auto' }}>
-            <table className="data-table">
+            <table className="w-full border-collapse text-left [&_th]:border-b [&_th]:border-[var(--border)] [&_th]:bg-slate-50 [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-[0.5px] [&_th]:text-[var(--text-muted)] [&_th]:uppercase [&_td]:border-b [&_td]:border-[var(--border)] [&_td]:px-5 [&_td]:py-4 [&_td]:text-sm [&_td]:text-[var(--text-main)] [&_td]:align-middle [&_tr:last-child_td]:border-b-0 [&_tr:hover_td]:bg-slate-50">
               <thead>
                 <tr>
                   <th>User Profile</th>
@@ -283,7 +283,7 @@ export function AdminPage() {
                     <td>{u.email}</td>
                     <td>
                       <select
-                        className="form-select"
+                        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         style={{ width: '140px', padding: '6px 10px', fontSize: '13px' }}
                         value={u.role}
                         onChange={(e) => void updateUser(u, { role: e.target.value as UserRecord['role'] })}
@@ -295,7 +295,7 @@ export function AdminPage() {
                     </td>
                     <td>
                       <select
-                        className="form-select"
+                        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         style={{ width: '130px', padding: '6px 10px', fontSize: '13px' }}
                         value={u.status}
                         onChange={(e) => void updateUser(u, { status: e.target.value as UserRecord['status'] })}
@@ -378,8 +378,8 @@ function AdminEventOversight() {
   )
 
   return (
-    <section id="events" className="table-card">
-      <div className="table-header" style={{ flexWrap: 'wrap', gap: '16px' }}>
+    <section id="events" className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]">
+      <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold" style={{ flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h3>Platform Events Oversight</h3>
           <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -391,7 +391,7 @@ function AdminEventOversight() {
             <IconSearch style={{ position: 'absolute', left: '10px', top: '10px', width: '16px', height: '16px', color: 'var(--text-muted)' }} />
             <input
               type="search"
-              className="form-input"
+              className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
               style={{ paddingLeft: '34px', width: '220px' }}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -399,7 +399,7 @@ function AdminEventOversight() {
             />
           </div>
           <select
-            className="form-select"
+            className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
             style={{ width: '150px' }}
             value={status}
             onChange={(e) => setStatus(e.target.value)}
@@ -414,7 +414,7 @@ function AdminEventOversight() {
       </div>
 
       <div style={{ overflowX: 'auto' }}>
-        <table className="data-table">
+        <table className="w-full border-collapse text-left [&_th]:border-b [&_th]:border-[var(--border)] [&_th]:bg-slate-50 [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-[0.5px] [&_th]:text-[var(--text-muted)] [&_th]:uppercase [&_td]:border-b [&_td]:border-[var(--border)] [&_td]:px-5 [&_td]:py-4 [&_td]:text-sm [&_td]:text-[var(--text-main)] [&_td]:align-middle [&_tr:last-child_td]:border-b-0 [&_tr:hover_td]:bg-slate-50">
           <thead>
             <tr>
               <th>Event Title</th>
@@ -429,7 +429,7 @@ function AdminEventOversight() {
             {loading ? (
               <tr>
                 <td colSpan={6} style={{ textAlign: 'center', padding: '32px' }}>
-                  <div className="spinner" style={{ margin: '0 auto 8px' }} />
+                  <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" style={{ margin: '0 auto 8px' }} />
                   <span className="text-muted">Loading events…</span>
                 </td>
               </tr>
@@ -447,10 +447,8 @@ function AdminEventOversight() {
                     <span>{[e.organizer.firstName, e.organizer.lastName].filter(Boolean).join(' ') || e.organizer.email}</span>
                   </td>
                   <td>
-                    <span className={`badge ${
-                      e.status === 'PUBLISHED' ? 'badge-emerald' : e.status === 'CANCELLED' ? 'badge-rose' : 'badge-slate'
-                    }`}>
-                      <span className="badge-dot" />
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize ${e.status === 'PUBLISHED' ? "border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]" : e.status === 'CANCELLED' ? "border border-[#fecaca] bg-[#fef2f2] text-[#dc2626] [--badge-dot-color:#ef4444]" : "border border-slate-200 bg-slate-100 text-slate-600 [--badge-dot-color:#64748b]"}`}>
+                      <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" />
                       {e.status.toLowerCase()}
                     </span>
                   </td>
@@ -462,7 +460,7 @@ function AdminEventOversight() {
                     {e.status !== 'CANCELLED' && e.status !== 'COMPLETED' && (
                       <button
                         type="button"
-                        className="text-button text-button--destructive"
+                        className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))] [--text-button-color:var(--danger)] [--text-button-hover:#b91c1c] [--text-button-bg:var(--danger-bg)]"
                         onClick={() => {
                           setTargetEvent(e)
                           setCancelModalOpen(true)
@@ -559,8 +557,8 @@ function CategoryManager() {
   }
 
   return (
-    <section id="categories" className="table-card">
-      <div className="table-header">
+    <section id="categories" className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]">
+      <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
         <div>
           <h3>Event Categories Taxonomy</h3>
           <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -571,36 +569,36 @@ function CategoryManager() {
 
       <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', background: '#f8fafc' }}>
         <form onSubmit={createCategory} style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr auto', gap: '14px', alignItems: 'flex-end' }}>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="form-label">New Category Name</label>
+          <div className="mb-[18px] flex flex-col gap-1.5" style={{ margin: 0 }}>
+            <label className="text-[13px] font-semibold text-[var(--text-main)]">New Category Name</label>
             <input
               required
               minLength={2}
               maxLength={100}
-              className="form-input"
+              className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Technology & AI"
             />
           </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="form-label">Description (Optional)</label>
+          <div className="mb-[18px] flex flex-col gap-1.5" style={{ margin: 0 }}>
+            <label className="text-[13px] font-semibold text-[var(--text-main)]">Description (Optional)</label>
             <input
               maxLength={2000}
-              className="form-input"
+              className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Brief description of events in this category"
             />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ height: '42px' }}>
+          <button type="submit" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]" style={{ height: '42px' }}>
             <IconPlus /> Add Category
           </button>
         </form>
       </div>
 
       <div style={{ overflowX: 'auto' }}>
-        <table className="data-table">
+        <table className="w-full border-collapse text-left [&_th]:border-b [&_th]:border-[var(--border)] [&_th]:bg-slate-50 [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-[0.5px] [&_th]:text-[var(--text-muted)] [&_th]:uppercase [&_td]:border-b [&_td]:border-[var(--border)] [&_td]:px-5 [&_td]:py-4 [&_td]:text-sm [&_td]:text-[var(--text-main)] [&_td]:align-middle [&_tr:last-child_td]:border-b-0 [&_tr:hover_td]:bg-slate-50">
           <thead>
             <tr>
               <th>Name</th>
@@ -619,7 +617,7 @@ function CategoryManager() {
               <tr key={cat.id}>
                 <td>
                   <input
-                    className="form-input"
+                    className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                     style={{ padding: '6px 10px', fontSize: '13px' }}
                     value={cat.name}
                     onChange={(e) => setCategories(categories.map((c) => (c.id === cat.id ? { ...c, name: e.target.value } : c)))}
@@ -630,32 +628,32 @@ function CategoryManager() {
                 </td>
                 <td>
                   <input
-                    className="form-input"
+                    className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                     style={{ padding: '6px 10px', fontSize: '13px' }}
                     value={cat.description ?? ''}
                     onChange={(e) => setCategories(categories.map((c) => (c.id === cat.id ? { ...c, description: e.target.value } : c)))}
                   />
                 </td>
                 <td>
-                  <span className={`badge ${cat.isActive ? 'badge-emerald' : 'badge-slate'}`}>
-                    <span className="badge-dot" />
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize ${cat.isActive ? "border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]" : "border border-slate-200 bg-slate-100 text-slate-600 [--badge-dot-color:#64748b]"}`}>
+                    <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" />
                     {cat.isActive ? 'Public' : 'Hidden'}
                   </span>
                 </td>
                 <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  <button type="button" className="text-button" onClick={() => void updateCategory(cat)}>
+                  <button type="button" className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]" onClick={() => void updateCategory(cat)}>
                     Save
                   </button>
                   <button
                     type="button"
-                    className="text-button"
+                    className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]"
                     onClick={() => void updateCategory({ ...cat, isActive: !cat.isActive })}
                   >
                     {cat.isActive ? 'Hide' : 'Publish'}
                   </button>
                   <button
                     type="button"
-                    className="text-button text-button--destructive"
+                    className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))] [--text-button-color:var(--danger)] [--text-button-hover:#b91c1c] [--text-button-bg:var(--danger-bg)]"
                     onClick={() => setDeleteTarget(cat)}
                   >
                     <IconTrash style={{ width: '14px', height: '14px' }} />

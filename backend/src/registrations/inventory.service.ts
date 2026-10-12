@@ -78,6 +78,7 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
   }
 
   async expireDueReservations(batchSize = 100, eventId?: string): Promise<number> {
+    // Coalesce overlapping timer/request work in this process; row locks still coordinate separate app instances.
     if (this.expiryBatch) return this.expiryBatch;
     this.expiryBatch = this.runExpiryBatch(batchSize, eventId);
     try {
@@ -131,6 +132,7 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
   ): Promise<number> {
     if (!reservations.length) return 0;
 
+    // Aggregate before decrementing so counters are updated once per locked event/ticket type.
     const quantitiesByTicket = new Map<string, number>();
     const quantitiesByEvent = new Map<string, number>();
     const eventIds = new Set<string>();

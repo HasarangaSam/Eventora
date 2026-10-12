@@ -42,6 +42,7 @@ export class TicketsService {
     if (ticket.registration.status !== 'CONFIRMED') {
       throw new NotFoundException('Ticket not found');
     }
+    // Recreate the signed QR token from its reference; only the token hash is stored in the database.
     const qrToken = ticketQrToken(ticket.reference, this.config);
     if (!verifyTicketQr(ticket.reference, qrToken, ticket.qrTokenHash, this.config)) throw new NotFoundException('Ticket not found');
     const qrCode = await QRCode.toDataURL(qrToken, { errorCorrectionLevel: 'M', margin: 2, width: 256 });

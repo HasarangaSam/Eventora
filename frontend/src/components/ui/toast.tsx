@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useState, type CSSProperties, type ReactNode } from 'react'
 import { IconCheck, IconAlertCircle, IconAlertTriangle, IconInfo, IconX } from './icons'
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
@@ -56,22 +56,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={contextValue}>
       {children}
-      <div className="toast-portal" aria-live="polite" aria-atomic="true">
+      <div className="pointer-events-none fixed right-6 bottom-6 z-[9999] flex w-[calc(100vw-48px)] max-w-[420px] flex-col gap-2.5" aria-live="polite" aria-atomic="true">
         {toasts.map((item) => (
-          <div key={item.id} className={`toast-card toast-card--${item.type}`} role="status">
-            <div className="toast-card__icon">
+          <div key={item.id} className="pointer-events-auto flex items-start gap-3 rounded-[var(--radius-md)] border-l-4 border-solid border-l-[var(--toast-border)] bg-white px-[18px] py-3.5 shadow-[0_10px_25px_-5px_rgba(15,23,42,0.2),0_8px_10px_-6px_rgba(15,23,42,0.1)] transition-all duration-200 animate-[toastSlideIn_0.25s_cubic-bezier(0.16,1,0.3,1)]" style={{ '--toast-border': item.type === 'success' ? 'var(--success)' : item.type === 'error' ? 'var(--danger)' : item.type === 'warning' ? 'var(--warning)' : 'var(--primary)' } as CSSProperties} role="status">
+            <div className={`mt-px h-5 w-5 shrink-0 ${item.type === 'success' ? 'text-[var(--success)]' : item.type === 'error' ? 'text-[var(--danger)]' : item.type === 'warning' ? 'text-[var(--warning)]' : 'text-[var(--primary)]'}`}>
               {item.type === 'success' && <IconCheck />}
               {item.type === 'error' && <IconAlertCircle />}
               {item.type === 'warning' && <IconAlertTriangle />}
               {item.type === 'info' && <IconInfo />}
             </div>
-            <div className="toast-card__content">
-              <strong className="toast-card__title">{item.title}</strong>
-              {item.message && <p className="toast-card__message">{item.message}</p>}
+            <div className="flex-1">
+              <strong className="block text-sm leading-[1.3] font-semibold text-[var(--text-main)]">{item.title}</strong>
+              {item.message && <p className="mt-1 text-[13px] leading-[1.4] text-[var(--text-muted)]">{item.message}</p>}
             </div>
             <button
               type="button"
-              className="toast-card__close"
+              className="flex items-center justify-center rounded-[var(--radius-sm)] border-0 bg-transparent p-0.5 text-[var(--text-subtle)] hover:bg-[var(--surface-hover)] hover:text-[var(--text-main)] [&_svg]:h-4 [&_svg]:w-4"
               onClick={() => dismiss(item.id)}
               aria-label="Dismiss notification"
             >

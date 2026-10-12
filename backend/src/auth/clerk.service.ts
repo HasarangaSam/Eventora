@@ -25,9 +25,24 @@ export class ClerkService {
     });
 
     try {
+      const frontendOrigin = this.config.get<string>(
+        'FRONTEND_ORIGIN',
+        'http://localhost:5173',
+      );
+      const localDevOrigins =
+        this.config.get<string>('NODE_ENV') === 'production'
+          ? []
+          : [
+              'http://localhost:5173',
+              'http://localhost:5174',
+              'http://127.0.0.1:5173',
+              'http://127.0.0.1:5174',
+            ];
+
+      // Accept only Clerk session tokens issued for this frontend origin.
       const state = await this.getClient().authenticateRequest(clerkRequest, {
         acceptsToken: 'session_token',
-        authorizedParties: [this.config.get<string>('FRONTEND_ORIGIN', 'http://localhost:5173')],
+        authorizedParties: [...new Set([frontendOrigin, ...localDevOrigins])],
       });
       const userId = state.toAuth()?.userId;
       if (!state.isAuthenticated || !userId) {

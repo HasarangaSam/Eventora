@@ -12,6 +12,7 @@ export class CheckinsService {
 
   async checkIn(organizerId: string, eventId: string, value: string, method: CheckInMethod, commit = true) {
     return this.prisma.$transaction(async (tx) => {
+      // Keep the event stable while checking ownership and cancellation state.
       const events = await tx.$queryRaw<Array<{ id: string; organizerId: string; status: string }>>(Prisma.sql`
         SELECT "id", "organizerId", "status" FROM "Event" WHERE "id" = ${eventId} FOR SHARE
       `);
@@ -28,6 +29,7 @@ export class CheckinsService {
       `);
       if (!locked.length) return { outcome: 'INVALID' as const };
 
+      // Serialize duplicate scans on the ticket row before checking or creating its one check-in record.
       const ticket = await tx.ticket.findUnique({
         where: { id: candidate.id },
         include: {

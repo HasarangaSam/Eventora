@@ -1,4 +1,6 @@
-# Eventora — Premium Events & Ticketing Platform
+# Eventora — Version 1
+
+Premium Events & Ticketing Platform
 
 > A full-stack, production-grade event ticketing platform built with NestJS, React 19, PostgreSQL (Supabase), Clerk auth, and PayHere payments. Designed with security-first principles, transactional inventory management, and a premium consumer UI.
 

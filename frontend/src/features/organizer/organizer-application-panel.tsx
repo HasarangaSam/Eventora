@@ -146,9 +146,9 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
   const hasPending = applications.some((app) => app.status === 'PENDING')
 
   return (
-    <section className="table-card" style={{ padding: '32px' }}>
+    <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ padding: '32px' }}>
       <div style={{ marginBottom: '24px' }}>
-        <span className="badge badge-indigo" style={{ marginBottom: '8px' }}>
+        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5] [--badge-dot-color:#6366f1]" style={{ marginBottom: '8px' }}>
           Host Events with Eventora
         </span>
         <h2 style={{ margin: '4px 0 6px', fontSize: '22px', fontWeight: 800 }}>
@@ -161,7 +161,7 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '24px' }}>
-          <div className="spinner" style={{ margin: '0 auto 8px' }} />
+          <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" style={{ margin: '0 auto 8px' }} />
           <p className="text-muted">Loading application history…</p>
         </div>
       ) : (
@@ -181,11 +181,9 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                 <strong style={{ fontSize: '16px' }}>{app.organizationName}</strong>
                 <span
-                  className={`badge ${
-                    app.status === 'APPROVED' ? 'badge-emerald' : app.status === 'REJECTED' ? 'badge-rose' : 'badge-amber'
-                  }`}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize ${app.status === 'APPROVED' ? "border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]" : app.status === 'REJECTED' ? "border border-[#fecaca] bg-[#fef2f2] text-[#dc2626] [--badge-dot-color:#ef4444]" : "border border-[#fde68a] bg-[#fffbeb] text-[#d97706] [--badge-dot-color:#f59e0b]"}`}
                 >
-                  <span className="badge-dot" />
+                  <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" />
                   {app.status.toLowerCase()}
                 </span>
               </div>
@@ -205,26 +203,26 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
           {!hasPending && (
             <form onSubmit={submit}>
               <h4 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 700 }}>Contact & Organization</h4>
-              <div className="form-grid-3">
-                <div className="form-group">
-                  <label className="form-label">Contact Name</label>
+              <div className="mb-[18px] grid grid-cols-3 gap-[18px]">
+                <div className="mb-[18px] flex flex-col gap-1.5">
+                  <label className="text-[13px] font-semibold text-[var(--text-main)]">Contact Name</label>
                   <input
                     required
-                    className="form-input"
+                    className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                     value={form.contactName}
                     onChange={(e) => setForm({ ...form, contactName: e.target.value })}
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Verified Email</label>
-                  <input className="form-input" value={email} readOnly disabled style={{ background: '#f1f5f9' }} />
+                <div className="mb-[18px] flex flex-col gap-1.5">
+                  <label className="text-[13px] font-semibold text-[var(--text-main)]">Verified Email</label>
+                  <input className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]" value={email} readOnly disabled style={{ background: '#f1f5f9' }} />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Phone Number</label>
+                <div className="mb-[18px] flex flex-col gap-1.5">
+                  <label className="text-[13px] font-semibold text-[var(--text-main)]">Phone Number</label>
                   <input
                     required
                     type="tel"
-                    className="form-input"
+                    className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                     value={form.contactPhone}
                     onChange={(e) => setForm({ ...form, contactPhone: e.target.value })}
                     placeholder="+94 77 123 4567"
@@ -232,21 +230,21 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
                 </div>
               </div>
 
-              <div className="form-grid-3">
-                <div className="form-group">
-                  <label className="form-label">Organization Name</label>
+              <div className="mb-[18px] grid grid-cols-3 gap-[18px]">
+                <div className="mb-[18px] flex flex-col gap-1.5">
+                  <label className="text-[13px] font-semibold text-[var(--text-main)]">Organization Name</label>
                   <input
                     required
-                    className="form-input"
+                    className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                     value={form.organizationName}
                     onChange={(e) => setForm({ ...form, organizationName: e.target.value })}
                     placeholder="e.g. Colombo Tech Meetups"
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Organization Type</label>
+                <div className="mb-[18px] flex flex-col gap-1.5">
+                  <label className="text-[13px] font-semibold text-[var(--text-main)]">Organization Type</label>
                   <select
-                    className="form-select"
+                    className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                     value={form.organizerType}
                     onChange={(e) => setForm({ ...form, organizerType: e.target.value })}
                   >
@@ -257,11 +255,11 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
                     <option value="OTHER">Other Community</option>
                   </select>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Website / Social URL</label>
+                <div className="mb-[18px] flex flex-col gap-1.5">
+                  <label className="text-[13px] font-semibold text-[var(--text-main)]">Website / Social URL</label>
                   <input
                     type="url"
-                    className="form-input"
+                    className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                     value={form.websiteUrl}
                     onChange={(e) => setForm({ ...form, websiteUrl: e.target.value })}
                     placeholder="https://"
@@ -269,22 +267,22 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
                 </div>
               </div>
 
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label className="form-label">Country</label>
+              <div className="mb-[18px] grid grid-cols-2 gap-[18px]">
+                <div className="mb-[18px] flex flex-col gap-1.5">
+                  <label className="text-[13px] font-semibold text-[var(--text-main)]">Country</label>
                   <input
                     required
-                    className="form-input"
+                    className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                     value={form.country}
                     onChange={(e) => setForm({ ...form, country: e.target.value })}
                     placeholder="Sri Lanka"
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">City</label>
+                <div className="mb-[18px] flex flex-col gap-1.5">
+                  <label className="text-[13px] font-semibold text-[var(--text-main)]">City</label>
                   <input
                     required
-                    className="form-input"
+                    className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                     value={form.city}
                     onChange={(e) => setForm({ ...form, city: e.target.value })}
                     placeholder="Colombo"
@@ -293,20 +291,20 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
               </div>
 
               <h4 style={{ margin: '20px 0 12px', fontSize: '16px', fontWeight: 700 }}>Event Plans & Experience</h4>
-              <div className="form-group">
-                <label className="form-label">Why do you want to host events on Eventora?</label>
+              <div className="mb-[18px] flex flex-col gap-1.5">
+                <label className="text-[13px] font-semibold text-[var(--text-main)]">Why do you want to host events on Eventora?</label>
                 <textarea
                   required
                   rows={3}
-                  className="form-textarea"
+                  className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   placeholder="Tell us about the events you plan to produce…"
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Target Event Categories</label>
+              <div className="mb-[18px] flex flex-col gap-1.5">
+                <label className="text-[13px] font-semibold text-[var(--text-main)]">Target Event Categories</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                   {categories.map((cat) => (
                     <label
@@ -342,11 +340,11 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
                 </div>
               </div>
 
-              <div className="form-grid-2">
-                <div className="form-group">
-                  <label className="form-label">Expected Event Frequency</label>
+              <div className="mb-[18px] grid grid-cols-2 gap-[18px]">
+                <div className="mb-[18px] flex flex-col gap-1.5">
+                  <label className="text-[13px] font-semibold text-[var(--text-main)]">Expected Event Frequency</label>
                   <select
-                    className="form-select"
+                    className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                     value={form.eventFrequency}
                     onChange={(e) => setForm({ ...form, eventFrequency: e.target.value })}
                   >
@@ -356,13 +354,13 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
                     <option value="FREQUENTLY">Frequently (Weekly)</option>
                   </select>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Typical Expected Attendance</label>
+                <div className="mb-[18px] flex flex-col gap-1.5">
+                  <label className="text-[13px] font-semibold text-[var(--text-main)]">Typical Expected Attendance</label>
                   <input
                     required
                     type="number"
                     min="1"
-                    className="form-input"
+                    className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                     value={form.expectedAttendance}
                     onChange={(e) => setForm({ ...form, expectedAttendance: e.target.value })}
                     placeholder="e.g. 150"
@@ -370,12 +368,12 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
                 </div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Previous Event Organizing Experience</label>
+              <div className="mb-[18px] flex flex-col gap-1.5">
+                <label className="text-[13px] font-semibold text-[var(--text-main)]">Previous Event Organizing Experience</label>
                 <textarea
                   required
                   rows={2}
-                  className="form-textarea"
+                  className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                   value={form.experience}
                   onChange={(e) => setForm({ ...form, experience: e.target.value })}
                   placeholder="Briefly describe any past workshops, festivals, or meetups you have held…"
@@ -405,7 +403,7 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
 
               <button
                 type="submit"
-                className="btn btn-primary"
+                className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]"
                 disabled={submitting || categories.length === 0}
               >
                 {submitting ? 'Submitting Application…' : 'Submit Application for Review'}

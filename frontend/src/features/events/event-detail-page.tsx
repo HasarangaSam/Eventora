@@ -138,8 +138,8 @@ export function EventDetailPage() {
 
   if (pageState.status === 'loading') {
     return (
-      <div className="fullscreen-loading">
-        <div className="spinner" />
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 text-[var(--text-muted)] font-medium">
+        <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" />
         <p>Loading event information…</p>
       </div>
     )
@@ -147,11 +147,11 @@ export function EventDetailPage() {
 
   if (pageState.status === 'not-found') {
     return (
-      <div className="fullscreen-loading">
-        <span className="badge badge-rose">Event Not Found</span>
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 text-[var(--text-muted)] font-medium">
+        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#fecaca] bg-[#fef2f2] text-[#dc2626] [--badge-dot-color:#ef4444]">Event Not Found</span>
         <h2 style={{ fontSize: '24px', fontWeight: 800 }}>We couldn't locate this event</h2>
         <p className="text-muted">The link may have expired or the event may have been unpublished.</p>
-        <Link to="/discover" className="btn btn-primary">
+        <Link to="/discover" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]">
           Explore Other Events
         </Link>
       </div>
@@ -160,9 +160,9 @@ export function EventDetailPage() {
 
   if (pageState.status === 'error') {
     return (
-      <div className="fullscreen-loading">
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 text-[var(--text-muted)] font-medium">
         <h2 style={{ fontSize: '24px', fontWeight: 800 }}>Event details are temporarily unavailable</h2>
-        <Link to="/discover" className="btn btn-secondary">
+        <Link to="/discover" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)]">
           Back to Events
         </Link>
       </div>
@@ -244,16 +244,16 @@ export function EventDetailPage() {
   }
 
   return (
-    <main className="public-container" style={{ padding: '32px 24px 80px' }}>
-      <Link to="/discover" className="text-button" style={{ marginBottom: '20px' }}>
+    <main className="mx-auto w-full max-w-[1280px] px-6" style={{ padding: '32px 24px 80px' }}>
+      <Link to="/discover" className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]" style={{ marginBottom: '20px' }}>
         ← All Events
       </Link>
 
       {/* Hero Banner */}
-      <div className="event-detail-banner">
-        <img src={coverImage} alt={event.title} />
-        <div className="event-detail-banner__overlay">
-          <span className="badge badge-indigo" style={{ alignSelf: 'flex-start', marginBottom: '12px' }}>
+      <div className="relative mb-10 h-[420px] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)]">
+        <img className="h-full w-full object-cover" src={coverImage} alt={event.title} />
+        <div className="absolute inset-0 flex flex-col justify-end bg-[linear-gradient(180deg,rgba(15,23,42,0.2)_0%,rgba(15,23,42,0.85)_100%)] p-10 text-white">
+          <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5] [--badge-dot-color:#6366f1]" style={{ alignSelf: 'flex-start', marginBottom: '12px' }}>
             {event.category.name}
           </span>
           <h1 style={{ margin: '0 0 12px', fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 800, lineHeight: 1.15 }}>
@@ -273,10 +273,10 @@ export function EventDetailPage() {
       </div>
 
       {/* Layout Content & Sticky Ticket Card */}
-      <div className="event-detail-layout">
+      <div className="mb-20 grid grid-cols-[1fr_380px] gap-12">
         {/* Left Column: Details & Agenda */}
         <div>
-          <section className="table-card" style={{ padding: '32px', marginBottom: '32px' }}>
+          <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ padding: '32px', marginBottom: '32px' }}>
             <h2 style={{ margin: '0 0 16px', fontSize: '20px', fontWeight: 800 }}>About this Event</h2>
             <p style={{ margin: '0 0 24px', fontSize: '15px', lineHeight: 1.7, color: 'var(--text-main)', whiteSpace: 'pre-line' }}>
               {event.description}
@@ -289,7 +289,7 @@ export function EventDetailPage() {
           </section>
 
           {/* Agenda / Schedule */}
-          <section className="table-card" style={{ padding: '32px' }}>
+          <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ padding: '32px' }}>
             <h2 style={{ margin: '0 0 20px', fontSize: '20px', fontWeight: 800 }}>Event Schedule</h2>
             {sessions.length ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -332,7 +332,7 @@ export function EventDetailPage() {
 
         {/* Right Sticky Column: Ticket Booking Panel */}
         <aside>
-          <div className="ticket-panel-sticky">
+          <div className="sticky top-[94px] rounded-[var(--radius-xl)] border border-[var(--border)] bg-white p-7 shadow-[var(--shadow-md)]">
             <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 800 }}>Reserve Your Tickets</h3>
 
             {/* Ticket Tier Selector */}
@@ -385,21 +385,21 @@ export function EventDetailPage() {
                       Sign in to reserve tickets and proceed to secure checkout.
                     </p>
                     <SignInButton mode="modal">
-                      <button type="button" className="btn btn-primary" style={{ width: '100%' }}>
+                      <button type="button" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]" style={{ width: '100%' }}>
                         Sign In to Book
                       </button>
                     </SignInButton>
                   </div>
                 ) : (
                   <form onSubmit={beginCheckout}>
-                    <div className="form-group">
-                      <label className="form-label">Ticket Quantity</label>
+                    <div className="mb-[18px] flex flex-col gap-1.5">
+                      <label className="text-[13px] font-semibold text-[var(--text-main)]">Ticket Quantity</label>
                       <input
                         required
                         type="number"
                         min="1"
                         max={selectedTicket.availableQuantity}
-                        className="form-input"
+                        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         value={quantity}
                         disabled={registrationStarted}
                         onChange={(e) => setQuantity(e.target.value)}
@@ -425,17 +425,17 @@ export function EventDetailPage() {
 
                     {/* Attendee Details Form */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
-                      <div className="form-grid-2">
+                      <div className="mb-[18px] grid grid-cols-2 gap-[18px]">
                         <input
                           required
-                          className="form-input"
+                          className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                           placeholder="First Name"
                           value={contact.firstName}
                           onChange={(e) => setContact({ ...contact, firstName: e.target.value })}
                         />
                         <input
                           required
-                          className="form-input"
+                          className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                           placeholder="Last Name"
                           value={contact.lastName}
                           onChange={(e) => setContact({ ...contact, lastName: e.target.value })}
@@ -444,29 +444,29 @@ export function EventDetailPage() {
                       <input
                         required
                         type="tel"
-                        className="form-input"
+                        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         placeholder="Phone Number"
                         value={contact.phone}
                         onChange={(e) => setContact({ ...contact, phone: e.target.value })}
                       />
                       <input
                         required
-                        className="form-input"
+                        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         placeholder="Billing Address"
                         value={contact.address}
                         onChange={(e) => setContact({ ...contact, address: e.target.value })}
                       />
-                      <div className="form-grid-2">
+                      <div className="mb-[18px] grid grid-cols-2 gap-[18px]">
                         <input
                           required
-                          className="form-input"
+                          className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                           placeholder="City"
                           value={contact.city}
                           onChange={(e) => setContact({ ...contact, city: e.target.value })}
                         />
                         <input
                           required
-                          className="form-input"
+                          className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                           placeholder="Country"
                           value={contact.country}
                           onChange={(e) => setContact({ ...contact, country: e.target.value })}
@@ -476,7 +476,7 @@ export function EventDetailPage() {
 
                     <button
                       type="submit"
-                      className="btn btn-primary"
+                      className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]"
                       style={{ width: '100%', padding: '14px' }}
                       disabled={
                         checkoutBusy ||

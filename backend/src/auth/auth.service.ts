@@ -60,6 +60,7 @@ export class AuthService {
       );
     }
 
+    // Sync identity fields only; Eventora role and account status remain controlled by the application.
     return this.prisma.user.upsert({
       where: { clerkUserId: profile.id },
       create: {

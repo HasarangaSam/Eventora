@@ -342,7 +342,7 @@ export function OrganizerEventsDashboard() {
         </div>
         <button
           type="button"
-          className="btn btn-primary"
+          className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]"
           onClick={() => {
             setCreating(true)
             setSelectedId('')
@@ -356,13 +356,13 @@ export function OrganizerEventsDashboard() {
 
       {loading ? (
         <div style={{ padding: '60px', textAlign: 'center' }}>
-          <div className="spinner" style={{ margin: '0 auto 12px' }} />
+          <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" style={{ margin: '0 auto 12px' }} />
           <p className="text-muted">Loading your events…</p>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '28px', alignItems: 'start' }}>
           {/* Left Event Navigator */}
-          <div className="table-card" style={{ margin: 0, padding: '16px' }}>
+          <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0, padding: '16px' }}>
             <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
               Your Events ({events.length})
             </h4>
@@ -393,9 +393,7 @@ export function OrganizerEventsDashboard() {
                       {new Date(ev.startAt).toLocaleDateString()}
                     </span>
                     <span
-                      className={`badge badge-sm ${
-                        ev.status === 'PUBLISHED' ? 'badge-emerald' : ev.status === 'CANCELLED' ? 'badge-rose' : 'badge-slate'
-                      }`}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize badge-sm ${ev.status === 'PUBLISHED' ? "border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]" : ev.status === 'CANCELLED' ? "border border-[#fecaca] bg-[#fef2f2] text-[#dc2626] [--badge-dot-color:#ef4444]" : "border border-slate-200 bg-slate-100 text-slate-600 [--badge-dot-color:#64748b]"}`}
                     >
                       {ev.status.toLowerCase()}
                     </span>
@@ -411,7 +409,7 @@ export function OrganizerEventsDashboard() {
           </div>
 
           {/* Right Editor Workspace */}
-          <div className="table-card" style={{ margin: 0 }}>
+          <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
             {/* Status & Action Bar */}
             {!creating && selected && (
               <div
@@ -427,8 +425,8 @@ export function OrganizerEventsDashboard() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span className={`badge ${selected.status === 'PUBLISHED' ? 'badge-emerald' : 'badge-amber'}`}>
-                    <span className="badge-dot" />
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize ${selected.status === 'PUBLISHED' ? "border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]" : "border border-[#fde68a] bg-[#fffbeb] text-[#d97706] [--badge-dot-color:#f59e0b]"}`}>
+                    <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" />
                     {selected.status.toLowerCase()}
                   </span>
                   <span className="text-muted" style={{ fontSize: '13px' }}>
@@ -437,24 +435,24 @@ export function OrganizerEventsDashboard() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <Link to={`/organizer/events/${selected.id}/check-in`} className="btn btn-secondary btn-sm">
+                  <Link to={`/organizer/events/${selected.id}/check-in`} className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]">
                     <IconCamera /> Open Check-in Console
                   </Link>
 
                   {selected.status === 'DRAFT' && (
-                    <button type="button" className="btn btn-primary btn-sm" onClick={() => void handlePublishToggle('publish')}>
+                    <button type="button" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]" onClick={() => void handlePublishToggle('publish')}>
                       Publish Event
                     </button>
                   )}
                   {selected.status === 'PUBLISHED' && (
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => void handlePublishToggle('unpublish')}>
+                    <button type="button" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]" onClick={() => void handlePublishToggle('unpublish')}>
                       Unpublish (Draft)
                     </button>
                   )}
                   {selected.status !== 'CANCELLED' && selected.status !== 'COMPLETED' && (
                     <button
                       type="button"
-                      className="text-button text-button--destructive"
+                      className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))] [--text-button-color:var(--danger)] [--text-button-hover:#b91c1c] [--text-button-bg:var(--danger-bg)]"
                       onClick={() => setCancelModalOpen(true)}
                     >
                       Cancel Event
@@ -463,7 +461,7 @@ export function OrganizerEventsDashboard() {
                   {selected.status !== 'CANCELLED' && (
                     <button
                       type="button"
-                      className="text-button text-button--destructive"
+                      className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))] [--text-button-color:var(--danger)] [--text-button-hover:#b91c1c] [--text-button-bg:var(--danger-bg)]"
                       onClick={() => setDeleteModalOpen(true)}
                     >
                       Delete
@@ -478,7 +476,7 @@ export function OrganizerEventsDashboard() {
               <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 24px' }}>
                 <button
                   type="button"
-                  className={`nav-link ${activeTab === 'details' ? 'active' : ''}`}
+                  className="cursor-pointer border-0 bg-transparent px-[18px] py-[14px] text-sm font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text-main)]"
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '14px 18px' }}
                   onClick={() => setActiveTab('details')}
                 >
@@ -486,7 +484,7 @@ export function OrganizerEventsDashboard() {
                 </button>
                 <button
                   type="button"
-                  className={`nav-link ${activeTab === 'tickets' ? 'active' : ''}`}
+                  className="cursor-pointer border-0 bg-transparent px-[18px] py-[14px] text-sm font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text-main)]"
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '14px 18px' }}
                   onClick={() => setActiveTab('tickets')}
                 >
@@ -494,7 +492,7 @@ export function OrganizerEventsDashboard() {
                 </button>
                 <button
                   type="button"
-                  className={`nav-link ${activeTab === 'schedule' ? 'active' : ''}`}
+                  className="cursor-pointer border-0 bg-transparent px-[18px] py-[14px] text-sm font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text-main)]"
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '14px 18px' }}
                   onClick={() => setActiveTab('schedule')}
                 >
@@ -502,7 +500,7 @@ export function OrganizerEventsDashboard() {
                 </button>
                 <button
                   type="button"
-                  className={`nav-link ${activeTab === 'media' ? 'active' : ''}`}
+                  className="cursor-pointer border-0 bg-transparent px-[18px] py-[14px] text-sm font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text-main)]"
                   style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '14px 18px' }}
                   onClick={() => setActiveTab('media')}
                 >
@@ -516,37 +514,37 @@ export function OrganizerEventsDashboard() {
               {(creating || activeTab === 'details') && (
                 <form onSubmit={submitEvent}>
                   <h3 style={{ margin: '0 0 20px', fontSize: '18px' }}>{creating ? 'Create Event Draft' : 'Event Details & Logistics'}</h3>
-                  <div className="form-group">
-                    <label className="form-label">Event Title</label>
+                  <div className="mb-[18px] flex flex-col gap-1.5">
+                    <label className="text-[13px] font-semibold text-[var(--text-main)]">Event Title</label>
                     <input
                       required
                       maxLength={200}
-                      className="form-input"
+                      className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                       value={form.title}
                       onChange={(e) => setForm({ ...form, title: e.target.value })}
                       placeholder="e.g. Colombo Tech Summit 2026"
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label className="form-label">Full Description</label>
+                  <div className="mb-[18px] flex flex-col gap-1.5">
+                    <label className="text-[13px] font-semibold text-[var(--text-main)]">Full Description</label>
                     <textarea
                       required
                       rows={5}
                       maxLength={20000}
-                      className="form-textarea"
+                      className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                       value={form.description}
                       onChange={(e) => setForm({ ...form, description: e.target.value })}
                       placeholder="Describe what attendees can expect, speakers, dress code, benefits…"
                     />
                   </div>
 
-                  <div className="form-grid-3">
-                    <div className="form-group">
-                      <label className="form-label">Category</label>
+                  <div className="mb-[18px] grid grid-cols-3 gap-[18px]">
+                    <div className="mb-[18px] flex flex-col gap-1.5">
+                      <label className="text-[13px] font-semibold text-[var(--text-main)]">Category</label>
                       <select
                         required
-                        className="form-select"
+                        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         value={form.categoryId}
                         onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
                       >
@@ -557,22 +555,22 @@ export function OrganizerEventsDashboard() {
                       </select>
                     </div>
 
-                    <div className="form-group">
-                      <label className="form-label">City</label>
+                    <div className="mb-[18px] flex flex-col gap-1.5">
+                      <label className="text-[13px] font-semibold text-[var(--text-main)]">City</label>
                       <input
                         required
-                        className="form-input"
+                        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         value={form.city}
                         onChange={(e) => setForm({ ...form, city: e.target.value })}
                         placeholder="e.g. Colombo"
                       />
                     </div>
 
-                    <div className="form-group">
-                      <label className="form-label">Venue / Hall</label>
+                    <div className="mb-[18px] flex flex-col gap-1.5">
+                      <label className="text-[13px] font-semibold text-[var(--text-main)]">Venue / Hall</label>
                       <input
                         required
-                        className="form-input"
+                        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         value={form.venue}
                         onChange={(e) => setForm({ ...form, venue: e.target.value })}
                         placeholder="e.g. BMICH Hall A"
@@ -580,35 +578,35 @@ export function OrganizerEventsDashboard() {
                     </div>
                   </div>
 
-                  <div className="form-grid-3">
-                    <div className="form-group">
-                      <label className="form-label">Starts At</label>
+                  <div className="mb-[18px] grid grid-cols-3 gap-[18px]">
+                    <div className="mb-[18px] flex flex-col gap-1.5">
+                      <label className="text-[13px] font-semibold text-[var(--text-main)]">Starts At</label>
                       <input
                         required
                         type="datetime-local"
-                        className="form-input"
+                        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         value={form.startAt}
                         onChange={(e) => setForm({ ...form, startAt: e.target.value })}
                       />
                     </div>
 
-                    <div className="form-group">
-                      <label className="form-label">Ends At</label>
+                    <div className="mb-[18px] flex flex-col gap-1.5">
+                      <label className="text-[13px] font-semibold text-[var(--text-main)]">Ends At</label>
                       <input
                         required
                         type="datetime-local"
-                        className="form-input"
+                        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         value={form.endAt}
                         onChange={(e) => setForm({ ...form, endAt: e.target.value })}
                       />
                     </div>
 
-                    <div className="form-group">
-                      <label className="form-label">Capacity (Optional)</label>
+                    <div className="mb-[18px] flex flex-col gap-1.5">
+                      <label className="text-[13px] font-semibold text-[var(--text-main)]">Capacity (Optional)</label>
                       <input
                         type="number"
                         min="1"
-                        className="form-input"
+                        className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         value={form.capacity}
                         onChange={(e) => setForm({ ...form, capacity: e.target.value })}
                         placeholder="Unlimited"
@@ -617,7 +615,7 @@ export function OrganizerEventsDashboard() {
                   </div>
 
                   <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
-                    <button type="submit" className="btn btn-primary">
+                    <button type="submit" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]">
                       {creating ? 'Create Draft & Continue' : 'Save Event Details'}
                     </button>
                   </div>
@@ -645,7 +643,7 @@ export function OrganizerEventsDashboard() {
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <strong style={{ fontSize: '16px' }}>{t.name}</strong>
-                          <span className={`badge ${t.isActive ? 'badge-emerald' : 'badge-slate'}`}>
+                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize ${t.isActive ? "border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]" : "border border-slate-200 bg-slate-100 text-slate-600 [--badge-dot-color:#64748b]"}`}>
                             {t.isActive ? 'Active' : 'Inactive'}
                           </span>
                         </div>
@@ -656,12 +654,12 @@ export function OrganizerEventsDashboard() {
                           Committed: {t.quantitySold + t.quantityReserved} / {t.quantity} tickets
                         </div>
                         <div style={{ display: 'flex', gap: '8px', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
-                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => void toggleTicketType(t)}>
+                          <button type="button" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]" onClick={() => void toggleTicketType(t)}>
                             {t.isActive ? 'Pause' : 'Activate'}
                           </button>
                           <button
                             type="button"
-                            className="btn btn-secondary btn-sm"
+                            className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
                             style={{ color: 'var(--danger)' }}
                             onClick={() => void deleteTicketType(t.id)}
                           >
@@ -675,42 +673,42 @@ export function OrganizerEventsDashboard() {
                   <div style={{ background: '#f8fafc', padding: '20px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
                     <h4 style={{ margin: '0 0 16px', fontSize: '15px' }}>Add Paid Ticket Tier</h4>
                     <form onSubmit={addTicket}>
-                      <div className="form-grid-3">
-                        <div className="form-group">
-                          <label className="form-label">Tier Name</label>
+                      <div className="mb-[18px] grid grid-cols-3 gap-[18px]">
+                        <div className="mb-[18px] flex flex-col gap-1.5">
+                          <label className="text-[13px] font-semibold text-[var(--text-main)]">Tier Name</label>
                           <input
                             required
-                            className="form-input"
+                            className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                             value={ticket.name}
                             onChange={(e) => setTicket({ ...ticket, name: e.target.value })}
                             placeholder="e.g. VIP Pass, Early Bird"
                           />
                         </div>
-                        <div className="form-group">
-                          <label className="form-label">Price</label>
+                        <div className="mb-[18px] flex flex-col gap-1.5">
+                          <label className="text-[13px] font-semibold text-[var(--text-main)]">Price</label>
                           <input
                             required
                             inputMode="decimal"
-                            className="form-input"
+                            className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                             value={ticket.price}
                             onChange={(e) => setTicket({ ...ticket, price: e.target.value })}
                             placeholder="e.g. 5000"
                           />
                         </div>
-                        <div className="form-group">
-                          <label className="form-label">Total Quantity</label>
+                        <div className="mb-[18px] flex flex-col gap-1.5">
+                          <label className="text-[13px] font-semibold text-[var(--text-main)]">Total Quantity</label>
                           <input
                             required
                             type="number"
                             min="1"
-                            className="form-input"
+                            className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                             value={ticket.quantity}
                             onChange={(e) => setTicket({ ...ticket, quantity: e.target.value })}
                             placeholder="e.g. 100"
                           />
                         </div>
                       </div>
-                      <button type="submit" className="btn btn-primary btn-sm">
+                      <button type="submit" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]">
                         <IconPlus /> Add Ticket Tier
                       </button>
                     </form>
@@ -747,7 +745,7 @@ export function OrganizerEventsDashboard() {
                         </div>
                         <button
                           type="button"
-                          className="btn btn-secondary btn-sm"
+                          className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
                           style={{ color: 'var(--danger)' }}
                           onClick={() => void deleteSession(s.id)}
                         >
@@ -763,59 +761,59 @@ export function OrganizerEventsDashboard() {
                   <div style={{ background: '#f8fafc', padding: '20px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
                     <h4 style={{ margin: '0 0 16px', fontSize: '15px' }}>Add Schedule Entry</h4>
                     <form onSubmit={addSession}>
-                      <div className="form-grid-2">
-                        <div className="form-group">
-                          <label className="form-label">Session Title</label>
+                      <div className="mb-[18px] grid grid-cols-2 gap-[18px]">
+                        <div className="mb-[18px] flex flex-col gap-1.5">
+                          <label className="text-[13px] font-semibold text-[var(--text-main)]">Session Title</label>
                           <input
                             required
-                            className="form-input"
+                            className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                             value={session.title}
                             onChange={(e) => setSession({ ...session, title: e.target.value })}
                             placeholder="e.g. Keynote Address"
                           />
                         </div>
-                        <div className="form-group">
-                          <label className="form-label">Speaker / Host (Optional)</label>
+                        <div className="mb-[18px] flex flex-col gap-1.5">
+                          <label className="text-[13px] font-semibold text-[var(--text-main)]">Speaker / Host (Optional)</label>
                           <input
-                            className="form-input"
+                            className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                             value={session.speaker}
                             onChange={(e) => setSession({ ...session, speaker: e.target.value })}
                             placeholder="e.g. Dr. Jane Doe"
                           />
                         </div>
                       </div>
-                      <div className="form-grid-3">
-                        <div className="form-group">
-                          <label className="form-label">Starts At</label>
+                      <div className="mb-[18px] grid grid-cols-3 gap-[18px]">
+                        <div className="mb-[18px] flex flex-col gap-1.5">
+                          <label className="text-[13px] font-semibold text-[var(--text-main)]">Starts At</label>
                           <input
                             required
                             type="datetime-local"
-                            className="form-input"
+                            className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                             value={session.startAt}
                             onChange={(e) => setSession({ ...session, startAt: e.target.value })}
                           />
                         </div>
-                        <div className="form-group">
-                          <label className="form-label">Ends At</label>
+                        <div className="mb-[18px] flex flex-col gap-1.5">
+                          <label className="text-[13px] font-semibold text-[var(--text-main)]">Ends At</label>
                           <input
                             required
                             type="datetime-local"
-                            className="form-input"
+                            className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                             value={session.endAt}
                             onChange={(e) => setSession({ ...session, endAt: e.target.value })}
                           />
                         </div>
-                        <div className="form-group">
-                          <label className="form-label">Stage / Room</label>
+                        <div className="mb-[18px] flex flex-col gap-1.5">
+                          <label className="text-[13px] font-semibold text-[var(--text-main)]">Stage / Room</label>
                           <input
-                            className="form-input"
+                            className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                             value={session.venue}
                             onChange={(e) => setSession({ ...session, venue: e.target.value })}
                             placeholder="e.g. Main Auditorium"
                           />
                         </div>
                       </div>
-                      <button type="submit" className="btn btn-primary btn-sm">
+                      <button type="submit" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]">
                         <IconPlus /> Add Schedule Entry
                       </button>
                     </form>
@@ -847,12 +845,12 @@ export function OrganizerEventsDashboard() {
                     </div>
 
                     <form onSubmit={uploadCover} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <label className="form-label">Upload Custom Cover Image (JPEG, PNG, WebP up to 5 MB)</label>
+                      <label className="text-[13px] font-semibold text-[var(--text-main)]">Upload Custom Cover Image (JPEG, PNG, WebP up to 5 MB)</label>
                       <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <input type="file" name="file" accept="image/jpeg,image/png,image/webp" required className="form-input" />
-                        <button type="submit" className="btn btn-primary btn-sm">Upload</button>
+                        <input type="file" name="file" accept="image/jpeg,image/png,image/webp" required className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]" />
+                        <button type="submit" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]">Upload</button>
                         {selected.coverImageUrl && (
-                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => void deleteCover()}>
+                          <button type="button" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]" onClick={() => void deleteCover()}>
                             Reset to Default
                           </button>
                         )}

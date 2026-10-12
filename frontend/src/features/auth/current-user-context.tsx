@@ -84,8 +84,8 @@ export function PublicRouteGuard({ children }: { children: ReactNode }) {
 
   if (isLoaded && isSignedIn && isLoading) {
     return (
-      <div className="fullscreen-loading">
-        <div className="spinner" />
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 text-[var(--text-muted)] font-medium">
+        <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" />
         <p>Loading your workspace…</p>
       </div>
     )
@@ -112,8 +112,8 @@ export function AdminRouteGuard({ children }: { children: ReactNode }) {
 
   if (!isLoaded || (isSignedIn && isLoading)) {
     return (
-      <div className="fullscreen-loading">
-        <div className="spinner" />
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 text-[var(--text-muted)] font-medium">
+        <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" />
         <p>Verifying administrative credentials…</p>
       </div>
     )
@@ -140,8 +140,8 @@ export function OrganizerRouteGuard({ children }: { children: ReactNode }) {
 
   if (!isLoaded || (isSignedIn && isLoading)) {
     return (
-      <div className="fullscreen-loading">
-        <div className="spinner" />
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4 text-[var(--text-muted)] font-medium">
+        <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" />
         <p>Verifying organizer credentials…</p>
       </div>
     )

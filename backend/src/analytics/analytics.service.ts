@@ -52,6 +52,7 @@ export class AnalyticsService {
 
   private async salesTrend(registration: Prisma.PaymentAttemptWhereInput) {
     const months = monthWindows();
+    // Only verified successes count as gross sales; pending callbacks are not settled revenue.
     const monthly = await Promise.all(months.map(async ({ key, start, end }) => {
       const groups = await this.prisma.paymentAttempt.groupBy({ by: ['currency'], where: { ...registration, status: 'SUCCEEDED', verifiedAt: { not: null }, paidAt: { gte: start, lt: end } }, _sum: { amount: true }, _count: { _all: true } });
       return { month: key, grossSales: groups.map(group => ({ currency: group.currency, amount: group._sum.amount?.toString() ?? '0', payments: group._count._all })) };

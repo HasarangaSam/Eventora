@@ -62,6 +62,7 @@ export class OrganizerEventsService {
     if (!category) throw new BadRequestException('An active category is required');
     const baseSlug = slugify(input.title);
     if (!baseSlug) throw new BadRequestException('title must contain letters or numbers');
+    // Retry only slug collisions; a bounded suffix loop avoids hiding unrelated database errors.
     for (let attempt = 0; attempt < 5; attempt++) {
       const slug = attempt ? `${baseSlug}-${randomSuffix()}` : baseSlug;
       try {
@@ -118,6 +119,7 @@ export class OrganizerEventsService {
       throw new BadRequestException('Title, description, location, and an active category are required before publishing');
     }
     const now = new Date();
+    // Require at least one genuinely purchasable paid ticket before making the event public.
     if (!details.ticketTypes.some((ticket) => ticket.isActive && ticket.price.greaterThan(0)
       && ticket.quantity - ticket.quantityReserved - ticket.quantitySold > 0
       && (!ticket.salesStartAt || ticket.salesStartAt < event.startAt)

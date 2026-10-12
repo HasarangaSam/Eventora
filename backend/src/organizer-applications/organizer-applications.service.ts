@@ -60,6 +60,7 @@ export class OrganizerApplicationsService {
     expectedAttendance: number;
     categoryIds: string[];
   }, verifiedEmail: string) {
+    // Friendly checks provide useful errors; the partial unique index remains the concurrency guarantee.
     const approved = await this.prisma.organizerApplication.findFirst({
       where: { applicantId: user.id, status: 'APPROVED' },
       select: { id: true },
@@ -156,6 +157,7 @@ export class OrganizerApplicationsService {
           throw new ConflictException('This application has already been decided');
         }
 
+        // Conditional update makes a review a single-winner state transition under concurrent admins.
         const update = await tx.organizerApplication.updateMany({
           where: { id, status: 'PENDING' },
           data: {
@@ -183,6 +185,7 @@ export class OrganizerApplicationsService {
           where: { id: application.applicantId },
           select: { email: true },
         });
+        // Queue the decision email in the same transaction as the review and role change.
         await tx.emailDelivery.create({
           data: {
             type: 'ORGANIZER_APPLICATION_DECISION',

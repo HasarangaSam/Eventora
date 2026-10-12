@@ -70,6 +70,7 @@ export class EventsService {
     ]);
 
     const now = new Date();
+    // Compute availability from the same reserved/sold counters used by checkout so cards do not promise sold-out tickets.
     const items = events.map((event) => {
       const capacityRemaining = eventCapacityRemaining(event.capacity, event.ticketsReserved, event.ticketsSold);
       const tickets = event.ticketTypes

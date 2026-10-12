@@ -8,6 +8,7 @@ export class CloudinaryService {
 
   async upload(buffer: Buffer, format: string): Promise<{ url: string; publicId: string }> {
     const client = this.client();
+    // Cloudinary's stream API is callback-based; resolve only when its durable public identifiers are present.
     return new Promise((resolve, reject) => {
       const stream = client.uploader.upload_stream(
         { folder: 'eventora/events', resource_type: 'image', format: format.slice('image/'.length), overwrite: false },

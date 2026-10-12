@@ -36,6 +36,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
   }
 
   async processDue() {
+    // Avoid overlapping polls in one process; SKIP LOCKED handles competition between processes.
     if (this.running) return;
     this.running = true;
     try {
@@ -48,6 +49,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
 
   private async claimBatch() {
     return this.prisma.$transaction(async (tx) => {
+      // Claim rows atomically and set a lease before sending so another worker skips this batch.
       return tx.$queryRaw<Array<{ id: string; attemptCount: number }>>`
         WITH due AS (
           SELECT "id" FROM "EmailDelivery"
@@ -83,6 +85,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
       });
       await this.prisma.emailDelivery.update({ where: { id }, data: { status: 'SENT', sentAt: new Date(), nextAttemptAt: null, lastError: null } });
     } catch (error) {
+      // Store a sanitized code rather than provider response text, which may contain recipient or credential data.
       const terminal = attemptCount >= MAX_ATTEMPTS;
       const seconds = Math.min(60 * 60, 30 * 2 ** Math.max(0, attemptCount - 1));
       const safeError = safeFailureCode(error);
