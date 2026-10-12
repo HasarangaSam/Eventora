@@ -1,50 +1,175 @@
-# Current Architecture
+# Architecture
 
-## Application boundaries
+## Application Boundaries
 
-- `frontend/` is a React 19 and TypeScript Vite application. `App.tsx` provides the home, event detail, account, and administrator routes; feature components live under `src/features/`.
-- `backend/` is a NestJS application with feature modules registered in `src/app.module.ts`. Controllers parse HTTP input and services query PostgreSQL through `PrismaService`.
-- Supabase PostgreSQL is the system of record. Prisma 7 uses `@prisma/adapter-pg` and the configured session-pooler URL.
-- Clerk authenticates users. Eventora roles and account status remain database-owned and are enforced by backend guards.
+| Layer | Technology | Details |
+|---|---|---|
+| **Frontend** | React 19 + Vite 8 + TypeScript 6 | SPA served from port 5173. `App.tsx` defines all routes via React Router v8. Feature code lives under `src/features/`. |
+| **Backend** | NestJS 12 + TypeScript 6 | REST API on port 3000. Feature modules in `src/app.module.ts`. Controllers validate input; services contain all business logic. |
+| **Database** | Supabase PostgreSQL via Prisma 7 | Schema in `backend/prisma/schema.prisma`. Migrations in `backend/prisma/migrations/`. `@prisma/adapter-pg` (session pooler compatible). |
+| **Auth** | Clerk | JWT verification via `@clerk/backend`. Eventora owns `role` and `status` in PostgreSQL — never derived from Clerk. |
+| **Payments** | PayHere Hosted Checkout | Backend generates signed checkout form; webhook signature verified server-side before state changes. |
+| **Images** | Cloudinary | Organizer event covers. MIME + magic-byte validated before upload. |
+| **Email** | Gmail SMTP / nodemailer | PostgreSQL outbox worker, exponential backoff, bounded retries. |
 
-## Implemented backend modules
+---
 
-- `AuthModule`: Clerk bearer-token verification, current-user synchronization, and signature-verified Clerk webhook handling.
-- `OrganizerApplicationsModule`: applicant history, admin decisions, database role/status management, and the transactional organizer-decision email outbox entry.
-- `CategoriesModule`: public active-category reads and administrator category create/update/disable/delete operations. Deletion is refused while any event references a category.
-- `EventsModule`: public published-event discovery and organizer-owned event management, including publication transitions, Cloudinary covers, schedule entries, and paid ticket types.
-- `RegistrationsModule`: authenticated registration requests, idempotent request handling, transactional inventory holds, pending payment attempts, attendee-owned registration reads, and database-clock reservation expiry/release.
-- `PaymentsModule`: backend-generated PayHere hosted checkout forms, attendee-owned payment reads, and the public signature-verified form notification route. Verified success commits inventory and confirms registrations; late unfulfillable successes are retained as payment exceptions.
-- `TicketsModule`: attendee-owned digital ticket list/detail APIs; ticket details generate a QR image only after confirming registration ownership and payment state.
-- Check-in endpoints in `EventsModule`: approved organizers validate QR tokens or manual references, check in event tickets, and page through attendance history.
-- `EmailModule`: database-backed outbox worker with Gmail SMTP, stable message IDs, safe delivery errors, and bounded retries. Purchase ticket rows and their email outbox row commit atomically with verified payment fulfillment.
-- `PrismaModule`: shared Prisma client connected through the PostgreSQL adapter.
+## Backend Module Reference
 
-## Public catalog behavior
+### `AuthModule`
+- `ClerkAuthGuard` — verifies Clerk session JWT, checks `authorized_party` against `FRONTEND_ORIGIN`
+- `AccountGuard` — resolves database user, rejects `DEACTIVATED` accounts
+- `RolesGuard` — enforces database role (`ATTENDEE`, `ORGANIZER`, `ADMIN`)
+- `ClerkService` — upsert on `clerkUserId`; **never updates** `role` or `status`
+- Clerk webhook at `POST /api/auth/webhooks/clerk` — signature-verified, idempotent user sync; `user.deleted` deactivates (does not delete financial history)
+- `GET /api/auth/me` — returns synchronized Eventora user record
 
-`GET /api/events` accepts `page` (default 1, maximum 10,000), `pageSize` (default 12, maximum 48), `search`, `categoryId`, `from`, `to`, `sort` (`startAt`, `newest`, or `title`), and `direction` (`asc` or `desc`). Search checks title, description, venue, and city. Without an explicit date range, ended events are omitted. Results include `items` and a `pagination` object with total result count and page count.
+### `AnalyticsModule`
+- `GET /api/admin/dashboard` — platform KPIs: user counts by role, events by status, registration/payment totals, verified gross sales by currency, attendance rate
+- `GET /api/organizer/dashboard` — organizer KPIs: owned events, confirmed registrations, tickets issued, gross sales by currency
+- `GET /api/attendee/dashboard` — recent registrations with event/payment status
+- `GET /api/admin/analytics/sales` — monthly gross sales trend (12 months)
+- `GET /api/organizer/analytics/sales` — organizer-scoped monthly sales trend
+- `GET /api/organizer/analytics/attendance` — per-event issued/checked-in counts + overall rate
+- `GET /api/organizer/analytics/payments` — payment status breakdown by currency
 
-All public event queries require `status = PUBLISHED`. Public event projections omit organizer identity, event capacity, and internal inventory counters. Event details, schedules, and active ticket types return 404 for unpublished or missing events. Public prices are serialized as exact decimal strings; ticket availability is derived from ticket-type inventory and remaining event capacity.
+### `CategoriesModule`
+- `GET /api/categories` — active categories (public)
+- `GET /api/categories/:id` — by ID or slug (public)
+- `GET /api/categories/admin/list` — all categories including disabled (admin)
+- `POST /api/categories` — create (admin)
+- `PATCH /api/categories/:id` — update / disable (admin)
+- `DELETE /api/categories/:id` — refuses while any event references the category
 
-Other public catalog routes are `GET /api/events/featured`, `GET /api/events/:eventId`, `GET /api/events/:eventId/sessions`, `GET /api/events/:eventId/ticket-types`, `GET /api/categories`, and `GET /api/categories/:categoryId` (category ID or slug).
+### `EventsModule`
+**Public catalog:**
+- `GET /api/events` — paginated, searchable, filterable. Params: `page`, `pageSize`, `search`, `categoryId`, `from`, `to`, `sort` (`startAt`/`newest`/`title`), `direction` (`asc`/`desc`). Default: active (not-ended) published events. Response: `{ items, pagination: { total, pageCount } }`.
+- `GET /api/events/featured` — curated published events
+- `GET /api/events/:id` — full event detail (404 for non-published)
+- `GET /api/events/:id/sessions` — schedule entries
+- `GET /api/events/:id/ticket-types` — active ticket types with availability
 
-The administrator category inventory is `GET /api/categories/admin/list`; create, update, and delete use the corresponding `/api/categories` routes with database-backed admin authorization.
+**Organizer event management** (`/api/organizer/events`, requires approved organizer):
+- Full CRUD: `POST`, `GET`, `PATCH`, `DELETE` — always scoped to authenticated organizer ID
+- `PATCH /publish` — validates: future dates, active category, complete details, ≥1 active paid ticket type with inventory and usable sales window
+- `PATCH /unpublish` — blocked after registrations or reservations exist
+- `PATCH /cancel` — transactional: releases held reservations, queues `EVENT_CANCELLATION` email per confirmed attendee, preserves history
+- Cover upload: `POST /api/organizer/events/:id/cover` — MIME + magic-byte check, streamed to Cloudinary, DB updated after success, cleanup on failure
 
-## Current frontend routes
+**Admin event oversight:**
+- `GET /api/admin/events` — latest 100 events, optional status filter
+- `PATCH /api/admin/events/:id/cancel` — same transactional cancellation; records `cancelledBy` admin identity
 
-- `/`: event discovery, featured events, search and filters, pagination, and the local hero asset.
-- `/events/:eventId`: event information, schedule, ticket prices, and availability.
-- `/tickets`: signed-in attendee ticket wallet with private QR codes.
-- `/organizer/events/:eventId/check-in`: organizer camera scanner, manual ticket-reference entry, and paginated event attendance.
-- `/account`: synchronized account details and the attendee organizer-application panel.
-- `/admin`: administrator application review, account management, and category management.
+### `RegistrationsModule`
+- `POST /api/registrations` — requires `Idempotency-Key` header; snapshots price/currency from ticket type; atomically reserves `Event.ticketsReserved` + `TicketType.quantityReserved` + creates `InventoryReservation` (expires in exactly 10 minutes by DB clock); creates `Registration` (PENDING) + `PaymentAttempt` (INITIATED)
+- `GET /api/registrations/me` — attendee's own registrations
+- `GET /api/registrations/:id` — single registration (attendee-scoped)
+- `InventoryService` — background expiry worker (every 60s, `FOR UPDATE SKIP LOCKED`); also called at checkout start to expire due holds
 
-The organizer application form is on `/account` for attendee accounts. It collects a verified Clerk email snapshot, contact/organization details, active event-category selections, event planning information, expected attendance, and server-timestamped agreement to the current organizer rules. The admin workspace presents the submitted application details before approval or rejection. Rejected applications remain in history and can be followed by a new submission.
+### `PaymentsModule`
+- `POST /api/payments/:registrationId/checkout` — verifies active hold, generates unique `merchantReference`, builds signed PayHere form fields, returns `{ url, method, fields }`
+- `GET /api/payments/me` — attendee's payment attempts
+- `POST /api/webhooks/payhere/notify` — public endpoint; verifies `md5sig` with `timingSafeEqual`; serializes against inventory locks; fulfillable success → commit inventory + confirm registration + issue tickets + queue email; unfulfillable → `PaymentException`; chargeback → `CHARGEDBACK` + `PaymentException`
 
-Registration APIs are implemented at `POST /api/registrations`, `GET /api/registrations/me`, and `GET /api/registrations/:registrationId`. A request accepts only a ticket type, positive integer quantity, and `Idempotency-Key`; the server snapshots price/currency from the ticket type, reserves event and ticket inventory atomically, and creates a pending registration, exact ten-minute reservation, and initiated payment attempt in one transaction. A background worker and the purchase path expire due holds safely. The event detail page creates a reservation and submits a backend-generated PayHere form; the result pages read payment state from the authenticated Eventora API. Verified fulfillable payments atomically create one private QR ticket per purchased item and an idempotent Gmail confirmation outbox row. Tickets are available at `GET /api/tickets/me` and `GET /api/tickets/:ticketId`.
+### `TicketsModule`
+- `GET /api/tickets/me` — attendee's tickets (confirmed registration required)
+- `GET /api/tickets/:id` — ticket detail + QR image (verifies ownership + confirmed registration + succeeded payment)
 
-Organizer management is available under `/api/organizer/events` and requires a Clerk session, active Eventora account, organizer role, and approved organizer application. Organizers can create drafts, list and edit their own events, publish/unpublish/cancel, manage schedule entries and paid ticket types, upload/remove cover images, and delete events only before registration or inventory history exists. Publication requires valid future event dates, an active category, complete public details, and at least one active paid ticket type with inventory and a usable sales window. Unpublishing is refused after registrations or inventory commitments; cancellation preserves those records and adds idempotent `EVENT_CANCELLATION` deliveries for confirmed attendees.
+### `CheckinsModule`
+- `POST /api/check-ins/validate` — validates ticket reference/QR without recording attendance (organizer)
+- `POST /api/check-ins` — commits attendance: locks `Event` (shared read) + `Ticket` (update); inserts `CheckIn`; updates `Ticket.status = CHECKED_IN`; unique `CheckIn.ticketId` as final duplicate guard
+- `GET /api/organizer/events/:id/check-ins` — paginated check-in history (25/page)
+- `GET /api/organizer/events/:id/attendance` — issued/checked-in counts
 
-The organizer frontend is available on the signed-in `/account` page for organizer accounts. Cover uploads are limited to 5 MiB JPEG, PNG, or WebP and checked by file signature before the backend streams them to Cloudinary. Configure `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` in `backend/.env`. A cover must be removed before an otherwise history-free event can be deleted.
+### `OrganizerApplicationsModule`
+- `POST /api/organizer-applications` — requires verified Clerk primary email (fetched server-side); validates org details, categories, experience; server-records agreement timestamp + rules version; partial unique index enforces one pending application per user
+- `GET /api/organizer-applications/me` — applicant's own history
+- `GET /api/admin/organizer-applications` — full queue with filters (admin)
+- `PATCH /api/admin/organizer-applications/:id/approve` — transactional: sets `APPROVED`, promotes user `role = ORGANIZER`, records reviewer + timestamp, queues `ORGANIZER_APPLICATION_DECISION` email
+- `PATCH /api/admin/organizer-applications/:id/reject` — same transaction, no role change
 
-Check-in uses `POST /api/check-ins/validate` for a non-mutating validation and `POST /api/check-ins` to commit attendance; both accept an event ID, input value, and input method and share the same validation rules. Event history is available from `GET /api/organizer/events/:eventId/check-ins` and `GET /api/organizer/events/:eventId/attendance`. Both check-in actions also have an event-scoped route used by the organizer page. The page loads `@zxing/browser` only when starting the camera. Camera access requires HTTPS or localhost; reference entry remains available if scanning is stopped or unavailable.
+### `EmailModule`
+- PostgreSQL outbox pattern: email rows committed with triggering event in same transaction
+- Background worker: `setInterval(30s)`, `FOR UPDATE SKIP LOCKED` batch of 10
+- Three template types: `PURCHASE_CONFIRMATION`, `ORGANIZER_APPLICATION_DECISION`, `EVENT_CANCELLATION`
+- Exponential backoff: 30s → 1h cap; max 5 attempts; terminal status `FAILED`
+- QR codes embedded inline as `cid:` attachments in purchase confirmation emails
+
+---
+
+## Frontend Route Table
+
+| Route | Component | Auth | Notes |
+|---|---|---|---|
+| `/` | `HomePage` | Public | Editorial hero, how-to, featured events, FAQ |
+| `/discover` | `DiscoveryPage` | Public | URL-param filters: search, category, date, sort |
+| `/events/:id` | `EventDetailPage` | Public | Sessions, ticket types, registration + PayHere checkout |
+| `/sign-in` | `AuthPage` | Public | Clerk-embedded, custom styled |
+| `/sign-up` | `AuthPage` | Public | Clerk-embedded, custom styled |
+| `/account` | Role-aware shell | Signed in | Dispatches to role-specific dashboard |
+| `/tickets` | `TicketsPage` | Attendee | QR ticket wallet |
+| `/checkout/result` | `CheckoutResultPage` | Attendee | Reads server state post-redirect |
+| `/checkout/cancelled` | `CheckoutResultPage` | Attendee | Cancelled state handler |
+| `/admin` | `AdminPage` | Admin | Sidebar shell |
+| `/admin` (overview) | `AdminOverviewPage` | Admin | KPI cards + 4 Recharts charts |
+| `/admin/applications` | `AdminApplicationsPage` | Admin | Application review queue |
+| `/admin/users` | `AdminUsersPage` | Admin | User list + role/status management |
+| `/admin/events` | `AdminEventsPage` | Admin | Event oversight + cancel action |
+| `/admin/categories` | `AdminCategoriesPage` | Admin | Category CRUD |
+| `/organizer` | `OrganizerOverviewPage` | Organizer | KPI cards + Recharts charts |
+| `/organizer/events` | `OrganizerEventsDashboard` | Organizer | Full event CRUD + publish/unpublish/cancel |
+| `/organizer/sales` | `OrganizerSalesPage` | Organizer | Revenue analytics |
+| `/organizer/checkin` | `OrganizerCheckinHubPage` | Organizer | Per-event check-in selector |
+| `/organizer/profile` | `OrganizerProfilePage` | Organizer | Public organizer info |
+| `/organizer/events/:id/check-in` | `EventCheckinPage` | Organizer | Live QR scanner (ZXing) + manual entry |
+
+---
+
+## Guard Execution Order
+
+```
+HTTP Request
+  ↓
+ClerkAuthGuard
+  Verifies JWT · checks authorized_party
+  ↓
+AccountGuard
+  Resolves User from DB · rejects DEACTIVATED
+  ↓
+RolesGuard
+  Checks User.role from DB (never browser)
+  ↓
+[Organizer routes only]
+OrganizerApplicationGuard
+  Checks approved OrganizerApplication exists
+  ↓
+Service Layer
+  Re-verifies ownership (organizerId/userId scoping in every query)
+```
+
+---
+
+## Inventory Concurrency Model
+
+```
+Registration Request
+  ↓
+BEGIN TRANSACTION
+  ↓
+UPDATE Event SET ticketsReserved = ticketsReserved + qty
+  WHERE status = PUBLISHED AND startAt > NOW()
+  AND (capacity IS NULL OR ticketsReserved + ticketsSold + qty <= capacity)
+RETURNING id                          ← fails if 0 rows → EVENT_UNAVAILABLE
+  ↓
+UPDATE TicketType SET quantityReserved = quantityReserved + qty
+  WHERE isActive = TRUE AND price > 0
+  AND quantityReserved + quantitySold + qty <= quantity
+RETURNING price, currency             ← fails if 0 rows → TICKET_UNAVAILABLE
+  ↓
+INSERT InventoryReservation (expiresAt = CURRENT_TIMESTAMP + '10 minutes')
+INSERT Registration (status = PENDING, totalAmount = price * qty)
+INSERT PaymentAttempt (status = INITIATED)
+COMMIT
+```
+
+Two concurrent requests serialize on the same `Event` row lock — overselling is impossible.

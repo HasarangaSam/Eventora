@@ -43,6 +43,8 @@ Public catalog routes include `GET /api/categories`, `GET /api/events`, `GET /ap
 
 Approved organizers manage events at `/api/organizer/events`; see `ARCHITECTURE.md` and `SECURITY.md` for ownership checks, status transition rules, ticket inventory protections, and the cover image configuration.
 
+Administrators review platform events from `/admin`. The screen loads the latest 100 events and supports status filtering/search; admins may cancel an eligible event with a required reason. Cancellation is performed at `PATCH /api/admin/events/:eventId/cancel`, stops new purchases, releases active holds, preserves history, and queues notices for confirmed attendees. Email delivery still depends on the configured Gmail worker.
+
 Approved organizers can open an event’s check-in page from the organizer workspace. `POST /api/check-ins/validate` checks a ticket without recording attendance; `POST /api/check-ins` records check-in. The event-scoped organizer routes use the same service. `@zxing/browser` requests camera access only after the scanner is started; use HTTPS or localhost and allow camera permission. If a camera is unavailable or permission is denied, enter the attendee’s ticket reference manually. Attendance history is available in pages of 25 rows.
 
 Organizer applications are submitted from the signed-in attendee account page. The API fetches the primary email from Clerk and requires Clerk to report it as verified. Applicants select from active Eventora categories; at least one active category must exist. The additive details migration is included in `npm run db:deploy`.

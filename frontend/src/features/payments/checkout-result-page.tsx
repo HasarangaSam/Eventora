@@ -2,6 +2,7 @@ import { SignInButton, useAuth } from '@clerk/react'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useAuthenticatedApi } from '../auth/use-authenticated-api'
+import { IconCheck, IconClock, IconTicket } from '../../components/ui/icons'
 
 interface RegistrationStatus {
   id: string
@@ -12,7 +13,6 @@ interface RegistrationStatus {
 }
 
 type StatusState = { kind: 'loading' } | { kind: 'ready'; registration: RegistrationStatus } | { kind: 'error' }
-type KeyedStatusState = { registrationId: string; refresh: number; result: StatusState }
 
 export function CheckoutResultPage({ cancelled = false }: { cancelled?: boolean }) {
   const { isLoaded, isSignedIn } = useAuth()
@@ -20,57 +20,155 @@ export function CheckoutResultPage({ cancelled = false }: { cancelled?: boolean 
   const [searchParams] = useSearchParams()
   const registrationId = searchParams.get('registrationId') ?? ''
   const [refresh, setRefresh] = useState(0)
-  const [state, setState] = useState<KeyedStatusState>({ registrationId: '', refresh: -1, result: { kind: 'loading' } })
+  const [state, setState] = useState<StatusState>({ kind: 'loading' })
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !registrationId) return
     let active = true
-    void request<RegistrationStatus>({ method: 'GET', url: `/registrations/${encodeURIComponent(registrationId)}` })
+
+    request<RegistrationStatus>({ method: 'GET', url: `/registrations/${encodeURIComponent(registrationId)}` })
       .then(({ data }) => {
         if (!active) return
         if (data.status === 'CONFIRMED') {
-          try { sessionStorage.removeItem(`eventora-checkout:${data.event.id}:${data.ticketType.id}`) } catch { /* Ignore unavailable browser storage. */ }
+          try {
+            sessionStorage.removeItem(`eventora-checkout:${data.event.id}:${data.ticketType.id}`)
+          } catch {}
         }
-        setState({ registrationId, refresh, result: { kind: 'ready', registration: data } })
+        setState({ kind: 'ready', registration: data })
       })
-      .catch(() => { if (active) setState({ registrationId, refresh, result: { kind: 'error' } }) })
-    return () => { active = false }
+      .catch(() => {
+        if (active) setState({ kind: 'error' })
+      })
+
+    return () => {
+      active = false
+    }
   }, [isLoaded, isSignedIn, registrationId, refresh, request])
 
-  const view = state.registrationId === registrationId && state.refresh === refresh ? state.result : { kind: 'loading' as const }
+  if (!isLoaded || state.kind === 'loading') {
+    return (
+      <div className="fullscreen-loading">
+        <div className="spinner" />
+        <p>Verifying payment settlement with Eventora…</p>
+      </div>
+    )
+  }
 
-  if (!isLoaded) return <main className="payment-result" aria-live="polite"><p>Checking your account…</p></main>
-  if (!isSignedIn) return <main className="payment-result"><h1>Sign in to check your registration.</h1><SignInButton mode="modal"><button className="button button--dark" type="button">Sign in</button></SignInButton></main>
-  if (!registrationId) return <main className="payment-result"><h1>Registration reference missing.</h1><Link to="/">Back to event discovery</Link></main>
-  if (view.kind === 'loading') return <main className="payment-result" aria-live="polite"><p>Checking payment status with Eventora…</p></main>
-  if (view.kind === 'error') return <main className="payment-result" role="alert"><h1>We couldn’t load this registration.</h1><p>Sign in with the account used to reserve the ticket, then try again.</p><button className="button button--dark" onClick={() => setRefresh((version) => version + 1)} type="button">Check again</button></main>
+  if (!isSignedIn) {
+    return (
+      <div className="fullscreen-loading">
+        <h2>Sign in to check registration status</h2>
+        <SignInButton mode="modal">
+          <button type="button" className="btn btn-primary">Sign In</button>
+        </SignInButton>
+      </div>
+    )
+  }
 
-  const { registration } = view
+  if (!registrationId) {
+    return (
+      <div className="fullscreen-loading">
+        <h2>No registration reference provided</h2>
+        <Link to="/discover" className="btn btn-secondary">Explore Events</Link>
+      </div>
+    )
+  }
+
+  if (state.kind === 'error') {
+    return (
+      <div className="fullscreen-loading">
+        <h2>Could not retrieve registration record</h2>
+        <button type="button" className="btn btn-secondary" onClick={() => setRefresh((v) => v + 1)}>
+          Check Again
+        </button>
+      </div>
+    )
+  }
+
+  const { registration } = state
   const paymentStatus = registration.payment?.status
   const confirmed = registration.status === 'CONFIRMED'
-  const chargebackNeedsReview = paymentStatus === 'CHARGEDBACK'
-  const successNeedsReview = !confirmed && paymentStatus === 'SUCCEEDED'
-  const failed = paymentStatus === 'FAILED' && registration.status === 'PENDING'
-  return <main className="payment-result" aria-live="polite">
-    <span className="eyebrow">{cancelled ? 'Checkout returned' : 'Payment status'}</span>
-    <h1>{chargebackNeedsReview ? 'PayHere reported a chargeback.' : confirmed ? 'Your registration is confirmed.' : successNeedsReview ? 'Payment received; registration needs review.' : failed ? 'PayHere did not complete this attempt.' : registration.status === 'EXPIRED' ? 'This reservation has expired.' : 'We’re waiting for PayHere’s confirmation.'}</h1>
-    <p className="payment-result__event">{registration.event.title}</p>
-    <p>{chargebackNeedsReview
-      ? 'Eventora recorded PayHere’s chargeback notice for review. No automatic refund or inventory reversal was performed.'
-      : confirmed
-      ? 'Eventora confirmed this registration from PayHere’s server notification.'
-      : successNeedsReview
-        ? 'Eventora recorded a verified payment, but this registration was not confirmed. It has been recorded for administrative review.'
-        : failed
-          ? 'The registration hold remains active for its original ten-minute window. Return to the event page to retry checkout while the hold is valid.'
-        : registration.status === 'EXPIRED'
-          ? 'No ticket was issued for this expired reservation. If PayHere processed a payment, contact Eventora support with your registration reference.'
-          : cancelled
-            ? 'The browser returned from checkout. This does not confirm payment; check again after PayHere sends its server notification.'
-            : `Current registration status: ${registration.status.toLowerCase()}; payment status: ${(paymentStatus ?? 'unknown').toLowerCase()}.`}</p>
-    <p className="payment-result__reference">Registration reference: <code>{registration.id}</code></p>
-    {!confirmed && <button className="button button--dark" type="button" onClick={() => setRefresh((version) => version + 1)}>Check status again</button>}
-    {confirmed && <Link className="button button--dark" to="/tickets">View your tickets</Link>}
-    <Link className="payment-result__back" to={`/events/${encodeURIComponent(registration.event.id)}`}>Back to event</Link>
-  </main>
+
+  return (
+    <main className="public-container" style={{ padding: '60px 24px 80px', display: 'flex', justifyContent: 'center' }}>
+      <div
+        className="table-card"
+        style={{
+          maxWidth: '560px',
+          width: '100%',
+          padding: '40px',
+          textAlign: 'center',
+          boxShadow: 'var(--shadow-lg)',
+        }}
+      >
+        <div
+          style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            background: confirmed ? 'var(--success-bg)' : 'var(--warning-bg)',
+            color: confirmed ? 'var(--success)' : 'var(--warning)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 20px',
+          }}
+        >
+          {confirmed ? <IconCheck style={{ width: '32px', height: '32px' }} /> : <IconClock style={{ width: '32px', height: '32px' }} />}
+        </div>
+
+        <span className={`badge ${confirmed ? 'badge-emerald' : 'badge-amber'}`} style={{ marginBottom: '12px' }}>
+          {confirmed ? 'Payment Confirmed' : cancelled ? 'Checkout Returned' : 'Processing Settlement'}
+        </span>
+
+        <h1 style={{ margin: '0 0 8px', fontSize: '24px', fontWeight: 800 }}>
+          {confirmed ? 'Registration Confirmed!' : 'Waiting for Gateway Confirmation'}
+        </h1>
+
+        <p style={{ margin: '0 0 20px', fontSize: '16px', fontWeight: 600, color: 'var(--primary)' }}>
+          {registration.event.title}
+        </p>
+
+        <p className="text-muted" style={{ margin: '0 0 24px', fontSize: '14px', lineHeight: 1.6 }}>
+          {confirmed
+            ? 'Your payment was successfully received and verified. Your digital ticket and entrance QR code are ready in your wallet.'
+            : 'Payment verification from PayHere usually settles within seconds. Click "Refresh Status" below to update.'}
+        </p>
+
+        <div
+          style={{
+            background: '#f8fafc',
+            padding: '12px',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border)',
+            marginBottom: '28px',
+            fontSize: '13px',
+          }}
+        >
+          Registration Reference: <code>{registration.id}</code>
+          {paymentStatus && <span className="text-muted"> · Payment: {paymentStatus.toLowerCase()}</span>}
+        </div>
+
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+          {confirmed ? (
+            <Link to="/tickets" className="btn btn-primary" style={{ padding: '12px 24px' }}>
+              <IconTicket /> View Digital Passes
+            </Link>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setRefresh((v) => v + 1)}
+            >
+              Refresh Status
+            </button>
+          )}
+
+          <Link to={`/events/${encodeURIComponent(registration.event.id)}`} className="btn btn-secondary">
+            Back to Event
+          </Link>
+        </div>
+      </div>
+    </main>
+  )
 }

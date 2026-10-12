@@ -10,9 +10,9 @@ import { ticketQrToken } from '../tickets/ticket-crypto.js';
 const MAX_ATTEMPTS = 5;
 const BATCH_SIZE = 10;
 const deliveryInclude = {
-  registration: { include: { attendee: { select: { firstName: true, lastName: true } }, event: { select: { title: true, startAt: true, venue: true, city: true } }, ticketType: { select: { name: true } }, tickets: { orderBy: { createdAt: 'asc' as const } } } },
+  registration: { include: { attendee: { select: { firstName: true, lastName: true } }, event: { select: { title: true, startAt: true, venue: true, city: true, cancellationReason: true, cancelledBy: { select: { role: true } } } }, ticketType: { select: { name: true } }, tickets: { orderBy: { createdAt: 'asc' as const } } } },
   organizerApplication: { include: { applicant: { select: { firstName: true, lastName: true } } } },
-  event: { select: { title: true, startAt: true, venue: true, city: true } },
+  event: { select: { title: true, startAt: true, venue: true, city: true, cancellationReason: true, cancelledBy: { select: { role: true } } } },
 } as const;
 
 @Injectable()
@@ -95,6 +95,11 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async render(delivery: Prisma.EmailDeliveryGetPayload<{ include: typeof deliveryInclude }>) {
+    const frontendOrigin = this.config.get<string>('FRONTEND_ORIGIN', 'http://localhost:5173').replace(/\/$/, '');
+
+    /* ─────────────────────────────────────────────
+       1. PURCHASE CONFIRMATION
+    ───────────────────────────────────────────── */
     if (delivery.type === 'PURCHASE_CONFIRMATION') {
       if (!delivery.registration || delivery.registration.tickets.length === 0) throw new Error('TICKETS_NOT_READY');
       const registration = delivery.registration;
@@ -110,28 +115,385 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
         contentType: 'image/png',
         cid: ticket.cid,
       })));
-      const url = this.ticketUrl();
-      const text = `Hi ${greeting},\n\nYour payment for ${registration.event.title} is confirmed. ${tickets.length} ${tickets.length === 1 ? 'ticket is' : 'tickets are'} ready. The private QR code for each ticket is attached.\n\n${tickets.map((ticket, index) => `Ticket ${index + 1}: ${ticket.reference}`).join('\n')}\n\nView your tickets: ${url}\nEvent: ${registration.event.title}\nWhen: ${registration.event.startAt.toISOString()}\nWhere: ${registration.event.venue}, ${registration.event.city}\n\nKeep the attached QR codes private. Eventora support will never ask you to share them.`;
-      const html = `<p>Hi ${escapeHtml(greeting)},</p><p>Your payment for <strong>${escapeHtml(registration.event.title)}</strong> is confirmed. Your ${tickets.length === 1 ? 'ticket is' : 'tickets are'} ready.</p><ul>${tickets.map((ticket, index) => `<li>Ticket ${index + 1}: <strong>${escapeHtml(ticket.reference)}</strong><br><img src="cid:${escapeHtml(ticket.cid)}" alt="QR code for ticket ${escapeHtml(ticket.reference)}" width="256" height="256"></li>`).join('')}</ul><p><a href="${escapeHtml(url)}">View your tickets</a></p><p>${escapeHtml(registration.event.startAt.toISOString())}<br>${escapeHtml(registration.event.venue)}, ${escapeHtml(registration.event.city)}</p><p>Keep the attached QR codes private. Eventora support will never ask you to share them.</p>`;
-      return { subject: `Your Eventora tickets: ${registration.event.title}`, text, html, attachments };
+      const ticketUrl = `${frontendOrigin}/tickets`;
+
+      const text = [
+        `Hi ${greeting},`,
+        ``,
+        `Your payment for ${registration.event.title} is confirmed. ${tickets.length} ${tickets.length === 1 ? 'ticket is' : 'tickets are'} ready to use.`,
+        ``,
+        tickets.map((t, i) => `Ticket ${i + 1}: ${t.reference}`).join('\n'),
+        ``,
+        `Event: ${registration.event.title}`,
+        `When:  ${formatDateText(registration.event.startAt)}`,
+        `Where: ${registration.event.venue}, ${registration.event.city}`,
+        ``,
+        `View your tickets: ${ticketUrl}`,
+        ``,
+        `Keep the attached QR codes private. Eventora support will never ask you to share them.`,
+      ].join('\n');
+
+      const ticketCards = tickets.map((ticket, i) => `
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+               style="border:2px solid #6366f1;border-radius:14px;margin-bottom:16px;background:#ffffff;">
+          <tr>
+            <td style="padding:20px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                  <td style="vertical-align:middle;padding-right:20px;">
+                    <p style="margin:0 0 2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6366f1;">
+                      Ticket ${i + 1} of ${tickets.length}
+                    </p>
+                    <p style="margin:0 0 4px;font-size:18px;font-weight:800;color:#0f172a;font-family:Courier New,Courier,monospace;letter-spacing:1px;">
+                      ${escapeHtml(ticket.reference)}
+                    </p>
+                    <p style="margin:0;font-size:13px;color:#64748b;">Scan this QR code at the door</p>
+                  </td>
+                  <td style="vertical-align:middle;text-align:right;white-space:nowrap;">
+                    <img src="cid:${escapeHtml(ticket.cid)}"
+                         alt="QR code ${escapeHtml(ticket.reference)}"
+                         width="110" height="110"
+                         style="display:block;border-radius:8px;border:1px solid #e2e8f0;">
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>`).join('');
+
+      const html = buildEmail({
+        previewText: `Your ${tickets.length === 1 ? 'ticket is' : `${tickets.length} tickets are`} ready for ${registration.event.title}!`,
+        body: `
+          <p style="margin:0 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6366f1;">Purchase Confirmed</p>
+          <h1 style="margin:0 0 14px;font-size:28px;font-weight:800;color:#0f172a;line-height:1.2;">
+            You're going to<br><em style="font-style:normal;color:#6366f1;">${escapeHtml(registration.event.title)}</em>! 🎉
+          </h1>
+          <p style="margin:0 0 28px;font-size:16px;color:#475569;line-height:1.6;">
+            Hi ${escapeHtml(greeting)}, your payment is confirmed and your
+            ${tickets.length === 1 ? 'ticket is' : `${tickets.length} tickets are`} ready to use.
+            Present the QR code${tickets.length === 1 ? '' : 's'} below at the door.
+          </p>
+
+          <!-- Event detail card -->
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+                 style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:28px;">
+            <tr>
+              <td style="padding:22px 26px;">
+                <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                  <tr>
+                    <td style="padding-bottom:14px;" colspan="2">
+                      <p style="margin:0 0 2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">Event</p>
+                      <p style="margin:0;font-size:17px;font-weight:700;color:#0f172a;">${escapeHtml(registration.event.title)}</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td width="50%" style="padding-bottom:10px;padding-right:16px;vertical-align:top;">
+                      <p style="margin:0 0 2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">📅 Date &amp; Time</p>
+                      <p style="margin:0;font-size:14px;color:#334155;">${escapeHtml(formatDateText(registration.event.startAt))}</p>
+                    </td>
+                    <td width="50%" style="padding-bottom:10px;vertical-align:top;">
+                      <p style="margin:0 0 2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">📍 Venue</p>
+                      <p style="margin:0;font-size:14px;color:#334155;">${escapeHtml(registration.event.venue)}, ${escapeHtml(registration.event.city)}</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td colspan="2">
+                      <p style="margin:0 0 2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">🎫 Ticket Type</p>
+                      <p style="margin:0;font-size:14px;color:#334155;">${escapeHtml(registration.ticketType.name)}</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <!-- QR ticket cards -->
+          <p style="margin:0 0 14px;font-size:16px;font-weight:700;color:#0f172a;">
+            Your QR ${tickets.length === 1 ? 'Ticket' : `Tickets (${tickets.length})`}
+          </p>
+          ${ticketCards}
+
+          <!-- Security note -->
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+                 style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;margin:20px 0;">
+            <tr>
+              <td style="padding:14px 18px;">
+                <p style="margin:0;font-size:13px;color:#166534;line-height:1.5;">
+                  🔒 <strong>Keep your QR codes private.</strong>
+                  Eventora support will never ask you to share them. Sharing your QR codes may allow others to gain entry in your place.
+                </p>
+              </td>
+            </tr>
+          </table>
+
+          <!-- CTA button -->
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:28px;">
+            <tr>
+              <td style="text-align:center;">
+                <a href="${escapeHtml(ticketUrl)}"
+                   style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;
+                          font-size:15px;font-weight:700;padding:14px 34px;border-radius:10px;letter-spacing:0.3px;">
+                  View All My Tickets →
+                </a>
+              </td>
+            </tr>
+          </table>
+        `,
+      });
+      return { subject: `🎟️ Your tickets for ${registration.event.title}`, text, html, attachments };
     }
+
+    /* ─────────────────────────────────────────────
+       2. ORGANIZER APPLICATION DECISION
+    ───────────────────────────────────────────── */
     if (delivery.type === 'ORGANIZER_APPLICATION_DECISION') {
       const application = delivery.organizerApplication;
       if (!application || application.status === 'PENDING') throw new Error('APPLICATION_DECISION_NOT_READY');
       const greeting = safeName(`${application.applicant.firstName ?? ''} ${application.applicant.lastName ?? ''}`) || 'there';
       const approved = application.status === 'APPROVED';
-      const status = approved ? 'approved' : 'not approved';
-      const text = `Hi ${greeting},\n\nYour organizer application for ${application.organizationName} was ${status}.${application.decisionNote ? `\n\nNote: ${application.decisionNote}` : ''}\n\nSign in to Eventora to view your account.`;
-      return { subject: `Eventora organizer application ${status}`, text, html: `<p>Hi ${escapeHtml(greeting)},</p><p>Your organizer application for <strong>${escapeHtml(application.organizationName)}</strong> was ${status}.</p>${application.decisionNote ? `<p>Note: ${escapeHtml(application.decisionNote)}</p>` : ''}<p>Sign in to Eventora to view your account.</p>`, attachments: [] };
+      const statusLabel = approved ? 'Approved' : 'Not Approved';
+      const accentColor = approved ? '#059669' : '#dc2626';
+      const cardBg = approved ? '#ecfdf5' : '#fef2f2';
+      const cardBorder = approved ? '#a7f3d0' : '#fecaca';
+      const cardTextColor = approved ? '#065f46' : '#991b1b';
+      const cardSubColor = approved ? '#047857' : '#b91c1c';
+
+      const text = [
+        `Hi ${greeting},`,
+        ``,
+        `Your organizer application for "${application.organizationName}" has been ${statusLabel.toLowerCase()}.`,
+        application.decisionNote ? `\nNote from the team:\n${application.decisionNote}` : '',
+        ``,
+        approved
+          ? `You can now sign in to Eventora and start creating and publishing events.\n\n${frontendOrigin}/organizer`
+          : `You are welcome to submit a new application in the future.`,
+      ].join('\n');
+
+      const html = buildEmail({
+        previewText: `Your Eventora organizer application for ${application.organizationName} has been reviewed.`,
+        body: `
+          <p style="margin:0 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${accentColor};">
+            Application ${statusLabel}
+          </p>
+          <h1 style="margin:0 0 14px;font-size:28px;font-weight:800;color:#0f172a;line-height:1.2;">
+            ${approved ? 'Welcome aboard,<br>Organizer! 🎉' : 'Application Update'}
+          </h1>
+          <p style="margin:0 0 28px;font-size:16px;color:#475569;line-height:1.6;">
+            Hi ${escapeHtml(greeting)}, we've finished reviewing your organizer application for
+            <strong style="color:#0f172a;">${escapeHtml(application.organizationName)}</strong>.
+          </p>
+
+          <!-- Status card -->
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+                 style="background:${cardBg};border:1px solid ${cardBorder};border-radius:14px;margin-bottom:24px;">
+            <tr>
+              <td style="padding:22px 26px;">
+                <table cellpadding="0" cellspacing="0" role="presentation">
+                  <tr>
+                    <td style="vertical-align:middle;padding-right:18px;font-size:32px;line-height:1;">
+                      ${approved ? '✅' : '❌'}
+                    </td>
+                    <td style="vertical-align:middle;">
+                      <p style="margin:0 0 4px;font-size:16px;font-weight:700;color:${cardTextColor};">
+                        ${approved ? 'Your application has been approved!' : 'Your application was not approved at this time.'}
+                      </p>
+                      <p style="margin:0;font-size:13px;color:${cardSubColor};">${escapeHtml(application.organizationName)}</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          ${application.decisionNote ? `
+          <!-- Decision note -->
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+                 style="background:#f8fafc;border-left:4px solid #6366f1;border-radius:0 10px 10px 0;margin-bottom:24px;">
+            <tr>
+              <td style="padding:16px 20px;">
+                <p style="margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">Note from the team</p>
+                <p style="margin:0;font-size:14px;color:#334155;line-height:1.6;">${escapeHtml(application.decisionNote)}</p>
+              </td>
+            </tr>
+          </table>` : ''}
+
+          ${approved ? `
+          <!-- Next steps for approved -->
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+                 style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:24px;">
+            <tr>
+              <td style="padding:22px 26px;">
+                <p style="margin:0 0 14px;font-size:14px;font-weight:700;color:#0f172a;">What you can do now</p>
+                <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                  <tr><td style="padding-bottom:10px;vertical-align:top;">
+                    <table cellpadding="0" cellspacing="0" role="presentation"><tr>
+                      <td style="padding-right:12px;font-size:18px;vertical-align:top;line-height:1.4;">📅</td>
+                      <td><p style="margin:0;font-size:14px;color:#334155;line-height:1.5;"><strong>Create Events</strong> — build and publish events directly from your Organizer Studio.</p></td>
+                    </tr></table>
+                  </td></tr>
+                  <tr><td style="padding-bottom:10px;vertical-align:top;">
+                    <table cellpadding="0" cellspacing="0" role="presentation"><tr>
+                      <td style="padding-right:12px;font-size:18px;vertical-align:top;line-height:1.4;">🎟️</td>
+                      <td><p style="margin:0;font-size:14px;color:#334155;line-height:1.5;"><strong>Sell Tickets</strong> — set up ticket types, pricing, and capacity for each event.</p></td>
+                    </tr></table>
+                  </td></tr>
+                  <tr><td style="vertical-align:top;">
+                    <table cellpadding="0" cellspacing="0" role="presentation"><tr>
+                      <td style="padding-right:12px;font-size:18px;vertical-align:top;line-height:1.4;">📊</td>
+                      <td><p style="margin:0;font-size:14px;color:#334155;line-height:1.5;"><strong>Track Revenue &amp; Attendance</strong> — monitor sales, check in guests, and view analytics.</p></td>
+                    </tr></table>
+                  </td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:24px;">
+            <tr>
+              <td style="text-align:center;">
+                <a href="${escapeHtml(frontendOrigin)}/organizer"
+                   style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;
+                          font-size:15px;font-weight:700;padding:14px 34px;border-radius:10px;">
+                  Open Organizer Studio →
+                </a>
+              </td>
+            </tr>
+          </table>` : `
+          <p style="margin:0 0 20px;font-size:15px;color:#334155;line-height:1.6;">
+            You're welcome to submit a new application in the future. If you have questions about this decision, please contact our support team.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:24px;">
+            <tr>
+              <td style="text-align:center;">
+                <a href="${escapeHtml(frontendOrigin)}"
+                   style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;
+                          font-size:15px;font-weight:700;padding:14px 34px;border-radius:10px;">
+                  Back to Eventora →
+                </a>
+              </td>
+            </tr>
+          </table>`}
+        `,
+      });
+      return { subject: `Eventora organizer application: ${statusLabel} — ${application.organizationName}`, text, html, attachments: [] };
     }
+
+    /* ─────────────────────────────────────────────
+       3. EVENT CANCELLATION
+    ───────────────────────────────────────────── */
     if (delivery.type === 'EVENT_CANCELLATION') {
       const registration = delivery.registration;
       const event = delivery.event ?? registration?.event;
       if (!event) throw new Error('CANCELLATION_EVENT_NOT_FOUND');
       const greeting = safeName(`${registration?.attendee.firstName ?? ''} ${registration?.attendee.lastName ?? ''}`) || 'there';
-      const text = `Hi ${greeting},\n\n${event.title} has been cancelled by the organizer. Your Eventora ticket and payment history remain available in your account. Eventora has not issued an automatic refund. Please contact the event organizer for questions about next steps.`;
-      return { subject: `Event cancelled: ${event.title}`, text, html: `<p>Hi ${escapeHtml(greeting)},</p><p><strong>${escapeHtml(event.title)}</strong> has been cancelled by the organizer.</p><p>Your Eventora ticket and payment history remain available in your account. Eventora has not issued an automatic refund. Please contact the event organizer for questions about next steps.</p>`, attachments: [] };
+      const cancelledBy = event.cancelledBy?.role === 'ADMIN' ? 'an Eventora administrator' : 'the event organizer';
+      const reason = event.cancellationReason?.trim();
+
+      const text = [
+        `Hi ${greeting},`,
+        ``,
+        `Unfortunately, ${event.title} has been cancelled by ${cancelledBy}.`,
+        reason ? `\nReason: ${reason}` : '',
+        ``,
+        `Your Eventora ticket and payment history remain available in your account.`,
+        `Eventora has not issued an automatic refund — please contact the event organizer for questions about next steps.`,
+        ``,
+        `View your tickets: ${frontendOrigin}/tickets`,
+      ].join('\n');
+
+      const html = buildEmail({
+        previewText: `Important notice: ${event.title} has been cancelled.`,
+        body: `
+          <p style="margin:0 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#dc2626;">
+            Event Cancelled
+          </p>
+          <h1 style="margin:0 0 14px;font-size:28px;font-weight:800;color:#0f172a;line-height:1.2;">
+            We're sorry to<br>let you know
+          </h1>
+          <p style="margin:0 0 28px;font-size:16px;color:#475569;line-height:1.6;">
+            Hi ${escapeHtml(greeting)}, unfortunately <strong style="color:#0f172a;">${escapeHtml(event.title)}</strong>
+            has been cancelled by ${cancelledBy}.
+          </p>
+
+          <!-- Cancelled event card -->
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+                 style="background:#fef2f2;border:1px solid #fecaca;border-radius:14px;margin-bottom:24px;">
+            <tr>
+              <td style="padding:22px 26px;">
+                <p style="margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">Cancelled Event</p>
+                <p style="margin:0 0 8px;font-size:18px;font-weight:700;color:#7f1d1d;">${escapeHtml(event.title)}</p>
+                <p style="margin:0;font-size:13px;color:#b91c1c;">
+                  📅 ${escapeHtml(formatDateText(event.startAt))} &nbsp;·&nbsp; 📍 ${escapeHtml(event.venue ?? 'TBA')}${event.city ? `, ${escapeHtml(event.city)}` : ''}
+                </p>
+              </td>
+            </tr>
+          </table>
+
+          ${reason ? `
+          <!-- Cancellation reason -->
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+                 style="background:#fffbeb;border-left:4px solid #f59e0b;border-radius:0 10px 10px 0;margin-bottom:24px;">
+            <tr>
+              <td style="padding:16px 20px;">
+                <p style="margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">Reason provided</p>
+                <p style="margin:0;font-size:14px;color:#334155;line-height:1.6;">Reason: ${escapeHtml(reason)}</p>
+              </td>
+            </tr>
+          </table>` : ''}
+
+          <!-- What happens next -->
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+                 style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:24px;">
+            <tr>
+              <td style="padding:22px 26px;">
+                <p style="margin:0 0 16px;font-size:14px;font-weight:700;color:#0f172a;">What happens next</p>
+                <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                  <tr><td style="padding-bottom:12px;vertical-align:top;">
+                    <table cellpadding="0" cellspacing="0" role="presentation"><tr>
+                      <td style="padding-right:12px;font-size:18px;vertical-align:top;line-height:1.4;">📋</td>
+                      <td><p style="margin:0;font-size:14px;color:#334155;line-height:1.5;"><strong>Your ticket record is preserved</strong> — your ticket and payment history remain available in your Eventora account.</p></td>
+                    </tr></table>
+                  </td></tr>
+                  <tr><td style="padding-bottom:12px;vertical-align:top;">
+                    <table cellpadding="0" cellspacing="0" role="presentation"><tr>
+                      <td style="padding-right:12px;font-size:18px;vertical-align:top;line-height:1.4;">💳</td>
+                      <td><p style="margin:0;font-size:14px;color:#334155;line-height:1.5;"><strong>No automatic refund has been issued</strong> — please contact the event organizer directly for refund or transfer information.</p></td>
+                    </tr></table>
+                  </td></tr>
+                  <tr><td style="vertical-align:top;">
+                    <table cellpadding="0" cellspacing="0" role="presentation"><tr>
+                      <td style="padding-right:12px;font-size:18px;vertical-align:top;line-height:1.4;">🎫</td>
+                      <td><p style="margin:0;font-size:14px;color:#334155;line-height:1.5;"><strong>Discover other events</strong> — browse new events happening on Eventora now.</p></td>
+                    </tr></table>
+                  </td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <!-- CTA buttons -->
+          <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:28px;">
+            <tr>
+              <td style="text-align:center;">
+                <a href="${escapeHtml(frontendOrigin)}/tickets"
+                   style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;
+                          font-size:15px;font-weight:700;padding:14px 28px;border-radius:10px;margin:4px 6px;">
+                  View My Tickets
+                </a>
+                <a href="${escapeHtml(frontendOrigin)}/discover"
+                   style="display:inline-block;background:#f8fafc;color:#6366f1;text-decoration:none;
+                          font-size:15px;font-weight:700;padding:13px 28px;border-radius:10px;
+                          border:2px solid #6366f1;margin:4px 6px;">
+                  Browse Events
+                </a>
+              </td>
+            </tr>
+          </table>
+        `,
+      });
+      return { subject: `Event cancelled: ${event.title}`, text, html, attachments: [] };
     }
+
     throw new Error('UNSUPPORTED_EMAIL_TYPE');
   }
 
@@ -162,6 +524,118 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   EMAIL SHELL BUILDER
+   Produces a fully self-contained HTML email with a branded header,
+   content body, and footer — all table-based and inline-styled for maximum
+   email-client compatibility (Gmail, Outlook, Apple Mail, etc.).
+───────────────────────────────────────────────────────────────────────────── */
+function buildEmail({ previewText, body }: { previewText: string; body: string }): string {
+  return `<!DOCTYPE html>
+<html lang="en" xmlns:v="urn:schemas-microsoft-com:vml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="format-detection" content="telephone=no,date=no,address=no,email=no,url=no">
+  <meta name="x-apple-disable-message-reformatting">
+  <title>Eventora</title>
+  <!--[if mso]>
+  <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
+  <![endif]-->
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;padding:0;word-break:break-word;-webkit-font-smoothing:antialiased;background-color:#f1f5f9}
+    img{border:0;display:block;max-width:100%;height:auto}
+    a{color:#6366f1}
+    @media(max-width:600px){
+      .email-wrapper{width:100%!important;min-width:100%!important}
+      .email-body{padding:24px 16px!important}
+      .btn-table td{text-align:center!important}
+    }
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#f1f5f9;">
+
+  <!-- Preview text (hidden) -->
+  <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">
+    ${escapeHtml(previewText)}&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+  </div>
+
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#f1f5f9;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+
+        <!-- Email container -->
+        <table class="email-wrapper" width="600" cellpadding="0" cellspacing="0" role="presentation"
+               style="width:600px;background:#ffffff;border-radius:20px;overflow:hidden;
+                      box-shadow:0 4px 32px rgba(0,0,0,0.08);">
+
+          <!-- ── Brand Header ── -->
+          <tr>
+            <td style="background:#6366f1;padding:28px 36px;">
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                  <td>
+                    <p style="margin:0;font-size:24px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">
+                      eventora<span style="color:#a5b4fc;">.</span>
+                    </p>
+                    <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.7);letter-spacing:0.5px;">
+                      Premium Events &amp; Ticketing
+                    </p>
+                  </td>
+                  <td style="text-align:right;vertical-align:middle;">
+                    <span style="display:inline-block;background:rgba(255,255,255,0.15);
+                                 color:#ffffff;font-size:12px;font-weight:700;
+                                 padding:5px 12px;border-radius:20px;letter-spacing:0.5px;">
+                      Eventora
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- ── Body Content ── -->
+          <tr>
+            <td class="email-body" style="padding:36px 40px;">
+              ${body}
+            </td>
+          </tr>
+
+          <!-- ── Divider ── -->
+          <tr>
+            <td style="padding:0 40px;">
+              <div style="height:1px;background:#e2e8f0;"></div>
+            </td>
+          </tr>
+
+          <!-- ── Footer ── -->
+          <tr>
+            <td style="padding:24px 40px 32px;">
+              <p style="margin:0 0 6px;font-size:13px;color:#94a3b8;line-height:1.5;text-align:center;">
+                This email was sent by <strong style="color:#6366f1;">Eventora</strong> in relation to your account activity.
+              </p>
+              <p style="margin:0;font-size:12px;color:#cbd5e1;text-align:center;">
+                &copy; ${new Date().getFullYear()} Eventora. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /Email container -->
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>`;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   UTILITY FUNCTIONS
+───────────────────────────────────────────────────────────────────────────── */
 function safeFailureCode(error: unknown) {
   if (error instanceof ServiceUnavailableException) return 'EMAIL_CONFIGURATION_MISSING';
   if (error instanceof Error && /TICKETS_NOT_READY|APPLICATION_DECISION_NOT_READY|CANCELLATION_EVENT_NOT_FOUND|UNSUPPORTED_EMAIL_TYPE/.test(error.message)) return error.message;
@@ -171,4 +645,13 @@ function safeFailureCode(error: unknown) {
 function safeName(value: string) { return value.replace(/[<>\r\n]/g, '').trim().slice(0, 120); }
 function cleanHeader(value: string) { return value.replace(/[\r\n]/g, ' ').slice(0, 200); }
 function createMessageId(value: string) { return createHash('sha256').update(value).digest('hex'); }
-function escapeHtml(value: string) { return value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!); }
+function escapeHtml(value?: string | null): string {
+  if (!value) return '';
+  return value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+}
+function formatDateText(date?: Date | string | null): string {
+  if (!date) return 'TBA';
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return 'TBA';
+  return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+}

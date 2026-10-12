@@ -3,8 +3,14 @@ import { SignInButton, useAuth } from '@clerk/react'
 import { Link, useParams } from 'react-router'
 import { api } from '../../lib/api'
 import { useAuthenticatedApi } from '../auth/use-authenticated-api'
-import heroImage from '../../assets/hero.png'
 import { formatEventDate } from './event-format'
+import { getEventPlaceholder } from '../../lib/placeholders'
+import { useToast } from '../../components/ui/toast'
+import {
+  IconCalendar,
+  IconMapPin,
+  IconShield,
+} from '../../components/ui/icons'
 
 interface EventDetails {
   id: string
@@ -20,7 +26,17 @@ interface EventDetails {
   organizerName: string | null
   category: { name: string; slug: string }
 }
-interface Session { id: string; title: string; description: string | null; speaker: string | null; venue: string | null; startAt: string; endAt: string }
+
+interface Session {
+  id: string
+  title: string
+  description: string | null
+  speaker: string | null
+  venue: string | null
+  startAt: string
+  endAt: string
+}
+
 interface TicketType {
   id: string
   name: string
@@ -32,6 +48,7 @@ interface TicketType {
   availableQuantity: number
   isOnSale: boolean
 }
+
 interface CheckoutContact {
   firstName: string
   lastName: string
@@ -40,8 +57,16 @@ interface CheckoutContact {
   city: string
   country: string
 }
-interface RegistrationResponse { id: string }
-interface CheckoutResponse { checkoutUrl: string; method: 'POST'; fields: Record<string, string> }
+
+interface RegistrationResponse {
+  id: string
+}
+
+interface CheckoutResponse {
+  checkoutUrl: string
+  method: 'POST'
+  fields: Record<string, string>
+}
 
 type PageState =
   | { identifier: string; status: 'loading' }
@@ -53,14 +78,21 @@ export function EventDetailPage() {
   const { eventId = '' } = useParams()
   const { isLoaded, isSignedIn } = useAuth()
   const authenticatedRequest = useAuthenticatedApi()
+  const toast = useToast()
+
   const [state, setState] = useState<PageState>({ identifier: '', status: 'loading' })
   const [selectedTicketId, setSelectedTicketId] = useState('')
   const [quantity, setQuantity] = useState('1')
-  const [contact, setContact] = useState<CheckoutContact>({ firstName: '', lastName: '', phone: '', address: '', city: '', country: 'Sri Lanka' })
-  const [checkoutMessage, setCheckoutMessage] = useState('')
+  const [contact, setContact] = useState<CheckoutContact>({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    address: '',
+    city: '',
+    country: 'Sri Lanka',
+  })
   const [checkoutBusy, setCheckoutBusy] = useState(false)
   const [registrationStarted, setRegistrationStarted] = useState(false)
-  const [expiredReservation, setExpiredReservation] = useState(false)
   const registrationKey = useRef<string | null>(null)
   const registrationId = useRef<string | null>(null)
 
@@ -70,37 +102,86 @@ export function EventDetailPage() {
       api.get<EventDetails>(`/events/${encodeURIComponent(eventId)}`),
       api.get<Session[]>(`/events/${encodeURIComponent(eventId)}/sessions`),
       api.get<TicketType[]>(`/events/${encodeURIComponent(eventId)}/ticket-types`),
-    ]).then(([eventResponse, sessionResponse, ticketResponse]) => {
-      if (active) setState({ identifier: eventId, status: 'ready', event: eventResponse.data, sessions: sessionResponse.data, tickets: ticketResponse.data })
-    }).catch((error: unknown) => {
-      if (!active) return
-      const status = typeof error === 'object' && error !== null && 'response' in error
-        ? (error.response as { status?: number } | undefined)?.status
-        : undefined
-      setState(status === 404 ? { identifier: eventId, status: 'not-found' } : { identifier: eventId, status: 'error' })
-    })
-    return () => { active = false }
-  }, [eventId])
+    ])
+      .then(([eventResponse, sessionResponse, ticketResponse]) => {
+        if (active) {
+          setState({
+            identifier: eventId,
+            status: 'ready',
+            event: eventResponse.data,
+            sessions: sessionResponse.data,
+            tickets: ticketResponse.data,
+          })
+          if (ticketResponse.data.length > 0 && !selectedTicketId) {
+            const firstAvailable = ticketResponse.data.find((t) => t.isOnSale && t.availableQuantity > 0)
+            if (firstAvailable) setSelectedTicketId(firstAvailable.id)
+          }
+        }
+      })
+      .catch((error: unknown) => {
+        if (!active) return
+        const status =
+          typeof error === 'object' && error !== null && 'response' in error
+            ? (error.response as { status?: number } | undefined)?.status
+            : undefined
+        setState(status === 404 ? { identifier: eventId, status: 'not-found' } : { identifier: eventId, status: 'error' })
+      })
+
+    return () => {
+      active = false
+    }
+  }, [eventId, selectedTicketId])
 
   const pageState: PageState = state.identifier === eventId ? state : { identifier: eventId, status: 'loading' }
-  if (pageState.status === 'loading') return <main className="detail-page" aria-live="polite"><p>Loading event details…</p></main>
-  if (pageState.status === 'not-found') return <main className="detail-page"><span className="eyebrow">Event unavailable</span><h1>We couldn’t find that event.</h1><Link to="/discover">Browse events</Link></main>
-  if (pageState.status === 'error') return <main className="detail-page" role="alert"><h1>Event details are temporarily unavailable.</h1><Link to="/discover">Back to event discovery</Link></main>
+
+  if (pageState.status === 'loading') {
+    return (
+      <div className="fullscreen-loading">
+        <div className="spinner" />
+        <p>Loading event information…</p>
+      </div>
+    )
+  }
+
+  if (pageState.status === 'not-found') {
+    return (
+      <div className="fullscreen-loading">
+        <span className="badge badge-rose">Event Not Found</span>
+        <h2 style={{ fontSize: '24px', fontWeight: 800 }}>We couldn't locate this event</h2>
+        <p className="text-muted">The link may have expired or the event may have been unpublished.</p>
+        <Link to="/discover" className="btn btn-primary">
+          Explore Other Events
+        </Link>
+      </div>
+    )
+  }
+
+  if (pageState.status === 'error') {
+    return (
+      <div className="fullscreen-loading">
+        <h2 style={{ fontSize: '24px', fontWeight: 800 }}>Event details are temporarily unavailable</h2>
+        <Link to="/discover" className="btn btn-secondary">
+          Back to Events
+        </Link>
+      </div>
+    )
+  }
 
   const { event, sessions, tickets } = pageState
-  const selectedTicket = tickets.find((ticket) => ticket.id === selectedTicketId)
+  const selectedTicket = tickets.find((t) => t.id === selectedTicketId)
+  const coverImage = event.coverImageUrl || getEventPlaceholder(event.category.name)
 
-  async function beginCheckout(formEvent: FormEvent<HTMLFormElement>) {
-    formEvent.preventDefault()
+  async function beginCheckout(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     if (!selectedTicket || !isSignedIn) return
     setCheckoutBusy(true)
-    setCheckoutMessage('')
-    setExpiredReservation(false)
+
     try {
       if (!registrationKey.current) {
         registrationKey.current = crypto.randomUUID()
         saveCheckoutState(eventId, selectedTicket.id, { key: registrationKey.current, registrationId: null, quantity })
       }
+
       if (!registrationId.current) {
         const registration = await authenticatedRequest<RegistrationResponse>({
           method: 'POST',
@@ -109,18 +190,31 @@ export function EventDetailPage() {
           data: { ticketTypeId: selectedTicket.id, quantity: Number(quantity) },
         })
         registrationId.current = registration.data.id
-        saveCheckoutState(eventId, selectedTicket.id, { key: registrationKey.current, registrationId: registration.data.id, quantity })
+        saveCheckoutState(eventId, selectedTicket.id, {
+          key: registrationKey.current,
+          registrationId: registration.data.id,
+          quantity,
+        })
         setRegistrationStarted(true)
       }
+
       const checkout = await authenticatedRequest<CheckoutResponse>({
         method: 'POST',
         url: `/payments/${encodeURIComponent(registrationId.current)}/checkout`,
         data: contact,
       })
+
       const action = new URL(checkout.data.checkoutUrl)
-      if (!['sandbox.payhere.lk', 'www.payhere.lk'].includes(action.hostname) || action.pathname !== '/pay/checkout' || checkout.data.method !== 'POST') {
-        throw new Error('Checkout destination could not be verified.')
+      if (
+        !['sandbox.payhere.lk', 'www.payhere.lk'].includes(action.hostname) ||
+        action.pathname !== '/pay/checkout' ||
+        checkout.data.method !== 'POST'
+      ) {
+        throw new Error('Checkout destination could not be validated.')
       }
+
+      toast.info('Redirecting to PayHere', 'Secure payment gateway is loading…', 3000)
+
       const form = document.createElement('form')
       form.method = 'POST'
       form.action = action.toString()
@@ -134,87 +228,286 @@ export function EventDetailPage() {
       document.body.append(form)
       form.submit()
       form.remove()
-    } catch (error) {
-      const response = typeof error === 'object' && error !== null && 'response' in error
-        ? (error.response as { data?: { message?: string | string[] } } | undefined)?.data?.message
-        : undefined
-      const message = Array.isArray(response) ? response[0] : typeof response === 'string' ? response : error instanceof Error ? error.message : ''
-      setCheckoutMessage(message || 'Checkout could not be started. Please try again.')
-      setExpiredReservation(Boolean(message && /reservation has expired|only pending registrations/i.test(message)))
+    } catch (err) {
+      const response =
+        typeof err === 'object' && err !== null && 'response' in err
+          ? (err.response as { data?: { message?: string | string[] } } | undefined)?.data?.message
+          : undefined
+      const message =
+        Array.isArray(response) ? response[0] : typeof response === 'string' ? response : err instanceof Error ? err.message : ''
+      toast.error('Checkout Error', message || 'Checkout could not be started. Please try again.')
     } finally {
       setCheckoutBusy(false)
     }
   }
 
-  function startNewReservation() {
-    registrationKey.current = null
-    registrationId.current = null
-    if (selectedTicket) clearCheckoutState(eventId, selectedTicket.id)
-    setExpiredReservation(false)
-    setRegistrationStarted(false)
-    setCheckoutMessage('')
-  }
+  return (
+    <main className="public-container" style={{ padding: '32px 24px 80px' }}>
+      <Link to="/discover" className="text-button" style={{ marginBottom: '20px' }}>
+        ← All Events
+      </Link>
 
-  return <main className="detail-page">
-    <Link className="back-link" to="/discover">← All events</Link>
-    <div className="event-detail-hero">
-      <img src={event.coverImageUrl || heroImage} alt={`${event.title} event`} />
-      <div><span className="eyebrow">{event.category.name}</span><h1>{event.title}</h1><p>{formatEventDate(event.startAt, event.timezone)}</p><p>{event.venue} · {event.city}</p></div>
-    </div>
-    <div className="event-detail-layout">
-      <div className="event-detail-main">
-        <section><h2>About this event</h2><p className="event-long-description">{event.description}</p>{event.organizerName && <p className="event-organizer">Presented by <strong>{event.organizerName}</strong></p>}</section>
-        <section><h2>Schedule</h2>
-          {sessions.length ? <ol className="schedule-list">{sessions.map((session) => <li key={session.id}>
-            <time>{formatEventDate(session.startAt, event.timezone)} – {new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: safeTimezone(event.timezone) }).format(new Date(session.endAt))}</time>
-            <h3>{session.title}</h3>{session.description && <p>{session.description}</p>}
-            {(session.speaker || session.venue) && <small>{[session.speaker, session.venue].filter(Boolean).join(' · ')}</small>}
-          </li>)}</ol> : <p>Schedule details will be shared closer to the event.</p>}
-        </section>
+      {/* Hero Banner */}
+      <div className="event-detail-banner">
+        <img src={coverImage} alt={event.title} />
+        <div className="event-detail-banner__overlay">
+          <span className="badge badge-indigo" style={{ alignSelf: 'flex-start', marginBottom: '12px' }}>
+            {event.category.name}
+          </span>
+          <h1 style={{ margin: '0 0 12px', fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 800, lineHeight: 1.15 }}>
+            {event.title}
+          </h1>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', fontSize: '15px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <IconCalendar style={{ width: '18px', height: '18px' }} />
+              {formatEventDate(event.startAt, event.timezone)}
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <IconMapPin style={{ width: '18px', height: '18px' }} />
+              {event.venue}, {event.city}
+            </span>
+          </div>
+        </div>
       </div>
-      <aside className="ticket-panel" aria-labelledby="ticket-title"><h2 id="ticket-title">Tickets</h2>
-        {!tickets.length ? <p>Ticket types are not available yet.</p> : tickets.map((ticket) => <article className="ticket-option" key={ticket.id}>
-          <div><strong>{ticket.name}</strong><span>{ticket.currency} {ticket.price}</span></div>
-          {ticket.description && <p>{ticket.description}</p>}
-          <small>{ticket.isOnSale ? `${ticket.availableQuantity} available` : ticket.availableQuantity < 1 ? 'Sold out' : ticket.salesStartAt ? `On sale ${formatEventDate(ticket.salesStartAt, event.timezone)}` : 'Not currently on sale'}</small>
-          <button className="text-button ticket-select" type="button" disabled={!ticket.isOnSale || ticket.availableQuantity < 1 || registrationStarted} onClick={() => {
-            setSelectedTicketId(ticket.id)
-            const saved = readCheckoutState(eventId, ticket.id)
-            registrationKey.current = saved?.key ?? null
-            registrationId.current = saved?.registrationId ?? null
-            setRegistrationStarted(Boolean(saved?.registrationId))
-            setQuantity(saved?.quantity ?? '1')
-            setContact((previous) => ({ ...previous, city: previous.city || event.city }))
-            setCheckoutMessage('')
-          }}>{selectedTicketId === ticket.id ? 'Selected' : 'Choose tickets'}</button>
-        </article>)}
-        {selectedTicket && <section className="checkout-panel" aria-labelledby="checkout-title">
-          <h3 id="checkout-title">Checkout · {selectedTicket.name}</h3>
-          {!isLoaded ? <p>Checking your account…</p> : !isSignedIn ? <><p>Sign in to reserve tickets and continue to PayHere.</p><SignInButton mode="modal"><button className="button button--dark" type="button">Sign in</button></SignInButton></> : <form className="checkout-form" onSubmit={beginCheckout}>
-            <label>Quantity<input required type="number" min="1" max={selectedTicket.availableQuantity} step="1" value={quantity} disabled={registrationStarted} onChange={(e) => setQuantity(e.target.value)} /></label>
-            <p className="checkout-total">Total from current ticket price: <strong>{selectedTicket.currency} {displayTotal(selectedTicket.price, quantity)}</strong></p>
-            <div className="checkout-fields">
-              <label>First name<input required autoComplete="given-name" value={contact.firstName} onChange={(e) => setContact({ ...contact, firstName: e.target.value })} /></label>
-              <label>Last name<input required autoComplete="family-name" value={contact.lastName} onChange={(e) => setContact({ ...contact, lastName: e.target.value })} /></label>
-              <label>Phone<input required autoComplete="tel" type="tel" value={contact.phone} onChange={(e) => setContact({ ...contact, phone: e.target.value })} /></label>
-              <label>Address<input required autoComplete="street-address" value={contact.address} onChange={(e) => setContact({ ...contact, address: e.target.value })} /></label>
-              <label>City<input required autoComplete="address-level2" value={contact.city} onChange={(e) => setContact({ ...contact, city: e.target.value })} /></label>
-              <label>Country<input required autoComplete="country-name" value={contact.country} onChange={(e) => setContact({ ...contact, country: e.target.value })} /></label>
+
+      {/* Layout Content & Sticky Ticket Card */}
+      <div className="event-detail-layout">
+        {/* Left Column: Details & Agenda */}
+        <div>
+          <section className="table-card" style={{ padding: '32px', marginBottom: '32px' }}>
+            <h2 style={{ margin: '0 0 16px', fontSize: '20px', fontWeight: 800 }}>About this Event</h2>
+            <p style={{ margin: '0 0 24px', fontSize: '15px', lineHeight: 1.7, color: 'var(--text-main)', whiteSpace: 'pre-line' }}>
+              {event.description}
+            </p>
+            {event.organizerName && (
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', fontSize: '14px', color: 'var(--text-muted)' }}>
+                Organized by <strong style={{ color: 'var(--text-main)' }}>{event.organizerName}</strong>
+              </div>
+            )}
+          </section>
+
+          {/* Agenda / Schedule */}
+          <section className="table-card" style={{ padding: '32px' }}>
+            <h2 style={{ margin: '0 0 20px', fontSize: '20px', fontWeight: 800 }}>Event Schedule</h2>
+            {sessions.length ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {sessions.map((s) => (
+                  <div
+                    key={s.id}
+                    style={{
+                      display: 'flex',
+                      gap: '16px',
+                      padding: '16px',
+                      background: '#f8fafc',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <div style={{ minWidth: '120px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)' }}>
+                      {new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: safeTimezone(event.timezone) }).format(new Date(s.startAt))}
+                      {' – '}
+                      {new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: safeTimezone(event.timezone) }).format(new Date(s.endAt))}
+                    </div>
+                    <div>
+                      <h4 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 700 }}>{s.title}</h4>
+                      {s.description && <p style={{ margin: '0 0 6px', fontSize: '13px', color: 'var(--text-muted)' }}>{s.description}</p>}
+                      {(s.speaker || s.venue) && (
+                        <span className="text-muted" style={{ fontSize: '12px' }}>
+                          {[s.speaker, s.venue].filter(Boolean).join(' · ')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted" style={{ margin: 0 }}>
+                Schedule sessions will be announced closer to the event date.
+              </p>
+            )}
+          </section>
+        </div>
+
+        {/* Right Sticky Column: Ticket Booking Panel */}
+        <aside>
+          <div className="ticket-panel-sticky">
+            <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 800 }}>Reserve Your Tickets</h3>
+
+            {/* Ticket Tier Selector */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+              {tickets.map((t) => {
+                const isSelected = selectedTicketId === t.id
+                return (
+                  <div
+                    key={t.id}
+                    onClick={() => {
+                      if (t.isOnSale && t.availableQuantity > 0) {
+                        setSelectedTicketId(t.id)
+                      }
+                    }}
+                    style={{
+                      padding: '14px 16px',
+                      borderRadius: 'var(--radius-md)',
+                      border: '2px solid',
+                      borderColor: isSelected ? 'var(--primary)' : 'var(--border)',
+                      background: isSelected ? '#eef2ff' : '#ffffff',
+                      cursor: t.isOnSale && t.availableQuantity > 0 ? 'pointer' : 'not-allowed',
+                      opacity: t.isOnSale && t.availableQuantity > 0 ? 1 : 0.6,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong style={{ fontSize: '15px' }}>{t.name}</strong>
+                      <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--primary)' }}>
+                        {t.currency} {Number(t.price).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="text-muted" style={{ fontSize: '12px', marginTop: '4px' }}>
+                      {t.isOnSale && t.availableQuantity > 0
+                        ? `${t.availableQuantity} passes left`
+                        : 'Sold out / Not on sale'}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-            {checkoutMessage && <div role="alert" className="checkout-error"><p>{checkoutMessage}</p>{expiredReservation && <button className="text-button" type="button" onClick={startNewReservation}>Start a new reservation</button>}</div>}
-            <button className="button" type="submit" disabled={checkoutBusy || !quantity || Number(quantity) < 1 || Number(quantity) > selectedTicket.availableQuantity}>
-              {checkoutBusy ? 'Preparing checkout…' : registrationStarted ? 'Retry PayHere checkout' : 'Continue to PayHere'}
-            </button>
-            <p className="ticket-note">Payment is confirmed only after PayHere notifies Eventora’s server. The return page alone cannot confirm payment.</p>
-          </form>}
-        </section>}
-      </aside>
-    </div>
-  </main>
+
+            {/* Checkout Form */}
+            {selectedTicket && (
+              <>
+                {!isLoaded ? (
+                  <p className="text-muted">Loading account session…</p>
+                ) : !isSignedIn ? (
+                  <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                    <p className="text-muted" style={{ fontSize: '14px', marginBottom: '14px' }}>
+                      Sign in to reserve tickets and proceed to secure checkout.
+                    </p>
+                    <SignInButton mode="modal">
+                      <button type="button" className="btn btn-primary" style={{ width: '100%' }}>
+                        Sign In to Book
+                      </button>
+                    </SignInButton>
+                  </div>
+                ) : (
+                  <form onSubmit={beginCheckout}>
+                    <div className="form-group">
+                      <label className="form-label">Ticket Quantity</label>
+                      <input
+                        required
+                        type="number"
+                        min="1"
+                        max={selectedTicket.availableQuantity}
+                        className="form-input"
+                        value={quantity}
+                        disabled={registrationStarted}
+                        onChange={(e) => setQuantity(e.target.value)}
+                      />
+                    </div>
+
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        background: '#f8fafc',
+                        borderRadius: 'var(--radius-md)',
+                        marginBottom: '16px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <span className="text-muted" style={{ fontSize: '14px' }}>Total Amount</span>
+                      <strong style={{ fontSize: '18px', color: 'var(--primary)' }}>
+                        {selectedTicket.currency} {displayTotal(selectedTicket.price, quantity)}
+                      </strong>
+                    </div>
+
+                    {/* Attendee Details Form */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                      <div className="form-grid-2">
+                        <input
+                          required
+                          className="form-input"
+                          placeholder="First Name"
+                          value={contact.firstName}
+                          onChange={(e) => setContact({ ...contact, firstName: e.target.value })}
+                        />
+                        <input
+                          required
+                          className="form-input"
+                          placeholder="Last Name"
+                          value={contact.lastName}
+                          onChange={(e) => setContact({ ...contact, lastName: e.target.value })}
+                        />
+                      </div>
+                      <input
+                        required
+                        type="tel"
+                        className="form-input"
+                        placeholder="Phone Number"
+                        value={contact.phone}
+                        onChange={(e) => setContact({ ...contact, phone: e.target.value })}
+                      />
+                      <input
+                        required
+                        className="form-input"
+                        placeholder="Billing Address"
+                        value={contact.address}
+                        onChange={(e) => setContact({ ...contact, address: e.target.value })}
+                      />
+                      <div className="form-grid-2">
+                        <input
+                          required
+                          className="form-input"
+                          placeholder="City"
+                          value={contact.city}
+                          onChange={(e) => setContact({ ...contact, city: e.target.value })}
+                        />
+                        <input
+                          required
+                          className="form-input"
+                          placeholder="Country"
+                          value={contact.country}
+                          onChange={(e) => setContact({ ...contact, country: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      style={{ width: '100%', padding: '14px' }}
+                      disabled={
+                        checkoutBusy ||
+                        !quantity ||
+                        Number(quantity) < 1 ||
+                        Number(quantity) > selectedTicket.availableQuantity
+                      }
+                    >
+                      {checkoutBusy ? 'Preparing Checkout…' : 'Proceed to PayHere Checkout'}
+                    </button>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', marginTop: '12px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                      <IconShield style={{ width: '14px', height: '14px' }} />
+                      256-bit encrypted PayHere checkout
+                    </div>
+                  </form>
+                )}
+              </>
+            )}
+          </div>
+        </aside>
+      </div>
+    </main>
+  )
 }
 
-function safeTimezone(timezone: string): string {
-  try { new Intl.DateTimeFormat(undefined, { timeZone: timezone }); return timezone } catch { return 'UTC' }
+function safeTimezone(tz: string): string {
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone: tz })
+    return tz
+  } catch {
+    return 'UTC'
+  }
 }
 
 function displayTotal(price: string, quantity: string) {
@@ -229,22 +522,8 @@ function checkoutStorageKey(eventId: string, ticketTypeId: string) {
   return `eventora-checkout:${eventId}:${ticketTypeId}`
 }
 
-function readCheckoutState(eventId: string, ticketTypeId: string) {
-  try {
-    const value: unknown = JSON.parse(sessionStorage.getItem(checkoutStorageKey(eventId, ticketTypeId)) ?? 'null')
-    if (typeof value === 'object' && value !== null && 'key' in value && typeof value.key === 'string'
-      && 'quantity' in value && typeof value.quantity === 'string'
-      && 'registrationId' in value && (typeof value.registrationId === 'string' || value.registrationId === null)) {
-      return { key: value.key, quantity: value.quantity, registrationId: value.registrationId }
-    }
-  } catch { /* Ignore unavailable or malformed browser storage. */ }
-  return null
-}
-
 function saveCheckoutState(eventId: string, ticketTypeId: string, value: { key: string; quantity: string; registrationId: string | null }) {
-  try { sessionStorage.setItem(checkoutStorageKey(eventId, ticketTypeId), JSON.stringify(value)) } catch { /* The backend idempotency key still protects this active page session. */ }
-}
-
-function clearCheckoutState(eventId: string, ticketTypeId: string) {
-  try { sessionStorage.removeItem(checkoutStorageKey(eventId, ticketTypeId)) } catch { /* Ignore unavailable browser storage. */ }
+  try {
+    sessionStorage.setItem(checkoutStorageKey(eventId, ticketTypeId), JSON.stringify(value))
+  } catch {}
 }

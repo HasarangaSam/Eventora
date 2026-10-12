@@ -11,12 +11,14 @@ import { TicketsService } from '../src/tickets/tickets.service.js';
 import { ticketQrToken } from '../src/tickets/ticket-crypto.js';
 import { CheckinsService } from '../src/checkins/checkins.service.js';
 import { OrganizerApplicationsService } from '../src/organizer-applications/organizer-applications.service.js';
+import { OrganizerEventsService } from '../src/events/organizer-events.service.js';
 
 describe('registration inventory concurrency (PostgreSQL)', () => {
   let prisma: PrismaService;
   let inventory: InventoryService;
   let registrations: RegistrationsService;
   let organizerId = '';
+  let adminId = '';
   let attendeeIds: string[] = [];
   let categoryId = '';
   let eventId = '';
@@ -33,6 +35,8 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
     const suffix = randomUUID();
     const organizer = await prisma.user.create({ data: { clerkUserId: `phase7-organizer-${suffix}`, email: `phase7-organizer-${suffix}@example.invalid`, role: 'ORGANIZER' } });
     organizerId = organizer.id;
+    const admin = await prisma.user.create({ data: { clerkUserId: `phase12-admin-${suffix}`, email: `phase12-admin-${suffix}@example.invalid`, role: 'ADMIN' } });
+    adminId = admin.id;
     attendeeIds = await Promise.all([1, 2].map(async (index) => {
       const attendee = await prisma.user.create({ data: { clerkUserId: `phase7-attendee-${index}-${suffix}`, email: `phase7-attendee-${index}-${suffix}@example.invalid` } });
       return attendee.id;
@@ -111,7 +115,7 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
           await tx.emailDelivery.deleteMany({ where: { organizerApplication: { applicantId: { in: attendeeIds } } } });
           await tx.organizerApplication.deleteMany({ where: { applicantId: { in: attendeeIds } } });
           await tx.category.delete({ where: { id: categoryId } });
-          await tx.user.deleteMany({ where: { id: { in: [organizerId, ...attendeeIds] } } });
+          await tx.user.deleteMany({ where: { id: { in: [organizerId, adminId, ...attendeeIds] } } });
         });
       }
       await prisma.$disconnect();
@@ -236,12 +240,13 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
     expect(ticket).toMatchObject({ quantityReserved: 0, quantitySold: 1 });
 
     const pendingCancel = await registrations.create(attendeeIds[winnerIndex], ticketTypeId, 1, 'phase8-cancel-pending');
-    await prisma.$transaction(async (tx) => {
-      await tx.event.update({ where: { id: eventId }, data: { status: 'CANCELLED', cancelledAt: new Date(), cancelledById: organizerId, cancellationReason: 'Integration test' } });
-      expect(await inventory.releaseEventReservations(tx, eventId)).toBe(1);
-    });
+    const eventManager = new OrganizerEventsService(prisma, {} as never, inventory);
+    await expect(eventManager.cancelAsAdmin(adminId, eventId, 'Admin integration cancellation'))
+      .resolves.toMatchObject({ id: eventId, status: 'CANCELLED', cancellationNoticesQueued: 1 });
+    expect(await prisma.emailDelivery.count({ where: { eventId, type: 'EVENT_CANCELLATION', registrationId: next.id } })).toBe(1);
     event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });
     ticket = await prisma.ticketType.findUniqueOrThrow({ where: { id: ticketTypeId } });
+    expect(event).toMatchObject({ status: 'CANCELLED', cancelledById: adminId, cancellationReason: 'Admin integration cancellation' });
     expect(event.ticketsReserved).toBe(0);
     expect(ticket.quantityReserved).toBe(0);
     expect(await prisma.registration.findUniqueOrThrow({ where: { id: pendingCancel.id } })).toMatchObject({ status: 'EXPIRED' });

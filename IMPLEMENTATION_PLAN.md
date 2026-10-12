@@ -55,7 +55,7 @@ The overall status must be updated as work progresses. It must reflect verified 
 | Digital tickets and email    | IMPLEMENTED | Phase 9 code, owner checks, Gmail SMTP authentication; no email sent |
 | Check-in                     | IMPLEMENTED | Phase 10 implementation and PostgreSQL concurrency checks pass; physical camera verification remains |
 | Dashboards and analytics     | IMPLEMENTED | Phase 11                                                        |
-| Final quality review         | NOT_STARTED | Phase 12                                                        |
+| Final quality review         | IN_PROGRESS | Code/integration review completed; live provider and browser verification remain |
 
 ### Organizer application review improvement (before Phase 11)
 
@@ -556,31 +556,31 @@ Review dashboard accuracy and access restrictions before Phase 12.
 
 ## 15. Phase 12 — Final Quality Review
 
-**Status:** NOT_STARTED
+**Status:** IN_PROGRESS — implemented and partially verified; live provider and browser checks remain
 
 ### Tasks
 
-- [ ] Complete an end-to-end attendee purchase using the PayHere test environment.
-- [ ] Verify organizer application and administrator approval.
-- [ ] Verify organizer event creation, publication, and ticket configuration.
-- [ ] Test concurrent purchase and inventory protection.
-- [ ] Test reservation expiry and late-payment reconciliation.
-- [ ] Verify ticket issuance and attendee ticket access.
-- [ ] Verify email delivery and duplicate-notification handling.
-- [ ] Verify QR scanning and manual check-in.
-- [ ] Verify event cancellation and attendee notifications.
-- [ ] Verify historical payment, registration, and ticket preservation.
-- [ ] Review administrator workflows.
-- [ ] Review authentication and authorization boundaries.
-- [ ] Review environment variables and secret handling.
-- [ ] Review rate limiting, uploads, webhooks, and safe logging.
-- [ ] Review responsive behavior and accessibility.
-- [ ] Run the configured frontend lint, type-check, and production build.
-- [ ] Run relevant backend tests and production build.
-- [ ] Review migrations and deployment configuration.
-- [ ] Complete setup, payment, webhook, and development documentation.
-- [ ] Review the Git diff and remove unintended changes.
-- [ ] Record known limitations and outstanding risks.
+- [ ] Complete an end-to-end attendee purchase through the PayHere sandbox merchant and reachable notification URL. Current PostgreSQL integration tests exercise checkout signing and simulated signed callbacks, not hosted PayHere checkout.
+- [ ] Verify organizer application, administrator approval, and reapplication in a real Clerk session/browser. Service/controller and database behavior have automated coverage.
+- [ ] Verify organizer event creation, publication, and ticket configuration through the running UI. Service validation tests pass; browser/API flow remains unverified.
+- [x] Test concurrent purchase and inventory protection. PostgreSQL integration verified that only one concurrent reservation succeeds.
+- [x] Test reservation expiry and late-payment reconciliation. PostgreSQL integration verified ten-minute holds, expiry release, and retained unfulfillable late success without ticket issuance.
+- [x] Verify ticket issuance and attendee ticket access through PostgreSQL integration tests, including owner and non-owner access.
+- [ ] Verify live Gmail delivery. Duplicate notification/outbox behavior and retry states are tested; no email was sent.
+- [ ] Verify camera QR scanning on a physical browser/device. PostgreSQL integration exercised QR validation and manual check-in, including a concurrent duplicate check-in.
+- [x] Verify event cancellation and notice queueing. PostgreSQL integration verified admin attribution, reason, reservation release, one notice per confirmed registration, and preserved history; live delivery remains unverified.
+- [x] Verify historical payment, registration, and ticket preservation through PostgreSQL integration tests, including chargeback and late-payment exceptions.
+- [x] Review administrator workflows and add platform event search/status filters plus cross-platform cancellation; account, application, category, and analytics workflows were inspected.
+- [x] Review authentication and authorization boundaries. Database-backed guards and role/account tests pass; admin event routes require active ADMIN accounts.
+- [x] Review environment variables and secret handling. Required local variable names are present; `.env` and `.env.local` are Git-ignored and their values were not printed or committed.
+- [x] Review upload validation, webhook verification, and safe logging. No distributed rate limiter is implemented; this is recorded as a production-readiness risk.
+- [ ] Complete responsive/accessibility review in a running browser. Source review passed; the local browser preview timed out in this environment.
+- [x] Run frontend lint, TypeScript check, and production build.
+- [x] Run backend unit tests, integration tests, lint, build, and Prisma schema validation.
+- [x] Review migrations and deployment configuration. Prisma reports four migrations and the configured database schema is up to date.
+- [x] Review setup, payment, webhook, security, and development documentation; update admin event oversight and cancellation behavior.
+- [x] Review the Git diff and whitespace checks; no unrelated source changes were introduced by this phase.
+- [x] Record known limitations and outstanding risks.
 
 ### Acceptance criteria
 
@@ -594,13 +594,16 @@ Review dashboard accuracy and access restrictions before Phase 12.
 
 ### Verification record
 
-- End-to-end test results:
-- Frontend lint/type/build results:
-- Backend test/build results:
-- Security review:
-- External integrations verified:
-- Outstanding limitations:
-- Final completion decision:
+- PostgreSQL integration: `backend/npm.cmd run test:e2e -- --run` — 3 test files / 3 tests passed. Coverage includes concurrent inventory, expiry, signed callback processing, duplicate notifications, ticket ownership/issuance, QR/manual check-in race, late payment, and administrator cancellation with notice queueing and history preservation.
+- Backend unit tests: `backend/npm.cmd run test -- --run` — 13 files / 44 tests passed.
+- Backend checks: `npm.cmd run build`, `npm.cmd run lint`, `npm.cmd run prisma:validate`, and `npm.cmd exec -- prisma migrate status` passed; four migrations are applied and the database is up to date.
+- Frontend checks: `npm.cmd run lint` and `npm.cmd run build` passed. The production build retains a bundle-size advisory (main JS chunk about 525 kB).
+- Admin event oversight added: guarded `GET /api/admin/events` with a latest-100 bound and optional status filter; guarded `PATCH /api/admin/events/:eventId/cancel` validates a reason and uses transactional reservation release plus attendee outbox notices. Cancellation email identifies administrator versus organizer and safely includes the reason.
+- Security review: backend routes use Clerk/account/database-role guards; upload validation and payment/webhook verification are present. No distributed rate limiting exists yet and must be addressed before public production exposure.
+- External integrations not verified end-to-end: hosted PayHere sandbox checkout/notification delivery, live Clerk session/webhook dashboard delivery, Gmail message delivery, Cloudinary upload in the running UI, and physical camera scanning.
+- Browser review: local dev server started, but the in-app browser timed out connecting to localhost; rendered desktop/mobile UI and interactive role flows remain unreviewed.
+- Git: `.env` files remain ignored. Changes are uncommitted.
+- **Completion decision:** Phase 12 is not `VERIFIED` yet. Required external-service and browser checks remain; do not claim the full definition of done until those are exercised.
 
 ## 16. Cross-Phase Business Invariants
 

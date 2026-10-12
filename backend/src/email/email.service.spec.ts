@@ -35,4 +35,17 @@ describe('email outbox retry handling', () => {
       data: { status: 'FAILED', nextAttemptAt: null, lastError: 'EMAIL_CONFIGURATION_MISSING' },
     }));
   });
+
+  it('describes administrator cancellations accurately and safely includes their reason', async () => {
+    const { service } = setup(1);
+    const render = (service as unknown as { render: (delivery: object) => Promise<{ text: string; html: string }> }).render.bind(service);
+    const message = await render({
+      type: 'EVENT_CANCELLATION',
+      registration: { attendee: { firstName: 'Test', lastName: 'User' } },
+      event: { title: 'Community Forum', cancelledBy: { role: 'ADMIN' }, cancellationReason: 'Safety <issue>' },
+    });
+    expect(message.text).toContain('cancelled by an Eventora administrator');
+    expect(message.text).toContain('Reason: Safety <issue>');
+    expect(message.html).toContain('Reason: Safety &lt;issue&gt;');
+  });
 });

@@ -36,6 +36,20 @@ export class OrganizerEventsService {
     return this.prisma.event.findMany({ where: { organizerId }, orderBy: { updatedAt: 'desc' }, include: ownerDetails });
   }
 
+  listForAdmin(status?: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED') {
+    return this.prisma.event.findMany({
+      where: status ? { status } : undefined,
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+      select: {
+        id: true, title: true, slug: true, city: true, venue: true, startAt: true, endAt: true, status: true,
+        ticketsReserved: true, ticketsSold: true,
+        organizer: { select: { email: true, firstName: true, lastName: true } },
+        _count: { select: { registrations: true, tickets: true } },
+      },
+    });
+  }
+
   async get(organizerId: string, eventId: string) {
     await this.owned(organizerId, eventId);
     return this.prisma.event.findUniqueOrThrow({ where: { id: eventId }, include: ownerDetails });
@@ -126,12 +140,26 @@ export class OrganizerEventsService {
 
   async cancel(organizerId: string, eventId: string, reason: string) {
     const event = await this.owned(organizerId, eventId);
-    if (event.status === 'CANCELLED' || event.status === 'COMPLETED') throw new ConflictException('This event cannot be cancelled in its current state');
+    return this.cancelEvent(organizerId, eventId, event.status, reason);
+  }
+
+  async cancelAsAdmin(adminId: string, eventId: string, reason: string) {
+    const event = await this.prisma.event.findUnique({ where: { id: eventId }, select: { id: true, status: true } });
+    if (!event) throw new NotFoundException('Event not found');
+    return this.cancelEvent(adminId, eventId, event.status, reason);
+  }
+
+  private async cancelEvent(actorId: string, eventId: string, currentStatus: string, reason: string) {
+    if (currentStatus === 'CANCELLED' || currentStatus === 'COMPLETED') throw new ConflictException('This event cannot be cancelled in its current state');
     const now = new Date();
     let noticesQueued = 0;
     // Persist cancellation and one idempotent outbox row per confirmed registration together.
     await this.prisma.$transaction(async (tx) => {
-      await tx.event.update({ where: { id: eventId }, data: { status: 'CANCELLED', cancelledAt: now, cancelledById: organizerId, cancellationReason: reason } });
+      const changed = await tx.event.updateMany({
+        where: { id: eventId, status: { notIn: ['CANCELLED', 'COMPLETED'] } },
+        data: { status: 'CANCELLED', cancelledAt: now, cancelledById: actorId, cancellationReason: reason },
+      });
+      if (changed.count !== 1) throw new ConflictException('This event cannot be cancelled in its current state');
       await this.inventory.releaseEventReservations(tx, eventId);
       const recipients = await tx.registration.findMany({ where: { eventId, status: 'CONFIRMED' }, select: { id: true, attendee: { select: { email: true } } } });
       if (recipients.length) noticesQueued = (await tx.emailDelivery.createMany({

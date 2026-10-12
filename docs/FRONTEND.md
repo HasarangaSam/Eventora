@@ -43,7 +43,7 @@ Keep feature code in its feature folder; add shared layout/UI abstractions only 
 | approved `ORGANIZER` | `GET /api/organizer/dashboard` | Owned event/status summary, confirmed registrations, tickets, verified gross sales by currency, payment statuses, check-in rate, recent owned events |
 | `ADMIN` | `GET /api/admin/dashboard` | User/role counts, active users, pending organizer applications, event/registration/payment totals, gross sales, attendance |
 
-Organizer event detail analytics are available at `GET /api/organizer/events/:eventId/analytics`; the backend verifies ownership. `/account` is the role-aware dashboard surface, with role-specific navigation. Existing event-authoring, check-in, application-review, and ticket tools remain in their current feature views.
+Organizer event detail analytics are available at `GET /api/organizer/events/:eventId/analytics`; the backend verifies ownership. `/account` is the role-aware dashboard surface, with role-specific navigation. The `/admin` workspace reviews applications and accounts, manages categories, and oversees the latest 100 platform events through `GET /api/admin/events`; it can cancel any eligible event through the admin-only cancellation endpoint while preserving history. Existing event-authoring, check-in, application-review, and ticket tools remain in their current feature views.
 
 Dashboard values come from database counts/grouped aggregates and bounded recent-record queries. Keep empty states honest. Currency totals remain distinct. A payment redirect is never evidence of success; show only server-confirmed statuses. Do not use cancelled events as bookable events, but preserve historical metrics and records. Role navigation stays distinct while reusing the established orange/warm palette.
 
@@ -57,3 +57,10 @@ Dashboard values come from database counts/grouped aggregates and bounded recent
 - Keep dashboards role-specific and scoped. Never use a client-supplied role, event organizer ID, price, payment result, or ownership field as authorization evidence.
 
 The separate Discover page reads filters and pagination from URL query parameters. The home page requests at most four recent published, eligible events and real category records. Build on these contracts without inserting sample event or sales data. Do not add social, legal, or support destinations until Eventora has real URLs and contact details to publish.
+
+## Shared chrome and dashboard presentation
+
+- Guests and attendees use the public navbar and footer. The public chrome uses a dark charcoal/navy surface, clear large navigation text, and the established warm orange accent.
+- Organizer and admin workspaces use a full-height sidebar layout and omit the public navbar and footer. Attendee dashboards retain the public shell.
+- Organizer sales charts use verified monthly gross sales grouped by currency. Admin role distribution and attendance visuals use the existing admin dashboard aggregates. Do not add decorative or fabricated analytics.
+- Footer social marks remain non-interactive until Eventora's official social URLs are supplied; do not point users to generic platform pages or unrelated accounts.

@@ -1,124 +1,205 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Eventora Backend — NestJS Architecture & Engineering Reference
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+> Enterprise-grade event ticketing API built with **NestJS 12**, **TypeScript**, **Prisma ORM**, and **PostgreSQL (Supabase)**. Engineered for high concurrency, financial consistency, zero-trust role-based authorization, and resilient asynchronous processing.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## Architecture & System Design
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
-```bash
-$ npm install
+```
+                     ┌──────────────────────────────────────────────┐
+                     │            Client (React 19 / Axios)         │
+                     │          Bearer Token (Clerk JWT)            │
+                     └──────────────────────┬───────────────────────┘
+                                            │
+                                            ▼
+                     ┌──────────────────────────────────────────────┐
+                     │              NestJS Guard Chain              │
+                     │   1. ClerkAuthGuard (JWT + Party Check)     │
+                     │   2. AccountGuard (Active DB User Resolution)│
+                     │   3. RolesGuard (Server-Side Role Assertion) │
+                     │   4. OrganizerApplicationGuard (Approved)    │
+                     └──────────────────────┬───────────────────────┘
+                                            │
+                      ┌─────────────────────┼─────────────────────┐
+                      ▼                     ▼                     ▼
+               ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
+               │ Registrations│      │   Payments   │      │   Check-ins  │
+               │  & Inventory │      │   & Webhooks │      │  & QR Tokens │
+               └──────┬───────┘      └──────┬───────┘      └──────┬───────┘
+                      │                     │                     │
+                      └─────────────────────┼─────────────────────┘
+                                            ▼
+                     ┌──────────────────────────────────────────────┐
+                     │          Prisma 7 / PostgreSQL Adapter       │
+                     │    Row-Level Locking (FOR UPDATE SKIP LOCKED)│
+                     │     ACID Transactions & Snapshot Isolation   │
+                     └──────────────────────┬───────────────────────┘
+                                            │
+                      ┌─────────────────────┼─────────────────────┐
+                      ▼                     ▼                     ▼
+               ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
+               │ PostgreSQL   │      │ Outbox Email │      │  PayHere PGW │
+               │ Supabase DB  │      │ Worker (SMTP)│      │  Signatures  │
+               └──────────────┘      └──────────────┘      └──────────────┘
 ```
 
-## Compile and run the project
+---
 
-```bash
-# development
-$ npm run start
+## Core Engineering Principles & Implementation Depth
 
-# watch mode
-$ npm run start:dev
+### 1. High-Concurrency Inventory Reservations (`FOR UPDATE SKIP LOCKED`)
+Preventing overselling in ticketing systems requires absolute serialization of reservation requests:
+- **Atomicity:** When an attendee initiates a registration (`POST /api/registrations`), inventory is locked and reserved inside a single database transaction.
+- **Locking Pattern:** `Event.ticketsReserved` and `TicketType.quantityReserved` are incremented concurrently with validation checks on capacity and ticket supply.
+- **Database-Clock Expiry:** Held reservations expire strictly based on the database engine's timestamp (`CURRENT_TIMESTAMP + interval '10 minutes'`), immune to application server clock drift.
+- **Background Reclamation:** A recurring worker safely reclaims expired reservation holds using `SELECT ... FOR UPDATE SKIP LOCKED`, preventing deadlocks and competing lock contention.
 
-# production mode
-$ npm run start:prod
+### 2. Idempotent Checkout & Payment Reconciliation
+- **Idempotency Keys:** Registration requests mandate a client-supplied `Idempotency-Key` header, returning existing reservations if retried.
+- **PayHere Signature Verification:** Webhook notifications (`POST /api/webhooks/payhere/notify`) verify incoming MD5 message signatures using `crypto.timingSafeEqual` against the merchant secret before processing any state change.
+- **Fulfillability Verification:** Even upon verified payment success, if a reservation expired prior to the webhook callback, Eventora verifies available capacity. If fulfillable, tickets are issued; if oversold, the payment is logged to `PaymentException` for audit rather than corrupting inventory counts.
+
+### 3. Cryptographically Signed QR Tickets
+- **Zero Token Storage:** Raw QR tokens are never persisted in the database.
+- **HMAC Generation:** `token = HMAC-SHA256(TICKET_QR_SECRET, "eventora-ticket:" + reference)` (base64url encoded).
+- **Secure Storage:** The database stores only `SHA-256(token)`.
+- **Timing-Attack Resistance:** Door validation recomputes the HMAC and performs constant-time equality checks (`timingSafeEqual`) on both the token and the hash.
+
+### 4. Resilient Transactional Outbox Pattern for Emails
+- **Guaranteed Delivery:** Email records are created inside the exact same database transaction as the business event (payment confirmation, organizer application decision, or event cancellation).
+- **Asynchronous Worker:** The outbox processor executes every 30 seconds, locks pending records with `FOR UPDATE SKIP LOCKED`, and dispatches emails via Gmail SMTP with inline CID QR code attachments.
+- **Exponential Backoff:** Configured with bounded retries (max 5 attempts, capping at 1 hour) and sanitized failure codes (`SMTP_DELIVERY_FAILED`).
+
+---
+
+## Directory Structure & Modules
+
+```
+backend/
+├── src/
+│   ├── analytics/               # Aggregations, revenue stats, sales trends
+│   ├── auth/                    # Clerk JWT verification, guards, user sync webhooks
+│   ├── categories/              # Category CRUD with cascade protection
+│   ├── checkins/                # Live door scanning, attendance logging, validation
+│   ├── email/                   # Outbox worker, HTML templates (inline CID QR)
+│   ├── events/                  # Catalog, organizer studio, admin cancellation
+│   ├── organizer-applications/  # Application workflows, KYC fields, approval transactions
+│   ├── payments/                # PayHere hash generation, webhook processing, exceptions
+│   ├── prisma/                  # PrismaClient wrapper & PostgreSQL adapter setup
+│   ├── registrations/           # Inventory holds, lock-based reservation engine
+│   ├── tickets/                 # Ticket generation, QR token signing & rendering
+│   ├── app.module.ts            # Root module registering all sub-domains
+│   └── main.ts                  # NestJS bootstrap, raw body buffers, global prefix
+├── prisma/
+│   ├── migrations/              # Version-controlled SQL migrations
+│   └── schema.prisma            # Prisma schema (15 models, Decimal money types)
+├── scripts/
+│   └── provision-admin.ts       # CLI-only secure admin bootstrapper
+├── test/                        # Vitest E2E & unit test suites
+└── vitest.config.ts             # Vitest configuration
 ```
 
-## Run tests
+---
+
+## Database Models & Schema Highlights
+
+Managed via **Prisma 7** targeting PostgreSQL:
+
+- **`User`**: Database identity synced from Clerk, maintaining authoritative `role` (`ATTENDEE`, `ORGANIZER`, `ADMIN`) and `status` (`ACTIVE`, `DEACTIVATED`).
+- **`Event` & `EventSession`**: Complete event lifecycle management (`DRAFT`, `PUBLISHED`, `CANCELLED`, `COMPLETED`), venue geodata, and structured agenda sessions.
+- **`TicketType`**: Tiered ticket options (VIP, General, Early Bird) with price in `DECIMAL(12,2)` and inventory bounds.
+- **`InventoryReservation`**: Ephemeral 10-minute hold ledger backed by database timestamps.
+- **`Registration` & `PaymentAttempt`**: Attendee order state tracking with unique merchant references and idempotency keys.
+- **`Ticket` & `CheckIn`**: Digital ticket records storing reference identifiers, hashed tokens, and strict single-entry check-in records.
+- **`EmailDelivery`**: Outbox queue maintaining delivery state, attempt logs, error categorization, and retry schedules.
+
+---
+
+## Security Model & Guard Execution Chain
+
+All secured API routes traverse a multi-layered guard pipeline:
+
+1. **`ClerkAuthGuard`**: Decodes and verifies the Clerk JWT signature and confirms the `azp` (Authorized Party) matches `FRONTEND_ORIGIN`.
+2. **`AccountGuard`**: Queries PostgreSQL for the user matching `clerkUserId`. Rejects requests from non-existent or `DEACTIVATED` accounts.
+3. **`RolesGuard`**: Reads `@Roles(...)` metadata and verifies the user's database-persisted role. Client claims are completely ignored.
+4. **`OrganizerApplicationGuard`**: Enforces that organizers have a verified, `APPROVED` application on record before modifying events.
+
+---
+
+## Testing & Quality Assurance
+
+Eventora utilizes **Vitest** for unit and end-to-end integration testing:
 
 ```bash
-# unit tests
-$ npm run test
+# Run unit tests
+npm run test
 
-# e2e tests
-$ npm run test:e2e
+# Run tests in watch mode
+npm run test:watch
 
-# test coverage
-$ npm run test:cov
+# Execute E2E suite
+npm run test:e2e
+
+# Generate test coverage report
+npm run test:cov
+
+# Run fast type-aware oxlint
+npm run lint
 ```
 
-## Deployment
+---
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## Setup & Local Development
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 1. Prerequisites
+- Node.js 20+
+- PostgreSQL database (e.g., Supabase Session Pooler)
+- Clerk account
+- PayHere merchant sandbox credentials
 
+### 2. Environment Configuration
+Copy `.env.example` to `.env` and populate all variables:
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+cp .env.example .env
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Key environment variables:
+```dotenv
+DATABASE_URL=postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres?pgbouncer=true
+CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+CLERK_WEBHOOK_SIGNING_SECRET=whsec_...
+FRONTEND_ORIGIN=http://localhost:5173
+TICKET_QR_SECRET=replace-with-minimum-32-byte-cryptographic-secret
+PAYHERE_MERCHANT_ID=1220000
+PAYHERE_MERCHANT_SECRET=your_merchant_secret
+PAYHERE_ENVIRONMENT=sandbox
+GMAIL_USER=your-email@gmail.com
+GMAIL_APP_PASSWORD=your-app-password
+EMAIL_FROM="Eventora" <your-email@gmail.com>
+```
 
-## Observability
-
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
-
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
-
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
-
-To add it to this project:
-
+### 3. Database Migration & Client Generation
 ```bash
-$ npm install @nestjs/observe
+npm run prisma:validate
+npm run prisma:generate
+npm run db:deploy
 ```
 
-Then follow the [setup guide](https://docs.nestjs.com/observability/overview) - it takes a single import and an app key.
+### 4. Bootstrapping First Admin
+Admin privileges cannot be granted through the web interface. Provision the initial admin via CLI:
+```bash
+npm run admin:provision -- user_clerk_user_id
+```
 
-The free plan needs no payment details and covers 300,000 events a month. You can also browse the [live demo](https://www.observe-demo.nestjs.com/dashboard) first - the whole dashboard over a busy service's data, with nothing to install.
+### 5. Running the API
+```bash
+# Development mode with hot-reload
+npm run start:dev
 
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observe](https://observe.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+# Production build & execution
+npm run build
+npm run start:prod
+```
+The API listens on port `3000` (or `PORT` if specified) under the `/api` prefix.

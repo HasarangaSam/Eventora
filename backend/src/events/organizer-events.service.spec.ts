@@ -15,7 +15,7 @@ const baseEvent = {
 
 function setup() {
   const prisma = {
-    event: { findFirst: vi.fn().mockResolvedValue(baseEvent), findUniqueOrThrow: vi.fn(), update: vi.fn(), create: vi.fn() },
+    event: { findFirst: vi.fn().mockResolvedValue(baseEvent), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), update: vi.fn(), create: vi.fn() },
     category: { findFirst: vi.fn() }, ticketType: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
     eventSession: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
     registration: { findMany: vi.fn() }, $transaction: vi.fn(),
@@ -25,6 +25,7 @@ function setup() {
   return {
     prisma,
     cloudinary,
+    inventory,
     service: new OrganizerEventsService(prisma as unknown as PrismaService, cloudinary as unknown as CloudinaryService, inventory as unknown as InventoryService),
   };
 }
@@ -74,5 +75,45 @@ describe('OrganizerEventsService', () => {
       title: 'After party', startAt: new Date('2030-01-02T12:30:00Z'), endAt: new Date('2030-01-02T13:00:00Z'),
     })).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.eventSession.create).not.toHaveBeenCalled();
+  });
+
+  it('limits admin event oversight to the latest 100 records and applies its status filter', async () => {
+    const { service, prisma } = setup();
+    prisma.event.findMany.mockResolvedValue([]);
+    await service.listForAdmin('PUBLISHED');
+    expect(prisma.event.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { status: 'PUBLISHED' }, orderBy: { updatedAt: 'desc' }, take: 100,
+      select: expect.objectContaining({ organizer: expect.any(Object), _count: expect.any(Object) }),
+    }));
+  });
+
+  it('lets an admin cancel any event atomically and queues notices while preserving records', async () => {
+    const { service, prisma, cloudinary, inventory } = setup();
+    prisma.event.findUnique.mockResolvedValue({ id: 'event-1', status: 'PUBLISHED' });
+    const tx = {
+      event: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      registration: { findMany: vi.fn().mockResolvedValue([{ id: 'registration-1', attendee: { email: 'attendee@example.test' } }]) },
+      emailDelivery: { createMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    };
+    prisma.$transaction.mockImplementation(async (callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx));
+    const result = await service.cancelAsAdmin('admin-1', 'event-1', 'Safety issue');
+    expect(result).toEqual({ id: 'event-1', status: 'CANCELLED', cancellationNoticesQueued: 1 });
+    expect(tx.event.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'event-1', status: { notIn: ['CANCELLED', 'COMPLETED'] } },
+      data: expect.objectContaining({ cancelledById: 'admin-1', cancellationReason: 'Safety issue', status: 'CANCELLED' }),
+    }));
+    expect(tx.registration.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { eventId: 'event-1', status: 'CONFIRMED' } }));
+    expect(tx.emailDelivery.createMany).toHaveBeenCalledWith(expect.objectContaining({ skipDuplicates: true }));
+    expect(inventory.releaseEventReservations).toHaveBeenCalledWith(tx, 'event-1');
+    expect(cloudinary.destroy).not.toHaveBeenCalled();
+  });
+
+  it('does not cancel events that are already completed or missing', async () => {
+    const { service, prisma } = setup();
+    prisma.event.findUnique.mockResolvedValue({ id: 'event-1', status: 'COMPLETED' });
+    await expect(service.cancelAsAdmin('admin-1', 'event-1', 'Reason')).rejects.toBeInstanceOf(ConflictException);
+    prisma.event.findUnique.mockResolvedValue(null);
+    await expect(service.cancelAsAdmin('admin-1', 'missing', 'Reason')).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { EventsController } from './events.controller.js';
+import { AdminEventsController } from './admin-events.controller.js';
 import { EventsService } from './events.service.js';
 import { OrganizerEventsController } from './organizer-events.controller.js';
 import { OrganizerEventsService } from './organizer-events.service.js';
@@ -11,7 +12,7 @@ import { CheckinsService } from '../checkins/checkins.service.js';
 
 @Module({
   imports: [AuthModule, RegistrationsModule],
-  controllers: [EventsController, OrganizerEventsController, CheckinsController],
+  controllers: [EventsController, OrganizerEventsController, AdminEventsController, CheckinsController],
   providers: [EventsService, OrganizerEventsService, CloudinaryService, CheckinsService],
 })
 export class EventsModule {}

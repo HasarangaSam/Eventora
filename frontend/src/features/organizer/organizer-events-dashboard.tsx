@@ -1,192 +1,914 @@
 import { AxiosError } from 'axios'
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useAuthenticatedApi } from '../auth/use-authenticated-api'
 import { Link } from 'react-router'
+import { useAuthenticatedApi } from '../auth/use-authenticated-api'
+import { useToast } from '../../components/ui/toast'
+import { ConfirmModal, PromptModal } from '../../components/ui/modal'
+import { getEventPlaceholder } from '../../lib/placeholders'
+import {
+  IconPlus,
+  IconCamera,
+  IconTrash,
+} from '../../components/ui/icons'
 
 type Category = { id: string; name: string }
-type TicketType = { id: string; name: string; price: string; currency: string; quantity: number; quantityReserved: number; quantitySold: number; isActive: boolean }
-type Session = { id: string; title: string; startAt: string; endAt: string; venue: string | null; speaker: string | null }
-type EventRecord = {
-  id: string; title: string; description: string; categoryId: string; venue: string; city: string; startAt: string; endAt: string
-  timezone: string; capacity: number | null; status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED'
-  coverImageUrl: string | null; ticketTypes: TicketType[]; sessions: Session[]
+type TicketType = {
+  id: string
+  name: string
+  price: string
+  currency: string
+  quantity: number
+  quantityReserved: number
+  quantitySold: number
+  isActive: boolean
 }
-type EventForm = { title: string; description: string; categoryId: string; venue: string; city: string; startAt: string; endAt: string; timezone: string; capacity: string }
-const emptyForm: EventForm = { title: '', description: '', categoryId: '', venue: '', city: '', startAt: '', endAt: '', timezone: 'Asia/Colombo', capacity: '' }
+type Session = {
+  id: string
+  title: string
+  startAt: string
+  endAt: string
+  venue: string | null
+  speaker: string | null
+}
+type EventRecord = {
+  id: string
+  title: string
+  description: string
+  categoryId: string
+  venue: string
+  city: string
+  startAt: string
+  endAt: string
+  timezone: string
+  capacity: number | null
+  status: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED'
+  coverImageUrl: string | null
+  ticketTypes: TicketType[]
+  sessions: Session[]
+}
+type EventForm = {
+  title: string
+  description: string
+  categoryId: string
+  venue: string
+  city: string
+  startAt: string
+  endAt: string
+  timezone: string
+  capacity: string
+}
+
+const emptyForm: EventForm = {
+  title: '',
+  description: '',
+  categoryId: '',
+  venue: '',
+  city: '',
+  startAt: '',
+  endAt: '',
+  timezone: 'Asia/Colombo',
+  capacity: '',
+}
 
 export function OrganizerEventsDashboard() {
   const request = useAuthenticatedApi()
+  const toast = useToast()
   const [events, setEvents] = useState<EventRecord[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [selectedId, setSelectedId] = useState('')
   const [form, setForm] = useState<EventForm>(emptyForm)
   const [creating, setCreating] = useState(true)
+  const [activeTab, setActiveTab] = useState<'details' | 'tickets' | 'schedule' | 'media'>('details')
+  const [loading, setLoading] = useState(true)
+
+  // Sub-forms state
   const [ticket, setTicket] = useState({ name: '', price: '', currency: 'LKR', quantity: '', salesStartAt: '', salesEndAt: '' })
   const [session, setSession] = useState({ title: '', startAt: '', endAt: '', venue: '', speaker: '' })
-  const [message, setMessage] = useState('')
-  const [loading, setLoading] = useState(true)
+
+  // Modals state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const [actionBusy, setActionBusy] = useState(false)
+
   const selected = events.find((event) => event.id === selectedId)
 
-  const refresh = useCallback(async (preserveId?: string) => {
-    try {
-      const [eventResponse, categoryResponse] = await Promise.all([
-        request<EventRecord[]>({ method: 'GET', url: '/organizer/events' }),
-        request<Category[]>({ method: 'GET', url: '/categories' }),
-      ])
-      setEvents(eventResponse.data)
-      setCategories(categoryResponse.data)
-      const nextId = preserveId && eventResponse.data.some((event) => event.id === preserveId) ? preserveId : eventResponse.data[0]?.id ?? ''
-      setSelectedId(nextId)
-      if (nextId) {
-        const detail = await request<EventRecord>({ method: 'GET', url: `/organizer/events/${nextId}` })
-        setEvents((current) => current.map((event) => event.id === nextId ? detail.data : event))
-        setForm(toForm(detail.data))
-        setCreating(false)
-      } else {
-        setForm(emptyForm)
-        setCreating(true)
+  const refresh = useCallback(
+    async (preserveId?: string) => {
+      try {
+        const [eventResponse, categoryResponse] = await Promise.all([
+          request<EventRecord[]>({ method: 'GET', url: '/organizer/events' }),
+          request<Category[]>({ method: 'GET', url: '/categories' }),
+        ])
+        setEvents(eventResponse.data)
+        setCategories(categoryResponse.data)
+        const nextId =
+          preserveId && eventResponse.data.some((event) => event.id === preserveId)
+            ? preserveId
+            : eventResponse.data[0]?.id ?? ''
+        setSelectedId(nextId)
+        if (nextId) {
+          const detail = await request<EventRecord>({ method: 'GET', url: `/organizer/events/${nextId}` })
+          setEvents((current) => current.map((event) => (event.id === nextId ? detail.data : event)))
+          setForm(toForm(detail.data))
+          setCreating(false)
+        } else {
+          setForm(emptyForm)
+          setCreating(true)
+        }
+      } catch (error) {
+        toast.error(
+          'Workspace Error',
+          error instanceof AxiosError && error.response?.status === 403
+            ? 'Organizer access requires an approved application.'
+            : 'Could not load your organizer workspace.',
+        )
+      } finally {
+        setLoading(false)
       }
-      setMessage('')
-    } catch (error) {
-      setMessage(error instanceof AxiosError && error.response?.status === 403
-        ? 'Organizer access requires an approved organizer application.'
-        : 'Organizer workspace could not load. Check your connection and retry.')
-    } finally { setLoading(false) }
-  }, [request])
+    },
+    [request, toast],
+  )
 
-  useEffect(() => { void Promise.resolve().then(() => refresh()) }, [refresh])
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
 
-  async function submitEvent(event: FormEvent) {
-    event.preventDefault()
+  async function submitEvent(e: FormEvent) {
+    e.preventDefault()
     const payload = {
       ...form,
-      startAt: new Date(form.startAt).toISOString(), endAt: new Date(form.endAt).toISOString(),
+      startAt: new Date(form.startAt).toISOString(),
+      endAt: new Date(form.endAt).toISOString(),
       capacity: form.capacity ? Number(form.capacity) : null,
     }
     try {
       if (creating) {
         const response = await request<EventRecord>({ method: 'POST', url: '/organizer/events', data: payload })
-        setCreating(false); setSelectedId(response.data.id); await refresh(response.data.id)
+        toast.success('Event Draft Created', 'Configure tickets and schedule, then publish when ready.')
+        setCreating(false)
+        setSelectedId(response.data.id)
+        await refresh(response.data.id)
       } else if (selected) {
         await request({ method: 'PATCH', url: `/organizer/events/${selected.id}`, data: payload })
+        toast.success('Details Saved', 'Event metadata successfully updated.')
         await refresh(selected.id)
       }
-      setMessage(creating ? 'Draft event created.' : 'Event details saved.')
-    } catch { setMessage('Event could not be saved. Review the fields and try again.') }
+    } catch {
+      toast.error('Save Failed', 'Please verify all fields and date ranges.')
+    }
   }
 
-  async function statusAction(action: 'publish' | 'unpublish' | 'cancel' | 'delete') {
+  async function handlePublishToggle(action: 'publish' | 'unpublish') {
     if (!selected) return
-    if (action === 'cancel' && !window.confirm('Cancel this event? Confirmed attendees will be queued for notification.')) return
-    if (action === 'delete' && !window.confirm('Delete this event? This is available only while it has no registrations or ticket history.')) return
-    let cancellationNoticesQueued = 0
     try {
-      if (action === 'cancel') {
-        const response = await request<{ cancellationNoticesQueued: number }>({ method: 'PATCH', url: `/organizer/events/${selected.id}/cancel`, data: { reason: 'Cancelled by organizer' } })
-        cancellationNoticesQueued = response.data.cancellationNoticesQueued
-      }
-      else if (action === 'delete') await request({ method: 'DELETE', url: `/organizer/events/${selected.id}` })
-      else await request({ method: 'PATCH', url: `/organizer/events/${selected.id}/${action}` })
-      if (action === 'delete') { setSelectedId(''); setCreating(true); await refresh() } else await refresh(selected.id)
-      const success = action === 'publish' ? 'Event published.' : action === 'unpublish' ? 'Event returned to draft.' : action === 'cancel' ? `Event cancelled. ${cancellationNoticesQueued} attendee notice(s) queued for delivery.` : 'Event deleted.'
-      setMessage(success)
-    } catch { setMessage(`Event could not be ${action}d. Check its status and existing registrations.`) }
+      await request({ method: 'PATCH', url: `/organizer/events/${selected.id}/${action}` })
+      toast.success(
+        action === 'publish' ? 'Event Published!' : 'Returned to Draft',
+        action === 'publish' ? 'Your event is now live for attendees to discover and register.' : 'The event is no longer publicly visible.',
+      )
+      await refresh(selected.id)
+    } catch {
+      toast.error('Action Failed', `Could not ${action} event. Verify that at least one ticket type is configured.`)
+    }
   }
 
-  async function addTicket(event: FormEvent) {
-    event.preventDefault(); if (!selected) return
+  async function handleCancelConfirm(reason: string) {
+    if (!selected) return
+    setActionBusy(true)
     try {
-      await request({ method: 'POST', url: `/organizer/events/${selected.id}/ticket-types`, data: {
-        ...ticket, quantity: Number(ticket.quantity), salesStartAt: ticket.salesStartAt ? new Date(ticket.salesStartAt).toISOString() : null,
-        salesEndAt: ticket.salesEndAt ? new Date(ticket.salesEndAt).toISOString() : null,
-      } })
-      setTicket({ name: '', price: '', currency: 'LKR', quantity: '', salesStartAt: '', salesEndAt: '' }); await refresh(selected.id); setMessage('Paid ticket type added.')
-    } catch { setMessage('Ticket type could not be added. Price must be greater than zero and inventory must be valid.') }
+      const response = await request<{ cancellationNoticesQueued: number }>({
+        method: 'PATCH',
+        url: `/organizer/events/${selected.id}/cancel`,
+        data: { reason },
+      })
+      toast.success('Event Cancelled', `${response.data.cancellationNoticesQueued} attendee notice(s) queued for delivery.`)
+      setCancelModalOpen(false)
+      await refresh(selected.id)
+    } catch {
+      toast.error('Cancellation Error', 'Could not cancel event.')
+    } finally {
+      setActionBusy(false)
+    }
   }
 
-  async function addSession(event: FormEvent) {
-    event.preventDefault(); if (!selected) return
+  async function handleDeleteConfirm() {
+    if (!selected) return
+    setActionBusy(true)
     try {
-      await request({ method: 'POST', url: `/organizer/events/${selected.id}/sessions`, data: {
-        ...session, startAt: new Date(session.startAt).toISOString(), endAt: new Date(session.endAt).toISOString(),
-        venue: session.venue || null, speaker: session.speaker || null,
-      } })
-      setSession({ title: '', startAt: '', endAt: '', venue: '', speaker: '' }); await refresh(selected.id); setMessage('Schedule entry added.')
-    } catch { setMessage('Schedule entry could not be added. Its times must be within the event schedule.') }
+      await request({ method: 'DELETE', url: `/organizer/events/${selected.id}` })
+      toast.success('Event Deleted', 'The draft event has been removed.')
+      setDeleteModalOpen(false)
+      setSelectedId('')
+      setCreating(true)
+      await refresh()
+    } catch {
+      toast.error('Cannot Delete', 'Events with purchase or registration history cannot be deleted.')
+    } finally {
+      setActionBusy(false)
+    }
   }
 
-  async function uploadCover(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (!selected) return
-    const file = new FormData(event.currentTarget).get('file')
-    if (!(file instanceof File) || !file.size) return
-    const data = new FormData(); data.append('file', file)
-    try { await request({ method: 'POST', url: `/organizer/events/${selected.id}/cover-image`, data, headers: { 'Content-Type': 'multipart/form-data' } }); await refresh(selected.id); setMessage('Cover image updated.') }
-    catch { setMessage('Cover image could not be uploaded. Use a JPEG, PNG, or WebP image up to 5 MB.') }
+  async function addTicket(e: FormEvent) {
+    e.preventDefault()
+    if (!selected) return
+    try {
+      await request({
+        method: 'POST',
+        url: `/organizer/events/${selected.id}/ticket-types`,
+        data: {
+          ...ticket,
+          quantity: Number(ticket.quantity),
+          salesStartAt: ticket.salesStartAt ? new Date(ticket.salesStartAt).toISOString() : null,
+          salesEndAt: ticket.salesEndAt ? new Date(ticket.salesEndAt).toISOString() : null,
+        },
+      })
+      setTicket({ name: '', price: '', currency: 'LKR', quantity: '', salesStartAt: '', salesEndAt: '' })
+      toast.success('Ticket Tier Added', `Created ${ticket.name} tier.`)
+      await refresh(selected.id)
+    } catch {
+      toast.error('Ticket Error', 'Price must be greater than zero and quantity valid.')
+    }
   }
 
   async function toggleTicketType(item: TicketType) {
     if (!selected) return
     try {
-      await request({ method: 'PATCH', url: `/organizer/events/${selected.id}/ticket-types/${item.id}/activation`, data: { isActive: !item.isActive } })
+      await request({
+        method: 'PATCH',
+        url: `/organizer/events/${selected.id}/ticket-types/${item.id}/activation`,
+        data: { isActive: !item.isActive },
+      })
+      toast.success('Ticket Status Changed', `${item.name} is now ${!item.isActive ? 'active' : 'paused'}.`)
       await refresh(selected.id)
-    } catch { setMessage('Ticket type status could not be changed.') }
+    } catch {
+      toast.error('Update Failed', 'Ticket status could not be changed.')
+    }
   }
 
-  async function removeRecord(kind: 'ticket-types' | 'sessions', id: string) {
-    if (!selected || !window.confirm(`Delete this ${kind === 'sessions' ? 'schedule entry' : 'ticket type'} if it has no history?`)) return
+  async function deleteTicketType(id: string) {
+    if (!selected) return
     try {
-      await request({ method: 'DELETE', url: `/organizer/events/${selected.id}/${kind}/${id}` })
+      await request({ method: 'DELETE', url: `/organizer/events/${selected.id}/ticket-types/${id}` })
+      toast.success('Ticket Tier Removed', 'Tier deleted successfully.')
       await refresh(selected.id)
-      setMessage(`${kind === 'sessions' ? 'Schedule entry' : 'Ticket type'} deleted.`)
-    } catch { setMessage('This record could not be deleted because it may have reservation or sales history.') }
+    } catch {
+      toast.error('Delete Failed', 'Cannot delete ticket types that already have sales history.')
+    }
+  }
+
+  async function addSession(e: FormEvent) {
+    e.preventDefault()
+    if (!selected) return
+    try {
+      await request({
+        method: 'POST',
+        url: `/organizer/events/${selected.id}/sessions`,
+        data: {
+          ...session,
+          startAt: new Date(session.startAt).toISOString(),
+          endAt: new Date(session.endAt).toISOString(),
+          venue: session.venue || null,
+          speaker: session.speaker || null,
+        },
+      })
+      setSession({ title: '', startAt: '', endAt: '', venue: '', speaker: '' })
+      toast.success('Session Added', 'Schedule agenda item recorded.')
+      await refresh(selected.id)
+    } catch {
+      toast.error('Schedule Error', 'Session times must fall within the event duration.')
+    }
+  }
+
+  async function deleteSession(id: string) {
+    if (!selected) return
+    try {
+      await request({ method: 'DELETE', url: `/organizer/events/${selected.id}/sessions/${id}` })
+      toast.success('Session Removed', 'Schedule entry deleted.')
+      await refresh(selected.id)
+    } catch {
+      toast.error('Delete Failed', 'Could not delete session.')
+    }
+  }
+
+  async function uploadCover(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!selected) return
+    const file = new FormData(e.currentTarget).get('file')
+    if (!(file instanceof File) || !file.size) return
+    const data = new FormData()
+    data.append('file', file)
+    try {
+      await request({
+        method: 'POST',
+        url: `/organizer/events/${selected.id}/cover-image`,
+        data,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      toast.success('Cover Image Uploaded', 'Event banner image has been updated.')
+      await refresh(selected.id)
+    } catch {
+      toast.error('Upload Failed', 'Use a JPEG, PNG, or WebP image under 5 MB.')
+    }
   }
 
   async function deleteCover() {
-    if (!selected || !window.confirm('Remove this event cover image?')) return
+    if (!selected) return
     try {
       await request({ method: 'DELETE', url: `/organizer/events/${selected.id}/cover-image` })
-      await refresh(selected.id); setMessage('Cover image removed.')
-    } catch { setMessage('Cover image could not be removed. Try again.') }
+      toast.success('Cover Removed', 'Event cover image reset to placeholder.')
+      await refresh(selected.id)
+    } catch {
+      toast.error('Removal Failed', 'Cover image could not be removed.')
+    }
   }
 
   function chooseEvent(id: string) {
-    setSelectedId(id); setCreating(false)
+    setSelectedId(id)
+    setCreating(false)
     const event = events.find((record) => record.id === id)
     if (event) setForm(toForm(event))
   }
 
-  return <section className="organizer-dashboard" aria-labelledby="organizer-events-title">
-    <div className="section-heading"><div><span className="eyebrow">Organizer workspace</span><h2 id="organizer-events-title">Your events</h2></div><button className="button button--small" type="button" onClick={() => { setCreating(true); setSelectedId(''); setForm({ ...emptyForm, categoryId: categories[0]?.id ?? '' }) }}>Create event</button></div>
-    {message && <p className="dashboard-message" role="status">{message}</p>}
-    {loading ? <p>Loading your events…</p> : <div className="organizer-layout">
-      <div className="organizer-event-list" aria-label="Your event list">
-        {events.map((event) => <button type="button" key={event.id} className={`organizer-event-choice${event.id === selectedId && !creating ? ' is-selected' : ''}`} onClick={() => chooseEvent(event.id)}><strong>{event.title}</strong><span className={`application-status application-status--${event.status.toLowerCase()}`}>{event.status.toLowerCase()}</span></button>)}
-        {!events.length && <p className="inline-notice">You haven’t created an event yet.</p>}
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Studio Header & Action Strip */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h2 style={{ margin: '0 0 4px', fontSize: '24px', fontWeight: 800 }}>Events Studio</h2>
+          <p className="text-muted" style={{ margin: 0, fontSize: '14px' }}>
+            Design experiences, manage ticket inventory, and oversee attendee admissions.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => {
+            setCreating(true)
+            setSelectedId('')
+            setForm({ ...emptyForm, categoryId: categories[0]?.id ?? '' })
+            setActiveTab('details')
+          }}
+        >
+          <IconPlus /> Create New Event
+        </button>
       </div>
-      <div className="organizer-editor">
-        <form className="organizer-form" onSubmit={submitEvent}>
-          <h3>{creating ? 'Start a draft' : 'Event details'}</h3>
-          <label>Event title<input required maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></label>
-          <label>Description<textarea required maxLength={20000} rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
-          <div className="organizer-form-grid"><label>Category<select required value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}><option value="">Choose category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label><label>Venue<input required value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} /></label><label>City<input required value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></label><label>Timezone<input required value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })} /></label><label>Starts<input required type="datetime-local" value={form.startAt} onChange={(e) => setForm({ ...form, startAt: e.target.value })} /></label><label>Ends<input required type="datetime-local" value={form.endAt} onChange={(e) => setForm({ ...form, endAt: e.target.value })} /></label><label>Capacity <span>(optional)</span><input min="1" type="number" value={form.capacity} onChange={(e) => setForm({ ...form, capacity: e.target.value })} /></label></div>
-          <button className="button button--dark" type="submit">{creating ? 'Save draft' : 'Save event details'}</button>
-        </form>
-        {!creating && selected && <>
-          <div className="organizer-actions"><strong>Event status: {selected.status.toLowerCase()}</strong>{selected.status === 'DRAFT' && <button className="button button--small" type="button" onClick={() => void statusAction('publish')}>Publish</button>}{selected.status === 'PUBLISHED' && <button className="text-button" type="button" onClick={() => void statusAction('unpublish')}>Unpublish</button>}{!['CANCELLED', 'COMPLETED'].includes(selected.status) && <button className="text-button" type="button" onClick={() => void statusAction('cancel')}>Cancel event</button>}{selected.status !== 'CANCELLED' && <button className="text-button" type="button" onClick={() => void statusAction('delete')}>Delete if no history</button>}</div>
-          <div className="organizer-actions"><strong>Attendance and entry</strong><Link className="button button--small" to={`/organizer/events/${selected.id}/check-in`}>Open check-in</Link></div>
-          <form className="organizer-form" onSubmit={uploadCover}><h3>Cover image</h3>{selected.coverImageUrl && <img className="organizer-cover-preview" src={selected.coverImageUrl} alt="Current event cover" />}<label>JPEG, PNG, or WebP · up to 5 MB<input required type="file" name="file" accept="image/jpeg,image/png,image/webp" /></label><div><button className="text-button" type="submit">Upload cover</button>{selected.coverImageUrl && <button className="text-button" type="button" onClick={() => void deleteCover()}>Remove cover</button>}</div></form>
-          <form className="organizer-form" onSubmit={addTicket}><h3>Paid ticket type</h3><div className="organizer-form-grid"><label>Name<input required value={ticket.name} onChange={(e) => setTicket({ ...ticket, name: e.target.value })} /></label><label>Price<input required inputMode="decimal" value={ticket.price} onChange={(e) => setTicket({ ...ticket, price: e.target.value })} /></label><label>Currency<input required maxLength={3} value={ticket.currency} onChange={(e) => setTicket({ ...ticket, currency: e.target.value.toUpperCase() })} /></label><label>Quantity<input required min="1" type="number" value={ticket.quantity} onChange={(e) => setTicket({ ...ticket, quantity: e.target.value })} /></label><label>Sales start<input type="datetime-local" value={ticket.salesStartAt} onChange={(e) => setTicket({ ...ticket, salesStartAt: e.target.value })} /></label><label>Sales end<input type="datetime-local" value={ticket.salesEndAt} onChange={(e) => setTicket({ ...ticket, salesEndAt: e.target.value })} /></label></div><button className="text-button" type="submit">Add ticket type</button>
-            {selected.ticketTypes.map((item) => <div className="organizer-inventory-row" key={item.id}><span>{item.name} · {item.currency} {item.price} · {item.quantitySold + item.quantityReserved}/{item.quantity} committed</span><div><button className="text-button" type="button" onClick={() => void toggleTicketType(item)}>{item.isActive ? 'Deactivate' : 'Activate'}</button><button className="text-button" type="button" onClick={() => void removeRecord('ticket-types', item.id)}>Delete</button></div></div>)}
-          </form>
-          <form className="organizer-form" onSubmit={addSession}><h3>Schedule entry</h3><div className="organizer-form-grid"><label>Title<input required value={session.title} onChange={(e) => setSession({ ...session, title: e.target.value })} /></label><label>Speaker<input value={session.speaker} onChange={(e) => setSession({ ...session, speaker: e.target.value })} /></label><label>Starts<input required type="datetime-local" value={session.startAt} onChange={(e) => setSession({ ...session, startAt: e.target.value })} /></label><label>Ends<input required type="datetime-local" value={session.endAt} onChange={(e) => setSession({ ...session, endAt: e.target.value })} /></label><label>Room or venue<input value={session.venue} onChange={(e) => setSession({ ...session, venue: e.target.value })} /></label></div><button className="text-button" type="submit">Add schedule entry</button>{selected.sessions.map((item) => <div className="organizer-inventory-row" key={item.id}><span>{item.title} · {new Date(item.startAt).toLocaleString()}</span><button className="text-button" type="button" onClick={() => void removeRecord('sessions', item.id)}>Delete</button></div>)}</form>
-        </>}
-      </div>
-    </div>}
-  </section>
+
+      {loading ? (
+        <div style={{ padding: '60px', textAlign: 'center' }}>
+          <div className="spinner" style={{ margin: '0 auto 12px' }} />
+          <p className="text-muted">Loading your events…</p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '28px', alignItems: 'start' }}>
+          {/* Left Event Navigator */}
+          <div className="table-card" style={{ margin: 0, padding: '16px' }}>
+            <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+              Your Events ({events.length})
+            </h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {events.map((ev) => (
+                <button
+                  type="button"
+                  key={ev.id}
+                  onClick={() => chooseEvent(ev.id)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    gap: '6px',
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid',
+                    borderColor: ev.id === selectedId && !creating ? 'var(--primary)' : 'var(--border)',
+                    background: ev.id === selectedId && !creating ? '#eef2ff' : '#ffffff',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <strong style={{ fontSize: '14px', color: 'var(--text-main)' }}>{ev.title}</strong>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                    <span className="text-muted" style={{ fontSize: '12px' }}>
+                      {new Date(ev.startAt).toLocaleDateString()}
+                    </span>
+                    <span
+                      className={`badge badge-sm ${
+                        ev.status === 'PUBLISHED' ? 'badge-emerald' : ev.status === 'CANCELLED' ? 'badge-rose' : 'badge-slate'
+                      }`}
+                    >
+                      {ev.status.toLowerCase()}
+                    </span>
+                  </div>
+                </button>
+              ))}
+              {!events.length && (
+                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  No events created yet. Click "Create New Event" above to get started.
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Editor Workspace */}
+          <div className="table-card" style={{ margin: 0 }}>
+            {/* Status & Action Bar */}
+            {!creating && selected && (
+              <div
+                style={{
+                  padding: '16px 24px',
+                  background: '#f8fafc',
+                  borderBottom: '1px solid var(--border)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span className={`badge ${selected.status === 'PUBLISHED' ? 'badge-emerald' : 'badge-amber'}`}>
+                    <span className="badge-dot" />
+                    {selected.status.toLowerCase()}
+                  </span>
+                  <span className="text-muted" style={{ fontSize: '13px' }}>
+                    {selected.ticketTypes.length} ticket tiers · {selected.sessions.length} sessions
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <Link to={`/organizer/events/${selected.id}/check-in`} className="btn btn-secondary btn-sm">
+                    <IconCamera /> Open Check-in Console
+                  </Link>
+
+                  {selected.status === 'DRAFT' && (
+                    <button type="button" className="btn btn-primary btn-sm" onClick={() => void handlePublishToggle('publish')}>
+                      Publish Event
+                    </button>
+                  )}
+                  {selected.status === 'PUBLISHED' && (
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => void handlePublishToggle('unpublish')}>
+                      Unpublish (Draft)
+                    </button>
+                  )}
+                  {selected.status !== 'CANCELLED' && selected.status !== 'COMPLETED' && (
+                    <button
+                      type="button"
+                      className="text-button text-button--destructive"
+                      onClick={() => setCancelModalOpen(true)}
+                    >
+                      Cancel Event
+                    </button>
+                  )}
+                  {selected.status !== 'CANCELLED' && (
+                    <button
+                      type="button"
+                      className="text-button text-button--destructive"
+                      onClick={() => setDeleteModalOpen(true)}
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Studio Navigation Tabs */}
+            {!creating && selected && (
+              <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 24px' }}>
+                <button
+                  type="button"
+                  className={`nav-link ${activeTab === 'details' ? 'active' : ''}`}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '14px 18px' }}
+                  onClick={() => setActiveTab('details')}
+                >
+                  General Details
+                </button>
+                <button
+                  type="button"
+                  className={`nav-link ${activeTab === 'tickets' ? 'active' : ''}`}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '14px 18px' }}
+                  onClick={() => setActiveTab('tickets')}
+                >
+                  Tickets & Pricing ({selected.ticketTypes.length})
+                </button>
+                <button
+                  type="button"
+                  className={`nav-link ${activeTab === 'schedule' ? 'active' : ''}`}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '14px 18px' }}
+                  onClick={() => setActiveTab('schedule')}
+                >
+                  Schedule / Agenda ({selected.sessions.length})
+                </button>
+                <button
+                  type="button"
+                  className={`nav-link ${activeTab === 'media' ? 'active' : ''}`}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '14px 18px' }}
+                  onClick={() => setActiveTab('media')}
+                >
+                  Cover Image & Media
+                </button>
+              </div>
+            )}
+
+            <div style={{ padding: '28px' }}>
+              {/* Tab 1: Event Details Form */}
+              {(creating || activeTab === 'details') && (
+                <form onSubmit={submitEvent}>
+                  <h3 style={{ margin: '0 0 20px', fontSize: '18px' }}>{creating ? 'Create Event Draft' : 'Event Details & Logistics'}</h3>
+                  <div className="form-group">
+                    <label className="form-label">Event Title</label>
+                    <input
+                      required
+                      maxLength={200}
+                      className="form-input"
+                      value={form.title}
+                      onChange={(e) => setForm({ ...form, title: e.target.value })}
+                      placeholder="e.g. Colombo Tech Summit 2026"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Full Description</label>
+                    <textarea
+                      required
+                      rows={5}
+                      maxLength={20000}
+                      className="form-textarea"
+                      value={form.description}
+                      onChange={(e) => setForm({ ...form, description: e.target.value })}
+                      placeholder="Describe what attendees can expect, speakers, dress code, benefits…"
+                    />
+                  </div>
+
+                  <div className="form-grid-3">
+                    <div className="form-group">
+                      <label className="form-label">Category</label>
+                      <select
+                        required
+                        className="form-select"
+                        value={form.categoryId}
+                        onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+                      >
+                        <option value="">Select Category</option>
+                        {categories.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">City</label>
+                      <input
+                        required
+                        className="form-input"
+                        value={form.city}
+                        onChange={(e) => setForm({ ...form, city: e.target.value })}
+                        placeholder="e.g. Colombo"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Venue / Hall</label>
+                      <input
+                        required
+                        className="form-input"
+                        value={form.venue}
+                        onChange={(e) => setForm({ ...form, venue: e.target.value })}
+                        placeholder="e.g. BMICH Hall A"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-grid-3">
+                    <div className="form-group">
+                      <label className="form-label">Starts At</label>
+                      <input
+                        required
+                        type="datetime-local"
+                        className="form-input"
+                        value={form.startAt}
+                        onChange={(e) => setForm({ ...form, startAt: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Ends At</label>
+                      <input
+                        required
+                        type="datetime-local"
+                        className="form-input"
+                        value={form.endAt}
+                        onChange={(e) => setForm({ ...form, endAt: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Capacity (Optional)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        className="form-input"
+                        value={form.capacity}
+                        onChange={(e) => setForm({ ...form, capacity: e.target.value })}
+                        placeholder="Unlimited"
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button type="submit" className="btn btn-primary">
+                      {creating ? 'Create Draft & Continue' : 'Save Event Details'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Tab 2: Tickets & Pricing */}
+              {!creating && selected && activeTab === 'tickets' && (
+                <div>
+                  <h3 style={{ margin: '0 0 16px', fontSize: '18px' }}>Ticket Tiers & Inventory</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+                    {selected.ticketTypes.map((t) => (
+                      <div
+                        key={t.id}
+                        style={{
+                          background: '#ffffff',
+                          border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius-lg)',
+                          padding: '18px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '10px',
+                          boxShadow: 'var(--shadow-sm)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <strong style={{ fontSize: '16px' }}>{t.name}</strong>
+                          <span className={`badge ${t.isActive ? 'badge-emerald' : 'badge-slate'}`}>
+                            {t.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--primary)' }}>
+                          {t.currency} {Number(t.price).toLocaleString()}
+                        </div>
+                        <div className="text-muted" style={{ fontSize: '13px' }}>
+                          Committed: {t.quantitySold + t.quantityReserved} / {t.quantity} tickets
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => void toggleTicketType(t)}>
+                            {t.isActive ? 'Pause' : 'Activate'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            style={{ color: 'var(--danger)' }}
+                            onClick={() => void deleteTicketType(t.id)}
+                          >
+                            <IconTrash style={{ width: '14px', height: '14px' }} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ background: '#f8fafc', padding: '20px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
+                    <h4 style={{ margin: '0 0 16px', fontSize: '15px' }}>Add Paid Ticket Tier</h4>
+                    <form onSubmit={addTicket}>
+                      <div className="form-grid-3">
+                        <div className="form-group">
+                          <label className="form-label">Tier Name</label>
+                          <input
+                            required
+                            className="form-input"
+                            value={ticket.name}
+                            onChange={(e) => setTicket({ ...ticket, name: e.target.value })}
+                            placeholder="e.g. VIP Pass, Early Bird"
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Price</label>
+                          <input
+                            required
+                            inputMode="decimal"
+                            className="form-input"
+                            value={ticket.price}
+                            onChange={(e) => setTicket({ ...ticket, price: e.target.value })}
+                            placeholder="e.g. 5000"
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Total Quantity</label>
+                          <input
+                            required
+                            type="number"
+                            min="1"
+                            className="form-input"
+                            value={ticket.quantity}
+                            onChange={(e) => setTicket({ ...ticket, quantity: e.target.value })}
+                            placeholder="e.g. 100"
+                          />
+                        </div>
+                      </div>
+                      <button type="submit" className="btn btn-primary btn-sm">
+                        <IconPlus /> Add Ticket Tier
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 3: Schedule / Agenda */}
+              {!creating && selected && activeTab === 'schedule' && (
+                <div>
+                  <h3 style={{ margin: '0 0 16px', fontSize: '18px' }}>Event Schedule & Sessions</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '28px' }}>
+                    {selected.sessions.map((s) => (
+                      <div
+                        key={s.id}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '16px 20px',
+                          background: '#f8fafc',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--border)',
+                        }}
+                      >
+                        <div>
+                          <strong style={{ fontSize: '15px', display: 'block' }}>{s.title}</strong>
+                          <span className="text-muted" style={{ fontSize: '13px' }}>
+                            {new Date(s.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} –{' '}
+                            {new Date(s.endAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {s.speaker && ` · Speaker: ${s.speaker}`}
+                            {s.venue && ` · Room: ${s.venue}`}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{ color: 'var(--danger)' }}
+                          onClick={() => void deleteSession(s.id)}
+                        >
+                          <IconTrash style={{ width: '14px', height: '14px' }} />
+                        </button>
+                      </div>
+                    ))}
+                    {!selected.sessions.length && (
+                      <p className="text-muted">No schedule items added yet.</p>
+                    )}
+                  </div>
+
+                  <div style={{ background: '#f8fafc', padding: '20px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)' }}>
+                    <h4 style={{ margin: '0 0 16px', fontSize: '15px' }}>Add Schedule Entry</h4>
+                    <form onSubmit={addSession}>
+                      <div className="form-grid-2">
+                        <div className="form-group">
+                          <label className="form-label">Session Title</label>
+                          <input
+                            required
+                            className="form-input"
+                            value={session.title}
+                            onChange={(e) => setSession({ ...session, title: e.target.value })}
+                            placeholder="e.g. Keynote Address"
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Speaker / Host (Optional)</label>
+                          <input
+                            className="form-input"
+                            value={session.speaker}
+                            onChange={(e) => setSession({ ...session, speaker: e.target.value })}
+                            placeholder="e.g. Dr. Jane Doe"
+                          />
+                        </div>
+                      </div>
+                      <div className="form-grid-3">
+                        <div className="form-group">
+                          <label className="form-label">Starts At</label>
+                          <input
+                            required
+                            type="datetime-local"
+                            className="form-input"
+                            value={session.startAt}
+                            onChange={(e) => setSession({ ...session, startAt: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Ends At</label>
+                          <input
+                            required
+                            type="datetime-local"
+                            className="form-input"
+                            value={session.endAt}
+                            onChange={(e) => setSession({ ...session, endAt: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Stage / Room</label>
+                          <input
+                            className="form-input"
+                            value={session.venue}
+                            onChange={(e) => setSession({ ...session, venue: e.target.value })}
+                            placeholder="e.g. Main Auditorium"
+                          />
+                        </div>
+                      </div>
+                      <button type="submit" className="btn btn-primary btn-sm">
+                        <IconPlus /> Add Schedule Entry
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 4: Cover Image & Media */}
+              {!creating && selected && activeTab === 'media' && (
+                <div>
+                  <h3 style={{ margin: '0 0 16px', fontSize: '18px' }}>Event Cover Image</h3>
+                  <div style={{ maxWidth: '640px', marginBottom: '24px' }}>
+                    <div
+                      style={{
+                        position: 'relative',
+                        aspectRatio: '16 / 9',
+                        borderRadius: 'var(--radius-lg)',
+                        overflow: 'hidden',
+                        boxShadow: 'var(--shadow-md)',
+                        marginBottom: '16px',
+                        background: '#0f172a',
+                      }}
+                    >
+                      <img
+                        src={selected.coverImageUrl || getEventPlaceholder(selected.title)}
+                        alt="Event cover preview"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    </div>
+
+                    <form onSubmit={uploadCover} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <label className="form-label">Upload Custom Cover Image (JPEG, PNG, WebP up to 5 MB)</label>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <input type="file" name="file" accept="image/jpeg,image/png,image/webp" required className="form-input" />
+                        <button type="submit" className="btn btn-primary btn-sm">Upload</button>
+                        {selected.coverImageUrl && (
+                          <button type="button" className="btn btn-secondary btn-sm" onClick={() => void deleteCover()}>
+                            Reset to Default
+                          </button>
+                        )}
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancellation Reason Modal */}
+      <PromptModal
+        isOpen={cancelModalOpen}
+        onClose={() => setCancelModalOpen(false)}
+        onConfirm={handleCancelConfirm}
+        title="Cancel This Event?"
+        message="Canceling this event stops further ticket sales and notifies all registered attendees."
+        label="Reason for attendees"
+        placeholder="Please explain the reason for cancellation"
+        minLength={5}
+        loading={actionBusy}
+      />
+
+      {/* Delete Event Modal */}
+      <ConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Draft Event?"
+        message="Are you sure you want to permanently delete this event? This action can only be completed if no registrations or ticket history exist."
+        destructive
+        confirmText="Delete Event"
+        loading={actionBusy}
+      />
+    </div>
+  )
 }
 
 function toForm(event: EventRecord): EventForm {
-  const localDate = (value: string) => { const date = new Date(value); date.setMinutes(date.getMinutes() - date.getTimezoneOffset()); return date.toISOString().slice(0, 16) }
-  return { title: event.title, description: event.description, categoryId: event.categoryId, venue: event.venue, city: event.city, startAt: localDate(event.startAt), endAt: localDate(event.endAt), timezone: event.timezone, capacity: event.capacity?.toString() ?? '' }
+  const localDate = (value: string) => {
+    const date = new Date(value)
+    date.setMinutes(date.getMinutes() - date.getTimezoneOffset())
+    return date.toISOString().slice(0, 16)
+  }
+  return {
+    title: event.title,
+    description: event.description,
+    categoryId: event.categoryId,
+    venue: event.venue,
+    city: event.city,
+    startAt: localDate(event.startAt),
+    endAt: localDate(event.endAt),
+    timezone: event.timezone,
+    capacity: event.capacity?.toString() ?? '',
+  }
 }

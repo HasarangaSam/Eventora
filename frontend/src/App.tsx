@@ -2,73 +2,352 @@ import { UserButton, useAuth } from '@clerk/react'
 import { Link, Route, Routes, useLocation } from 'react-router'
 import { AccountPage } from './features/auth/account-page'
 import { AdminPage } from './features/admin/admin-page'
-import { DiscoveryPage, ExploreCategories, RecentEvents } from './features/events/discovery-page'
+import { AdminOverviewPage } from './features/admin/admin-overview-page'
+import { AdminApplicationsPage } from './features/admin/admin-applications-page'
+import { AdminEventsPage } from './features/admin/admin-events-page'
+import { AdminUsersPage } from './features/admin/admin-users-page'
+import { AdminCategoriesPage } from './features/admin/admin-categories-page'
+import { DiscoveryPage } from './features/events/discovery-page'
 import { EventDetailPage } from './features/events/event-detail-page'
 import { CheckoutResultPage } from './features/payments/checkout-result-page'
 import { TicketsPage } from './features/tickets/tickets-page'
 import { EventCheckinPage } from './features/organizer/event-checkin-page'
 import { AuthPage } from './features/auth/auth-page'
+import { HomePage } from './features/home/home-page'
+import { DashboardShell } from './features/analytics/dashboard-shell'
+import { OrganizerOverviewPage } from './features/organizer/organizer-overview-page'
+import { OrganizerEventsPage, OrganizerSalesPage } from './features/organizer/organizer-pages'
+import { OrganizerCheckinHubPage } from './features/organizer/organizer-checkin-hub-page'
+import { OrganizerProfilePage } from './features/organizer/organizer-profile-page'
+import {
+  CurrentUserProvider,
+  useCurrentUser,
+  PublicRouteGuard,
+  AdminRouteGuard,
+  OrganizerRouteGuard,
+} from './features/auth/current-user-context'
+import { ToastProvider } from './components/ui/toast'
 import './App.css'
 
-function HomePage() {
-  return <main className="home-page">
-    <section className="hero" aria-labelledby="hero-title">
-      <div className="hero__copy"><span className="eyebrow"><span className="eyebrow__dot" /> Find your next experience</span>
-        <h1 id="hero-title">Find your next<br /><em>experience.</em></h1>
-        <p>Discover events worth leaving home for, from workshops and conferences to music and community gatherings.</p>
-        <Link className="button button--dark" to="/discover">Discover events <span aria-hidden="true">↗</span></Link>
-        <div className="hero__note"><span className="hero__note-icon" aria-hidden="true">✳</span><span>Good plans start with<br /><strong>being there.</strong></span></div>
-      </div>
-      <div className="hero__image" role="img" aria-label="Friends enjoying an outdoor event"><div className="hero__image-caption"><span>MAKE A DAY OF IT</span><span>EVENTORA</span></div></div>
-    </section>
-    <RecentEvents />
-    <ExploreCategories />
-    <section className="home-how" id="about" aria-labelledby="how-title"><div className="home-how__intro"><span className="eyebrow">From discovery to door</span><h2 id="how-title">A better way to<br /><em>make a plan.</em></h2></div><div className="home-how__steps">
-      <article><span>01</span><div><h3>Find your kind of event</h3><p>Explore published events by interest, date, or city and get the details before you decide.</p></div></article>
-      <article><span>02</span><div><h3>Book with confidence</h3><p>Choose a paid ticket and complete checkout securely through PayHere.</p></div></article>
-      <article><span>03</span><div><h3>Bring your ticket</h3><p>After payment is verified, your digital ticket and QR code are ready in your account.</p></div></article>
-    </div></section>
-    <section className="organizer-cta"><div><span className="eyebrow">For people who bring people together</span><h2>Make your next event<br />a place to be.</h2><p>Apply to publish events, manage paid ticket sales, and check in attendees. Applications are reviewed by the Eventora team.</p><Link className="button button--light" to="/account">Become an organizer <span aria-hidden="true">↗</span></Link></div><span className="organizer-cta__mark" aria-hidden="true">e.</span></section>
-  </main>
-}
-
 function PublicFooter() {
-  return <footer className="public-footer"><div className="public-footer__top"><div><Link className="brand" to="/">eventora<span>.</span></Link><p>Discover something worth attending.</p></div><nav aria-label="Footer navigation"><Link to="/discover">Discover events</Link><Link to="/account">Become an organizer</Link><a href="/#about">About Eventora</a></nav></div><div className="public-footer__bottom"><span>Eventora · Event discovery and ticketing</span><a href="#top">Back to top ↑</a></div></footer>
-}
+  return (
+    <footer className="public-footer">
+      <div className="public-container">
+        <div className="footer-grid">
+          <div className="footer-brand">
+            <Link className="brand" to="/">
+              eventora<span className="brand-dot">.</span>
+            </Link>
+            <p className="footer-tagline">
+              Discover and host experiences worth leaving home for. Verified ticketing and entry management.
+            </p>
+          </div>
 
-function NotFoundPage() { return <main className="not-found"><span className="eyebrow">That page wandered off</span><h1>Nothing happening here.</h1><Link className="button button--dark" to="/">Back to Eventora</Link></main> }
+          <div className="footer-col">
+            <h4>Explore</h4>
+            <ul className="footer-links">
+              <li><Link to="/">Home</Link></li>
+              <li><Link to="/discover">Discover Events</Link></li>
+              <li><Link to="/tickets">My Ticket Wallet</Link></li>
+            </ul>
+          </div>
 
-function AccountActions() {
-  const { isLoaded, isSignedIn } = useAuth()
-  if (!isLoaded) return <span className="setup-hint" aria-live="polite">Loading account…</span>
-  if (!isSignedIn) return <><Link className="text-button" to="/sign-in">Sign in</Link><Link className="button button--small" to="/sign-up">Sign up <span aria-hidden="true">↗</span></Link></>
-  return <><Link className="text-button" to="/account">My dashboard</Link><Link className="text-button" to="/tickets">My tickets</Link><UserButton /></>
+          <div className="footer-col">
+            <h4>Organizers</h4>
+            <ul className="footer-links">
+              <li><Link to="/account">Organizer Portal</Link></li>
+              <li><Link to="/account">Apply for Accreditation</Link></li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="footer-bottom">
+          <span>© 2026 Eventora Platform. All rights reserved.</span>
+          <a href="#top" style={{ color: 'inherit' }}>Back to top ↑</a>
+        </div>
+      </div>
+    </footer>
+  )
 }
 
 function PublicHeader() {
   const location = useLocation()
+  const { isLoaded, isSignedIn } = useAuth()
+  const { role } = useCurrentUser()
+
+  return (
+    <header id="top" className="site-header">
+      <div className="public-container site-header-content">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
+          <Link className="brand" to="/" aria-label="Eventora home">
+            eventora<span className="brand-dot">.</span>
+          </Link>
+
+          <nav className="site-nav" aria-label="Main navigation">
+            <Link className="nav-link" aria-current={location.pathname === '/' ? 'page' : undefined} to="/">
+              Home
+            </Link>
+            <Link className="nav-link" aria-current={location.pathname === '/discover' ? 'page' : undefined} to="/discover">
+              Discover
+            </Link>
+            {role === 'ATTENDEE' && (
+              <Link className="nav-link" to="/tickets">
+                My Tickets
+              </Link>
+            )}
+          </nav>
+        </div>
+
+        <div className="account-actions">
+          {!isLoaded ? (
+            <span className="text-muted text-xs">Loading…</span>
+          ) : !isSignedIn ? (
+            <>
+              <Link className="btn btn-ghost btn-sm" to="/sign-in">
+                Sign in
+              </Link>
+              <Link className="btn btn-primary btn-sm" to="/sign-up">
+                Sign up
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link className="btn btn-secondary btn-sm" to="/account">
+                Dashboard
+              </Link>
+              <UserButton />
+            </>
+          )}
+        </div>
+      </div>
+    </header>
+  )
+}
+
+function NotFoundPage() {
+  return (
+    <main className="fullscreen-loading">
+      <span className="badge badge-rose">404 Error</span>
+      <h1 style={{ fontSize: '32px', fontWeight: 800 }}>Page not found</h1>
+      <p className="text-muted">The page you were looking for doesn't exist or has moved.</p>
+      <Link className="btn btn-primary" to="/">
+        Back to Eventora
+      </Link>
+    </main>
+  )
+}
+
+function AppContent() {
   const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
-  return <header id="top" className="site-header"><Link className="brand" to="/" aria-label="Eventora home">eventora<span>.</span></Link>
-    <nav className="site-nav" aria-label="Main navigation"><Link aria-current={location.pathname === '/' ? 'page' : undefined} to="/">Home</Link><Link aria-current={location.pathname === '/discover' ? 'page' : undefined} to="/discover">Discover</Link><Link to="/account">Become an organizer</Link></nav>
-    <details className="site-mobile-menu"><summary>Menu</summary><nav aria-label="Mobile navigation"><Link to="/">Home</Link><Link to="/discover">Discover events</Link><Link to="/account">Become an organizer</Link>{import.meta.env.VITE_CLERK_PUBLISHABLE_KEY && <><Link to="/account">My dashboard</Link><Link to="/tickets">My tickets</Link></>}</nav></details>
-    <div className="account-actions">{publishableKey ? <AccountActions /> : <span className="setup-hint">Sign-in is temporarily unavailable</span>}</div>
-  </header>
+  const location = useLocation()
+  const { role } = useCurrentUser()
+
+  // Any admin or organizer dedicated workspace route — no public header/footer
+  // Also hide header/footer on auth pages (they have their own full-screen layout)
+  const isDedicatedWorkspace =
+    location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/organizer') ||
+    location.pathname.startsWith('/sign-in') ||
+    location.pathname.startsWith('/sign-up') ||
+    (location.pathname === '/account' && (role === 'ORGANIZER' || role === 'ADMIN'))
+
+  return (
+    <div className="app-shell">
+      {!isDedicatedWorkspace && <PublicHeader />}
+      <Routes>
+        {/* Public Routes — Admin & Organizer are redirected to their dashboards */}
+        <Route
+          path="/"
+          element={
+            <PublicRouteGuard>
+              <HomePage />
+            </PublicRouteGuard>
+          }
+        />
+        <Route
+          path="/discover"
+          element={
+            <PublicRouteGuard>
+              <DiscoveryPage />
+            </PublicRouteGuard>
+          }
+        />
+        <Route path="/events/:eventId" element={<EventDetailPage />} />
+        <Route path="/checkout/result" element={<CheckoutResultPage />} />
+        <Route path="/checkout/cancelled" element={<CheckoutResultPage cancelled />} />
+        <Route path="/tickets" element={publishableKey ? <TicketsPage /> : <NotFoundPage />} />
+
+        {/* Auth routes */}
+        <Route path="/sign-in/*" element={publishableKey ? <AuthPage mode="sign-in" /> : <NotFoundPage />} />
+        <Route path="/sign-up/*" element={publishableKey ? <AuthPage mode="sign-up" /> : <NotFoundPage />} />
+
+        {/* ─── ADMIN DEDICATED UNIT ─── */}
+        <Route
+          path="/admin"
+          element={
+            publishableKey ? (
+              <AdminRouteGuard>
+                <AdminOverviewPage />
+              </AdminRouteGuard>
+            ) : (
+              <NotFoundPage />
+            )
+          }
+        />
+        <Route
+          path="/admin/applications"
+          element={
+            publishableKey ? (
+              <AdminRouteGuard>
+                <AdminApplicationsPage />
+              </AdminRouteGuard>
+            ) : (
+              <NotFoundPage />
+            )
+          }
+        />
+        <Route
+          path="/admin/events"
+          element={
+            publishableKey ? (
+              <AdminRouteGuard>
+                <AdminEventsPage />
+              </AdminRouteGuard>
+            ) : (
+              <NotFoundPage />
+            )
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            publishableKey ? (
+              <AdminRouteGuard>
+                <AdminUsersPage />
+              </AdminRouteGuard>
+            ) : (
+              <NotFoundPage />
+            )
+          }
+        />
+        <Route
+          path="/admin/categories"
+          element={
+            publishableKey ? (
+              <AdminRouteGuard>
+                <AdminCategoriesPage />
+              </AdminRouteGuard>
+            ) : (
+              <NotFoundPage />
+            )
+          }
+        />
+        {/* Legacy admin route fallback — keep for backward compat */}
+        <Route
+          path="/admin/legacy"
+          element={
+            publishableKey ? (
+              <AdminRouteGuard>
+                <AdminPage />
+              </AdminRouteGuard>
+            ) : (
+              <NotFoundPage />
+            )
+          }
+        />
+
+        {/* ─── ORGANIZER DEDICATED UNIT ─── */}
+        <Route
+          path="/organizer"
+          element={
+            publishableKey ? (
+              <OrganizerRouteGuard>
+                <OrganizerOverviewPage />
+              </OrganizerRouteGuard>
+            ) : (
+              <NotFoundPage />
+            )
+          }
+        />
+        <Route
+          path="/organizer/events"
+          element={
+            publishableKey ? (
+              <OrganizerRouteGuard>
+                <OrganizerEventsPage />
+              </OrganizerRouteGuard>
+            ) : (
+              <NotFoundPage />
+            )
+          }
+        />
+        <Route
+          path="/organizer/sales"
+          element={
+            publishableKey ? (
+              <OrganizerRouteGuard>
+                <OrganizerSalesPage />
+              </OrganizerRouteGuard>
+            ) : (
+              <NotFoundPage />
+            )
+          }
+        />
+        <Route
+          path="/organizer/checkin"
+          element={
+            publishableKey ? (
+              <OrganizerRouteGuard>
+                <OrganizerCheckinHubPage />
+              </OrganizerRouteGuard>
+            ) : (
+              <NotFoundPage />
+            )
+          }
+        />
+        <Route
+          path="/organizer/profile"
+          element={
+            publishableKey ? (
+              <OrganizerRouteGuard>
+                <OrganizerProfilePage />
+              </OrganizerRouteGuard>
+            ) : (
+              <NotFoundPage />
+            )
+          }
+        />
+        <Route
+          path="/organizer/events/:eventId/check-in"
+          element={
+            publishableKey ? (
+              <OrganizerRouteGuard>
+                <DashboardShell role="ORGANIZER" pageTitle="Door Check-in Console">
+                  <EventCheckinPage />
+                </DashboardShell>
+              </OrganizerRouteGuard>
+            ) : (
+              <NotFoundPage />
+            )
+          }
+        />
+
+        {/* Account / Workspace (Attendees only — Admin/Organizer redirect above) */}
+        <Route path="/account" element={publishableKey ? <AccountPage /> : <NotFoundPage />} />
+
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+      {!isDedicatedWorkspace && <PublicFooter />}
+    </div>
+  )
 }
 
 export default function App() {
-  const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
-  return <div className="app-shell"><PublicHeader /><Routes>
-    <Route path="/" element={<HomePage />} />
-    <Route path="/discover" element={<DiscoveryPage />} />
-    <Route path="/sign-in/*" element={publishableKey ? <AuthPage mode="sign-in" /> : <NotFoundPage />} />
-    <Route path="/sign-up/*" element={publishableKey ? <AuthPage mode="sign-up" /> : <NotFoundPage />} />
-    <Route path="/events/:eventId" element={<EventDetailPage />} />
-    <Route path="/checkout/result" element={<CheckoutResultPage />} />
-    <Route path="/checkout/cancelled" element={<CheckoutResultPage cancelled />} />
-    <Route path="/tickets" element={publishableKey ? <TicketsPage /> : <NotFoundPage />} />
-    <Route path="/organizer/events/:eventId/check-in" element={publishableKey ? <EventCheckinPage /> : <NotFoundPage />} />
-    <Route path="/account" element={publishableKey ? <AccountPage /> : <NotFoundPage />} />
-    <Route path="/admin" element={publishableKey ? <AdminPage /> : <NotFoundPage />} />
-    <Route path="*" element={<NotFoundPage />} />
-  </Routes><PublicFooter /></div>
+  return (
+    <CurrentUserProvider>
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
+    </CurrentUserProvider>
+  )
 }
