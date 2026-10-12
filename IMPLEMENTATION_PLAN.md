@@ -46,7 +46,7 @@ The overall status must be updated as work progresses. It must reflect verified 
 | Repository inspection        | IMPLEMENTED | Docs inspected; folder had no source files or Git metadata      |
 | Project foundation           | IMPLEMENTED | Phase 1 committed; runtime checks remain                         |
 | Database                     | VERIFIED    | Initial migration applied to configured Supabase DB; Prisma adapter query succeeded |
-| Authentication               | NOT_STARTED | Phase 3                                                         |
+| Authentication               | IMPLEMENTED | Clerk session verification, current-user sync, account route, and webhook code written; live Clerk configuration/checks pending |
 | Roles and organizer approval | NOT_STARTED | Phase 4                                                         |
 | Public event discovery       | NOT_STARTED | Phase 5                                                         |
 | Organizer event management   | NOT_STARTED | Phase 6                                                         |
@@ -152,24 +152,24 @@ Review the schema and migration results before proceeding to Phase 3.
 
 ## 6. Phase 3 — Clerk Authentication
 
-**Status:** NOT_STARTED
+**Status:** IMPLEMENTED
 
 ### Tasks
 
 - [ ] Configure the Clerk application.
-- [ ] Configure the frontend Clerk provider using `@clerk/react`.
-- [ ] Implement sign-in, sign-up, and session-aware UI.
+- [x] Configure the frontend Clerk provider using `@clerk/react`.
+- [x] Implement sign-in, sign-up, and session-aware UI.
 - [ ] Configure Google login if enabled in Clerk.
-- [ ] Configure protected frontend routes.
-- [ ] Verify Clerk bearer tokens in NestJS using `@clerk/backend`.
-- [ ] Implement authenticated current-user synchronization.
-- [ ] Make synchronization idempotent using the unique Clerk user ID.
-- [ ] Implement the current-user endpoints.
-- [ ] Enforce database-backed active-account checks.
-- [ ] Configure relevant Clerk webhooks.
-- [ ] Verify webhook signatures.
-- [ ] Handle duplicate webhook deliveries safely.
-- [ ] Document local webhook testing with ngrok.
+- [x] Configure protected frontend routes.
+- [x] Verify Clerk bearer tokens in NestJS using `@clerk/backend`.
+- [x] Implement authenticated current-user synchronization.
+- [x] Make synchronization idempotent using the unique Clerk user ID.
+- [x] Implement the current-user endpoints.
+- [x] Enforce database-backed active-account checks.
+- [ ] Configure relevant Clerk webhooks in the Clerk Dashboard.
+- [x] Verify webhook signatures.
+- [x] Handle duplicate webhook deliveries safely through idempotent upserts/deactivation.
+- [x] Document local webhook testing with ngrok.
 - [ ] Test authentication failures and account deactivation.
 
 ### Acceptance criteria
@@ -184,11 +184,11 @@ Review the schema and migration results before proceeding to Phase 3.
 
 ### Verification record
 
-- Commands and tests:
-- Clerk configuration verified:
-- Webhook configuration verified:
-- Authorization results:
-- Outstanding issues:
+- Commands and checks: `npm install @clerk/backend` (installed `@clerk/backend` 3.23.2); `npm run build` (pass); `npm run lint` (pass). Authentication test suites were not run.
+- Clerk configuration verified: Frontend publishable key is configured; backend secret and webhook signing secret are not set in the local backend environment.
+- Webhook configuration verified: Handler and instructions are implemented; Clerk Dashboard endpoint and ngrok delivery are not yet configured/verified.
+- Authorization results: Backend guard requires a verified session bearer token, restricts authorized parties to `FRONTEND_ORIGIN`, and current-user sync preserves database role/status and rejects deactivated accounts. Runtime token/deactivation checks remain pending Clerk server keys.
+- Outstanding issues: Add `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and `CLERK_WEBHOOK_SIGNING_SECRET` to `backend/.env`, configure the Clerk Dashboard webhook for `user.created`, `user.updated`, and `user.deleted`, then perform live authentication and webhook verification before marking Phase 3 verified.
 
 ### Approval gate
 

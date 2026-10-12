@@ -1,7 +1,8 @@
-import { SignInButton, SignUpButton, UserButton } from '@clerk/react'
+import { SignInButton, SignUpButton, UserButton, useAuth } from '@clerk/react'
 import { useEffect, useState } from 'react'
 import { Link, Route, Routes } from 'react-router'
 import { api } from './lib/api'
+import { AccountPage } from './features/auth/account-page'
 import './App.css'
 
 function HomePage() {
@@ -43,6 +44,22 @@ function NotFoundPage() {
   return <main className="not-found"><span className="eyebrow">That page wandered off</span><h1>Nothing happening here.</h1><Link className="button button--dark" to="/">Back to Eventora</Link></main>
 }
 
+function AccountActions() {
+  const { isLoaded, isSignedIn } = useAuth()
+
+  if (!isLoaded) return <span className="setup-hint" aria-live="polite">Loading account…</span>
+  if (!isSignedIn) {
+    return <>
+      <SignInButton mode="modal"><button className="text-button">Sign in</button></SignInButton>
+      <SignUpButton mode="modal"><button className="button button--small">Get started <span aria-hidden="true">↗</span></button></SignUpButton>
+    </>
+  }
+  return <>
+    <Link className="text-button" to="/account">My account</Link>
+    <UserButton />
+  </>
+}
+
 export default function App() {
   const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
   return (
@@ -51,15 +68,12 @@ export default function App() {
         <Link className="brand" to="/" aria-label="Eventora home">eventora<span>.</span></Link>
         <nav className="site-nav" aria-label="Main navigation"><a href="/#discover">Discover</a></nav>
         <div className="account-actions">
-          {publishableKey ? <>
-            <SignInButton mode="modal"><button className="text-button">Sign in</button></SignInButton>
-            <SignUpButton mode="modal"><button className="button button--small">Get started <span aria-hidden="true">↗</span></button></SignUpButton>
-            <UserButton />
-          </> : <span className="setup-hint">Add Clerk key to enable sign in</span>}
+          {publishableKey ? <AccountActions /> : <span className="setup-hint">Add Clerk key to enable sign in</span>}
         </div>
       </header>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/account" element={publishableKey ? <AccountPage /> : <NotFoundPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>

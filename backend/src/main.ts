@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
   const frontendOrigin = config.get<string>('FRONTEND_ORIGIN', 'http://localhost:5173');
   const port = Number(config.get<string>('PORT', '3000'));

@@ -5,14 +5,15 @@
 - Node.js compatible with the installed Vite and NestJS CLI versions.
 - npm.
 - A Supabase PostgreSQL project and its Session pooler connection string for backend database work.
-- A Clerk publishable key for frontend sign-in UI.
+- A Clerk application with a publishable key, secret key, and webhook signing secret.
 
 ## Environment files
 
 Environment files are local and ignored by Git:
 
-- Copy `frontend/.env.example` to `frontend/.env.local`; set `VITE_CLERK_PUBLISHABLE_KEY` from the Clerk dashboard. Only a publishable key belongs in the frontend.
-- Copy `backend/.env.example` to `backend/.env`; set `DATABASE_URL` to the Supabase Session pooler URL and keep all database credentials server-side.
+- Copy `frontend/.env.example` to `frontend/.env.local`; set `VITE_CLERK_PUBLISHABLE_KEY` from the Clerk dashboard. Only the publishable key belongs in the frontend.
+- Copy `backend/.env.example` to `backend/.env`; set `DATABASE_URL` to the Supabase Session pooler URL, `CLERK_PUBLISHABLE_KEY`, and `CLERK_SECRET_KEY`. Keep database credentials and the Clerk secret key server-side.
+- Set `CLERK_WEBHOOK_SIGNING_SECRET` to the signing secret for the configured Clerk webhook endpoint. Never commit the actual `.env` files.
 
 ## Start the applications
 
@@ -33,6 +34,18 @@ npm run start:dev
 ```
 
 The frontend uses `VITE_API_BASE_URL`, defaulting to `http://localhost:3000/api`. The public health endpoint is `GET /api/health`. Configure `FRONTEND_ORIGIN` in the backend when the frontend uses a different origin.
+
+## Clerk authentication and webhooks
+
+The frontend Clerk provider uses `VITE_CLERK_PUBLISHABLE_KEY`. Signed-in users can open `/account`; that page requests `GET /api/auth/me` with the Clerk session token in an `Authorization: Bearer ...` header. The backend verifies the token, synchronizes the identity by Clerk user ID, and returns the Eventora role and account status from PostgreSQL. Clerk profile updates do not set or reset those application-controlled fields.
+
+Configure a Clerk webhook endpoint at `https://<public-host>/api/auth/webhooks/clerk` and subscribe it to `user.created`, `user.updated`, and `user.deleted`. Copy its signing secret to `CLERK_WEBHOOK_SIGNING_SECRET`. The endpoint verifies the signature against the preserved request body, synchronizes profile changes idempotently, and deactivates matching Eventora accounts after Clerk user deletion.
+
+Configure the Clerk sign-up methods to collect a primary email address because the Eventora user record requires one. A profile without a primary email cannot be synchronized.
+
+For local webhook delivery, run the backend, then start a tunnel with `ngrok http 3000`. Create a Clerk webhook endpoint using the ngrok HTTPS URL plus `/api/auth/webhooks/clerk`, select the three user events above, and place that endpoint's signing secret in `backend/.env`. Recreate or update the endpoint when the ngrok URL changes. Set `FRONTEND_ORIGIN` to the exact browser origin used by the frontend; the backend checks this origin when accepting Clerk session tokens.
+
+Google sign-in is controlled in the Clerk Dashboard and remains optional. Enable Google there only if the Eventora Clerk application has that OAuth connection configured.
 
 ## Database setup
 
