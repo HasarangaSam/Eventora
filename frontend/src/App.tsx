@@ -49,7 +49,7 @@ export default function App() {
     <div className="app-shell">
       <header className="site-header">
         <Link className="brand" to="/" aria-label="Eventora home">eventora<span>.</span></Link>
-        <nav className="site-nav" aria-label="Main navigation"><a href="/#discover">Discover</a><a href="mailto:hello@eventora.lk">Host an event</a></nav>
+        <nav className="site-nav" aria-label="Main navigation"><a href="/#discover">Discover</a></nav>
         <div className="account-actions">
           {publishableKey ? <>
             <SignInButton mode="modal"><button className="text-button">Sign in</button></SignInButton>

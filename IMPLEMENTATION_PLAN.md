@@ -44,8 +44,8 @@ The overall status must be updated as work progresses. It must reflect verified 
 | Item                         | Status      | Notes                                                           |
 | ---------------------------- | ----------- | --------------------------------------------------------------- |
 | Repository inspection        | IMPLEMENTED | Docs inspected; folder had no source files or Git metadata      |
-| Project foundation           | IMPLEMENTED | Phase 1 scaffold and code are in place; runtime checks remain    |
-| Database                     | NOT_STARTED | Phase 2                                                         |
+| Project foundation           | IMPLEMENTED | Phase 1 committed; runtime checks remain                         |
+| Database                     | IMPLEMENTED | Schema/client/migration ready; DB connection verification pending |
 | Authentication               | NOT_STARTED | Phase 3                                                         |
 | Roles and organizer approval | NOT_STARTED | Phase 4                                                         |
 | Public event discovery       | NOT_STARTED | Phase 5                                                         |
@@ -68,7 +68,7 @@ These are initial tracking values, not claims about the existing repository. Upd
 - [x] Inspect the existing repository; no Git metadata is present in this folder.
 - [x] Inspect available Node.js and npm versions (Node v24.19.0, npm 12.0.2).
 - [x] Inspect and create frontend and backend package manifests.
-- [ ] Confirm compatible React 19, TypeScript, Vite, Tailwind CSS v4, and NestJS versions.
+- [x] Confirm compatible React 19, TypeScript, Vite, Tailwind CSS v4, and NestJS versions by building and linting against the generated packages.
 - [x] Configure the Vite/React frontend application foundation.
 - [x] Configure React Router.
 - [x] Configure Axios and the API base URL.
@@ -80,7 +80,7 @@ These are initial tracking values, not claims about the existing repository. Upd
 - [x] Add frontend and backend environment examples without real credentials.
 - [x] Run configured frontend/backend lint and production build scripts.
 - [x] Document frontend and backend startup instructions.
-- [ ] Document any unresolved setup requirements.
+- [x] Document unresolved setup requirements.
 
 ### Acceptance criteria
 
@@ -98,8 +98,8 @@ These are initial tracking values, not claims about the existing repository. Upd
 - Commands executed:
 - Results: `frontend/npm run lint`, `frontend/npm run build`, `backend/npm run lint`, and `backend/npm run build` all exited successfully. Runtime server and endpoint checks remain outstanding.
 - Files changed: root `.gitignore` and `README.md`; `frontend/` Vite configuration, React entry/home page/styles, Axios client, environment example and package files; `backend/` Nest bootstrap/controller/configuration, environment example and package files.
-- Manual configuration required: copy the two `.env.example` files to the local env file names described in `README.md`; provide a Clerk publishable key to enable authentication UI.
-- Outstanding issues: Add a Clerk publishable key to `frontend/.env.local` to enable sign-in. Backend install reported 5 dependency advisories (2 low, 1 moderate, 2 high); review with `npm audit` before deployment.
+- Manual configuration required: copy the two `.env.example` files to the local env file names described in `README.md`; the user has supplied a local Clerk publishable key, which is excluded from Git.
+- Outstanding issues: Runtime server and health checks are still outstanding. Backend install reported 5 dependency advisories before the Prisma packages were added; current backend dependency install reports 9 (2 low, 1 moderate, 6 high); review with `npm audit` before deployment.
 
 ### Approval gate
 
@@ -107,44 +107,44 @@ Do not begin Phase 2 until Phase 1 has been reviewed and the user has confirmed 
 
 ## 5. Phase 2 — Database and Prisma
 
-**Status:** NOT_STARTED
+**Status:** IMPLEMENTED
 
 ### Tasks
 
-- [ ] Inspect the current Prisma version and configuration.
-- [ ] Verify the official Prisma 7.x setup for PostgreSQL and `@prisma/adapter-pg`.
-- [ ] Configure Supabase PostgreSQL connectivity.
-- [ ] Configure `prisma.config.ts` according to the installed Prisma version.
-- [ ] Define the database schema and relationships.
-- [ ] Add enums, constraints, indexes, timestamps, and appropriate deletion policies.
-- [ ] Model users, organizer applications, categories, events, and event sessions.
-- [ ] Model ticket types, registrations, payments, payment attempts, and reservations.
-- [ ] Model individual tickets, check-ins, and email delivery tracking where appropriate.
-- [ ] Use precise monetary representations.
-- [ ] Preserve historical records.
-- [ ] Create and review the initial migration.
-- [ ] Configure Prisma client generation and the PostgreSQL adapter.
-- [ ] Implement the database service and module.
-- [ ] Verify database connectivity and representative queries.
+- [x] Inspect the current Prisma version and configuration; none existed before this phase.
+- [x] Verify the official Prisma 7.x setup for PostgreSQL and `@prisma/adapter-pg`.
+- [ ] Configure and verify Supabase PostgreSQL connectivity; DATABASE_URL is not configured locally.
+- [x] Configure `prisma.config.ts` for Prisma 7.
+- [x] Define the database schema and relationships.
+- [x] Add enums, indexes, timestamps, deletion policies, and SQL check constraints.
+- [x] Model users, organizer applications, categories, events, and event sessions.
+- [x] Model ticket types, registrations, payments, payment attempts, and reservations.
+- [x] Model individual tickets, check-ins, payment exceptions, and email delivery tracking.
+- [x] Use precise `Decimal(12,2)` monetary representations.
+- [x] Preserve historical records with restrictive foreign-key deletion policies.
+- [x] Generate and review the initial migration SQL offline.
+- [x] Configure Prisma client generation and the PostgreSQL adapter.
+- [x] Implement the Prisma database service and module.
+- [ ] Verify database connectivity and representative queries; waiting for a development Supabase URL.
 
 ### Acceptance criteria
 
-- [ ] Prisma client generation succeeds.
+- [x] Prisma client generation succeeds.
 - [ ] Migrations apply successfully to the intended development database.
-- [ ] Database relationships and constraints match the specification.
-- [ ] Monetary fields do not use floating-point types.
-- [ ] Historical records are protected by appropriate deletion policies.
+- [x] Database relationships and constraints are modeled and schema validation succeeds; runtime database verification is pending.
+- [x] Monetary fields use PostgreSQL Decimal, not floating-point types.
+- [x] Historical records are protected by restrictive deletion policies.
 - [ ] Database queries work through the configured Prisma adapter.
-- [ ] No destructive changes are applied to valuable data without authorization.
+- [x] No destructive changes were applied to valuable data.
 
 ### Verification record
 
-- Commands executed:
-- Migration result:
-- Database connectivity result:
-- Schema decisions:
-- Files changed:
-- Outstanding issues:
+- Commands executed in `backend/`: `npm run prisma:validate` (pass, Prisma 7.10.0); `npm run prisma:generate` (pass); `npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script --output prisma/migrations/20261012000000_init/migration.sql` (pass, offline); `npm run build` (pass); `npm run lint` (pass).
+- Migration result: Initial SQL generated from an empty PostgreSQL schema, with reviewed custom CHECK constraints. Not applied to a database.
+- Database connectivity result: Not run; no backend `.env`/`DATABASE_URL` is configured.
+- Schema decisions: Decimal money snapshots; hash-only QR tokens; separate reservation and payment-attempt records; counters for event and ticket-type inventory; database-clock expiry at exactly 10 minutes. Event timezone is explicit per event. Payment exceptions are recorded without defining review actions.
+- Files changed: `backend/package.json` and lockfile; Prisma config/schema/migration; Nest Prisma module/service and app module; backend env example; `.gitignore`; `docs/DATABASE.md` and `docs/DEVELOPMENT.md`; root README and this plan.
+- Outstanding issues: Configure a Supabase development connection string, then apply and inspect the migration, verify Prisma queries, and run the database integration checks before marking Phase 2 verified.
 
 ### Approval gate
 

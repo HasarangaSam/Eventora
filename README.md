@@ -269,6 +269,8 @@ Run these commands from the appropriate workspace and adjust them to the actual 
 - [`docs/project-spec.md`](./docs/project-spec.md): Authoritative product requirements.
 - [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md): Implementation progress and verification.
 - Architecture documentation will be added as implementation decisions are established.
+- [`docs/DATABASE.md`](./docs/DATABASE.md): Prisma schema, integrity notes, and database setup.
+- [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md): Local setup and development workflow.
 - `docs/DATABASE.md`: Database design and integrity rules.
 - `docs/SECURITY.md`: Authentication, authorization, and security controls.
 - `docs/PAYMENTS.md`: PayHere integration and payment lifecycle.

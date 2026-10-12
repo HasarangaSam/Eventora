@@ -14,6 +14,7 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
   app.enableCors({ origin: frontendOrigin });
+  app.enableShutdownHooks();
 
   await app.listen(port);
 }
