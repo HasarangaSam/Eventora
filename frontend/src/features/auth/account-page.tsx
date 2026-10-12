@@ -3,6 +3,7 @@ import { AxiosError } from 'axios'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useAuthenticatedApi } from './use-authenticated-api'
+import { OrganizerApplicationPanel } from '../organizer/organizer-application-panel'
 
 interface CurrentUser {
   email: string
@@ -80,6 +81,10 @@ export function AccountPage() {
           <p><span>Account status</span><strong>{account.user.status.toLowerCase()}</strong></p>
         </section>
       )}
+      {!accountLoading && account.status === 'ready' && account.user.status === 'ACTIVE' && <>
+        {account.user.role === 'ADMIN' && <Link className="account-home-link" to="/admin">Open administrator workspace</Link>}
+        <OrganizerApplicationPanel role={account.user.role} />
+      </>}
       <Link className="account-home-link" to="/">Back to event discovery</Link>
     </main>
   )

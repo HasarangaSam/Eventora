@@ -18,8 +18,9 @@ The Prisma config loads `.env` for CLI commands. Schema validation and client ge
 - Payment attempts preserve merchant and provider references; payment exceptions are recorded without defining an unresolved administrative resolution workflow.
 - Tickets store a hash of the QR token, never the token itself. A unique check-in row per ticket supports duplicate-safe check-in transactions.
 - Email delivery rows carry an idempotency key and retry state; they are not the source of truth for purchases.
+- Organizer applications retain every submission and decision; migration `20261012090000_pending_organizer_application_unique` adds a partial unique index so an applicant can have only one pending application while reapplying after rejection.
 
-Prisma models express foreign keys and indexes. The initial SQL migration adds check constraints for positive prices/quantities, valid time ranges, ticket counts within capacity, amount snapshots, reservation expiry, and required success timestamps. The application must still reserve/commit/release inventory atomically and keep the event and ticket-type counters in sync. The SQL has been generated and reviewed locally, but has not been applied or exercised against PostgreSQL yet.
+Prisma models express foreign keys and indexes. The initial SQL migration adds check constraints for positive prices/quantities, valid time ranges, ticket counts within capacity, amount snapshots, reservation expiry, and required success timestamps. The initial migration and organizer-application index migration have been applied to the configured Supabase database; application-level payment and inventory transactions remain for their later phases.
 
 ## Commands
 

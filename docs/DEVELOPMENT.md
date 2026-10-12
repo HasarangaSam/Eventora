@@ -50,3 +50,13 @@ Google sign-in is controlled in the Clerk Dashboard and remains optional. Enable
 ## Database setup
 
 From `backend/`, run `npm run prisma:validate` and `npm run prisma:generate`. Review `docs/DATABASE.md` before creating and applying the first migration. Do not run migrations against a production or valuable database without reviewing the migration and confirming a recovery path.
+
+## Initial administrator
+
+After the first user has signed in and synchronized to the database, provision that account as the initial administrator from `backend/`:
+
+```sh
+npm run admin:provision -- user_<clerk-id>
+```
+
+The command refuses to run if an active administrator already exists or if the target account is missing or deactivated. Keep the selected Clerk user ID in a trusted operator workflow; do not expose administrator provisioning through the frontend or a public API.

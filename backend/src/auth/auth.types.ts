@@ -1,7 +1,9 @@
 import type { Request } from 'express';
+import type { User } from '../generated/prisma/client.js';
 
 export interface AuthenticatedRequest extends Request {
   clerkUserId: string;
+  eventoraUser?: User;
 }
 
 export interface ClerkProfile {

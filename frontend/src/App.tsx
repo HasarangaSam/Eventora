@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, Route, Routes } from 'react-router'
 import { api } from './lib/api'
 import { AccountPage } from './features/auth/account-page'
+import { AdminPage } from './features/admin/admin-page'
 import './App.css'
 
 function HomePage() {
@@ -74,6 +75,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/account" element={publishableKey ? <AccountPage /> : <NotFoundPage />} />
+        <Route path="/admin" element={publishableKey ? <AdminPage /> : <NotFoundPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>

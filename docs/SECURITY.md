@@ -6,7 +6,15 @@ Clerk authenticates users. Eventora stores the unique Clerk user ID and owns the
 
 The backend's `ClerkAuthGuard` accepts a session bearer token only, verifies it through `@clerk/backend`, and checks the token's authorized party against `FRONTEND_ORIGIN`. `GET /api/auth/me` synchronizes the authenticated Clerk profile using the verified token subject and returns the corresponding Eventora record. Profile synchronization uses an upsert keyed by the unique `clerkUserId`; its update fields deliberately exclude role and status. Deactivated accounts receive `403 Forbidden` from the current-user endpoint.
 
-Frontend route protection and Clerk components improve the user experience. They do not replace backend token verification. Role-specific endpoint guards and organizer approval checks are a later implementation phase; no business API should be treated as protected until those backend guards are implemented.
+Frontend route protection and Clerk components improve the user experience. They do not replace backend token verification. Protected business routes use `ClerkAuthGuard`, then `AccountGuard` to resolve the database user and reject deactivated accounts, then `RolesGuard` to check the database role. Organizer access also requires an approved organizer application. Browser-supplied roles, account IDs, and status values are never used as authorization evidence.
+
+## Roles and organizer approval
+
+New database users default to `ATTENDEE`; Clerk synchronization never changes `role` or `status`. There is no self-service role update endpoint. Admin role/status routes are protected by the database-backed admin role and serialize changes with a PostgreSQL advisory transaction lock. They reject changes that would leave no active administrator. An admin cannot demote their own role.
+
+The initial administrator is provisioned out of band with `npm run admin:provision -- <clerk-user-id>` from `backend/`. The command only works when no active administrator exists and targets an already synchronized, active account. It does not accept a role from a browser request.
+
+An attendee may keep prior rejected application records and submit a new application; only one pending application per applicant is allowed. A partial unique index in migration `20261012090000_pending_organizer_application_unique` enforces this under concurrent requests. Approval, reviewer attribution, role promotion, and an idempotent decision-email outbox row are committed in one transaction. The application record remains the source of organizer approval, and the queued email is not evidence of a decision. Delivery is pending email-provider setup.
 
 ## Clerk webhook
 
@@ -20,5 +28,7 @@ Subscribe the Clerk endpoint only to `user.created`, `user.updated`, and `user.d
 - `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, and `CLERK_WEBHOOK_SIGNING_SECRET` belong in `backend/.env`; only the secret and webhook signing secret are confidential.
 - `FRONTEND_ORIGIN` must be the exact frontend origin allowed to issue Clerk session tokens.
 - Require Clerk sign-ups to provide a primary email address; Eventora's user schema requires one.
+
+The organizer decision outbox currently records pending notifications only. Gmail delivery configuration and retry behavior remain for the email implementation phase.
 
 Local configuration and invalid-token/webhook-signature behavior have been checked. Phase 3 still needs a real Clerk-issued session through `/api/auth/me`, database-backed account-status verification, and delivery from the configured Clerk Dashboard endpoint before authentication can be marked fully verified.

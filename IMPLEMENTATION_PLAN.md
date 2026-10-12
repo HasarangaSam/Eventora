@@ -47,7 +47,7 @@ The overall status must be updated as work progresses. It must reflect verified 
 | Project foundation           | IMPLEMENTED | Phase 1 committed; runtime checks remain                         |
 | Database                     | VERIFIED    | Initial migration applied to configured Supabase DB; Prisma adapter query succeeded |
 | Authentication               | IMPLEMENTED | Auth routes and signed webhook handling are implemented; real-session sync, DB account-status integration, and Dashboard delivery remain unverified |
-| Roles and organizer approval | NOT_STARTED | Phase 4                                                         |
+| Roles and organizer approval | IMPLEMENTED | Migration applied; focused authorization tests pass; external admin provisioning and full flow verification remain |
 | Public event discovery       | NOT_STARTED | Phase 5                                                         |
 | Organizer event management   | NOT_STARTED | Phase 6                                                         |
 | Registration and inventory   | NOT_STARTED | Phase 7                                                         |
@@ -196,38 +196,40 @@ Review authentication and user synchronization before Phase 4.
 
 ## 7. Phase 4 — Roles and Organizer Approval
 
-**Status:** NOT_STARTED
+**Status:** IMPLEMENTED
 
 ### Tasks
 
-- [ ] Implement `ATTENDEE`, `ORGANIZER`, and `ADMIN` role handling.
-- [ ] Implement backend role guards and reusable authorization utilities where justified.
-- [ ] Provision the initial administrator through a controlled setup process.
-- [ ] Prevent accidental administrator lockout.
-- [ ] Prevent privilege escalation.
-- [ ] Implement organizer applications.
-- [ ] Implement application status and decision handling.
-- [ ] Restrict event management to approved, active organizers.
-- [ ] Implement organizer decision notifications.
-- [ ] Test role and ownership authorization.
+- [x] Implement `ATTENDEE`, `ORGANIZER`, and `ADMIN` role handling.
+- [x] Implement backend role guards and reusable authorization utilities where justified.
+- [x] Provision the initial administrator through a controlled setup process.
+- [x] Prevent accidental administrator lockout.
+- [x] Prevent privilege escalation.
+- [x] Implement organizer applications.
+- [x] Implement application status and decision handling.
+- [x] Restrict organizer access to approved, active users (event ownership checks are implemented with organizer event routes in Phase 6).
+- [x] Queue organizer decision notifications transactionally; email delivery awaits provider setup.
+- [x] Test role and account-status authorization; event ownership checks are part of Phase 6.
 
 ### Acceptance criteria
 
-- [ ] New users receive the correct default role.
-- [ ] Users cannot change their own roles.
-- [ ] Attendees cannot access organizer or administrator operations.
-- [ ] Pending or rejected applicants cannot manage events.
-- [ ] Approved organizers can access permitted organizer operations.
-- [ ] Only administrators can make organizer approval decisions.
-- [ ] Deactivated accounts remain blocked.
-- [ ] Role and approval checks are enforced by the backend.
+- [x] New users receive the correct default role.
+- [x] Users cannot change their own roles.
+- [x] Attendees are rejected from administrator routes by backend role guards; organizer role authorization is separately enforced.
+- [x] Pending or rejected applicants cannot use organizer-authorized routes.
+- [x] Approved organizers pass the approval-aware role guard; concrete organizer operations are implemented in Phase 6.
+- [x] Only administrators can make organizer approval decisions by backend route guard.
+- [x] Deactivated accounts are rejected by the shared account guard.
+- [x] Role and approval checks are enforced by the backend code.
 
 ### Verification record
 
-- Tests executed:
-- Role authorization results:
-- Organizer application results:
-- Outstanding issues:
+- Tests executed: `npm.cmd run test` (4 test files, 11 tests passed, including the new account and role guard checks). The initial focused sandboxed attempt failed before collection with Windows temp `EPERM`; retry outside the restriction and the full suite passed.
+- Build/lint/schema checks: Backend and frontend `npm.cmd run build` and `npm.cmd run lint` passed; `npm.cmd run prisma:validate` passed; `git diff --check` passed.
+- Database: `npm.cmd run db:deploy` applied `20261012090000_pending_organizer_application_unique` to configured Supabase database.
+- Role authorization results: Unit tests cover missing/deactivated accounts, attendee rejection from admin, admin access, pending organizer rejection, and approved organizer access. Initial-admin provisioning and a complete signed-in browser flow remain unverified.
+- Organizer application results: Submission, reapplication after rejection, single-pending constraint, admin decisions, role promotion, and notification outbox are implemented. The migration is applied; no end-to-end application decision flow was exercised.
+- Outstanding issues: Provision an initial admin using the documented command and manually exercise application submission/rejection/reapplication/approval in the UI. Actual Gmail delivery belongs to the email phase. Event ownership checks will be implemented and tested with organizer event routes in Phase 6.
 
 ### Approval gate
 
