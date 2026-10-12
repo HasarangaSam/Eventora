@@ -105,7 +105,7 @@ export function TicketsPage() {
         centered
         eyebrow="Your Eventora wallet"
         title="Your digital passes & tickets"
-        description="Present your scannable QR pass at the venue door for rapid <1s admission. Single-use and cryptographically verified."
+        description="Show your QR pass at the venue entrance. Staff will scan it to confirm your ticket and check you in."
       />
 
       {error && (
@@ -255,7 +255,7 @@ export function TicketsPage() {
                 }}
               >
                 <IconShield style={{ width: '14px', height: '14px' }} />
-                Encrypted single-use admission QR token
+                Your one-time entry QR pass
               </div>
             </div>
           </div>

@@ -1,6 +1,6 @@
-# Eventora — Version 1
+# Eventora — Premium Events & Ticketing Platform
 
-Premium Events & Ticketing Platform
+**Version 1**
 
 > A full-stack, production-grade event ticketing platform built with NestJS, React 19, PostgreSQL (Supabase), Clerk auth, and PayHere payments. Designed with security-first principles, transactional inventory management, and a premium consumer UI.
 
@@ -110,7 +110,7 @@ Roles are **database-owned** and enforced server-side — the frontend never sup
 | **@clerk/react** | ^6.17 | Authentication UI & session management |
 | **Recharts** | ^3.10 | Analytics charts (Area, Bar, Pie) |
 | **@zxing/browser** | ^0.2 | Camera-based QR code scanning |
-| **Tailwind CSS** | ^4.3 | Utility CSS (used alongside vanilla CSS) |
+| **Tailwind CSS** | ^4.3 | Utility-first styling across the frontend |
 
 ---
 
@@ -262,6 +262,25 @@ backend/src/
 | `features/analytics/` | `DashboardShell` (role-aware sidebar layout), role-scoped dashboard panels |
 | `features/payments/` | `CheckoutResultPage` — polls server state post-redirect |
 | `features/home/` | Rich editorial landing page with registration guide, featured events |
+
+### Frontend Structure
+
+The frontend keeps route setup, shared interface elements, and product features in clear, focused folders:
+
+```text
+frontend/src/
+  app/                Route definitions and app-level composition
+  assets/             Local image and static assets
+  components/
+    layout/            Public site shell, page introductions, Eventora logo
+    ui/                Reusable buttons, icons, dialogs, notifications
+  features/            Home, events, auth, tickets, payments, analytics, admin, organizer
+  lib/                 Shared API client and data helpers
+  App.tsx              Root application setup
+  index.css            Tailwind entry point, theme tokens, and global browser styles
+```
+
+Page and component presentation primarily uses Tailwind utility classes, with inline styles retained where values are calculated at runtime, such as chart colors and progress widths. `index.css` contains the Tailwind entry point, shared theme values, browser-wide defaults, focus states, and global animations. Shared layout and UI components keep navigation, branding, and interaction patterns consistent across the public site and workspace pages.
 
 ---
 

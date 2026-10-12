@@ -51,7 +51,7 @@ export function OrganizerSalesPage() {
               Sales & Revenue Analytics
             </h2>
             <p style={{ margin: 0, opacity: 0.9, fontSize: '14px' }}>
-              Monitor ticket revenue, payment verification trends, and gross sales across all your events.
+              Track ticket sales, payment status, and revenue across all your events.
             </p>
           </div>
         </div>

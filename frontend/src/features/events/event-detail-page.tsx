@@ -490,7 +490,7 @@ export function EventDetailPage() {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', marginTop: '12px', color: 'var(--text-muted)', fontSize: '12px' }}>
                       <IconShield style={{ width: '14px', height: '14px' }} />
-                      256-bit encrypted PayHere checkout
+                      Secure checkout with PayHere
                     </div>
                   </form>
                 )}

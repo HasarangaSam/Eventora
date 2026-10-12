@@ -85,7 +85,7 @@ export function OrganizerOverviewPage() {
     { label: 'Published Events', value: eventCount.toLocaleString(), hint: 'Events created', color: '#6366f1', bg: '#eef2ff', icon: <IconCalendar /> },
     { label: 'Confirmed Attendees', value: confirmedRegs.toLocaleString(), hint: 'Registrations completed', color: '#10b981', bg: '#ecfdf5', icon: <IconCamera /> },
     { label: 'Tickets Issued', value: ticketsSold.toLocaleString(), hint: 'Digital passes generated', color: '#f59e0b', bg: '#fffbeb', icon: <IconTicket /> },
-    { label: 'Gross Revenue', value: gross.length ? `${gross[0].currency} ${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—', hint: 'Verified payments', color: '#ec4899', bg: '#fdf2f8', icon: <IconSparkles /> },
+    { label: 'Ticket Revenue', value: gross.length ? `${gross[0].currency} ${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—', hint: 'Confirmed payments', color: '#ec4899', bg: '#fdf2f8', icon: <IconSparkles /> },
   ]
 
   return (

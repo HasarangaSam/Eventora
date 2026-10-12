@@ -279,7 +279,7 @@ export function AccountPage() {
             </div>
             <div>
               <span className="block text-[11px] font-bold text-slate-400 uppercase tracking-[0.5px] mb-0.5">Payment Security</span>
-              <strong className="text-base font-extrabold text-slate-900">PayHere LKR Protected</strong>
+              <strong className="text-base font-extrabold text-slate-900">Payments in LKR via PayHere</strong>
             </div>
           </div>
         </div>
@@ -339,7 +339,7 @@ export function AccountPage() {
               <div>
                 <h2 className="mt-0 mx-0 mb-1 text-xl font-extrabold text-slate-900">Your Digital Entry Passes</h2>
                 <p className="m-0 text-sm text-slate-500">
-                  Present your scannable QR pass at the venue entrance. Single-use and cryptographically signed.
+                  Show your QR pass at the venue entrance. Staff will scan it to confirm your ticket and check you in.
                 </p>
               </div>
               <Link to="/tickets" className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]" style={{ fontSize: '14px', fontWeight: 600 }}>
@@ -538,13 +538,13 @@ export function AccountPage() {
               </div>
 
               <div className="flex justify-between items-center pb-4 border-b border-slate-100">
-                <span className="text-[13px] font-semibold text-slate-500">Authentication Provider</span>
-                <span className="text-sm font-bold text-slate-900">Clerk Secure Identity (Google SSO / Email)</span>
+                <span className="text-[13px] font-semibold text-slate-500">Sign-in method</span>
+                <span className="text-sm font-bold text-slate-900">Secure sign-in with Google or email</span>
               </div>
 
               <div className="flex items-center gap-2.5 text-[13px] text-emerald-600 bg-emerald-50 border border-emerald-200 py-3 px-4 rounded-[10px]">
                 <IconShield style={{ width: '16px', height: '16px', color: '#10b981', flexShrink: 0 }} />
-                <span>Your account is protected with multi-factor authentication and encrypted sessions.</span>
+                <span>Your sign-in and account sessions are protected.</span>
               </div>
             </div>
           </div>
@@ -594,7 +594,7 @@ export function AccountPage() {
 
             <div className="flex items-center justify-center gap-2 text-xs font-semibold text-emerald-600">
               <IconCheckCircle style={{ width: '15px', height: '15px', color: '#10b981' }} />
-              <span>100% Verified Entry · Single-use door token</span>
+              <span>Ticket checked at the entrance · One-time entry</span>
             </div>
           </div>
         </Modal>

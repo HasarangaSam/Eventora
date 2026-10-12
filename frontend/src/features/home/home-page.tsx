@@ -34,7 +34,7 @@ const FAQ_ITEMS = [
   {
     question: 'How do I receive my ticket after registering and paying?',
     answer:
-      'Immediately upon successful checkout, Eventora generates your verified ticket with an encrypted QR code. It is instantly emailed to your registered email address with a PDF pass, and also saved to your online Eventora Ticket Wallet so you can access it on any device at any time.',
+      'Once your payment is complete, your ticket and QR pass are emailed to you as a PDF and saved to your Eventora Ticket Wallet, so you can access them whenever you need.',
   },
   {
     question: 'Do I need to print out the QR code ticket to enter?',
@@ -49,7 +49,7 @@ const FAQ_ITEMS = [
   {
     question: 'How does the door check-in QR code prevent fraud or duplicate tickets?',
     answer:
-      'Each ticket issued by Eventora carries a cryptographically signed, single-use token embedded into the QR code. When scanned at the gate by the organizer’s console, the ticket is instantly validated and marked as attended in real time. Screenshots shared with others cannot be used once scanned.',
+      'Each ticket has its own QR pass. Staff scan it at the entrance to confirm your ticket and check you in. Once it has been used, it cannot be used to enter again.',
   },
   {
     question: 'How can I become an organizer and sell tickets for my own event?',
@@ -127,7 +127,7 @@ export function HomePage() {
 
               <p className="text-lg leading-[1.65] text-slate-600 max-w-[560px] mt-0 mx-0 mb-8">
                 The trusted platform for discovering conferences, concerts, and workshops.
-                Instant registration, secure PayHere payments, and verified QR passes delivered straight to your email.
+                Sign up in moments, pay securely with PayHere, and get your ticket by email.
               </p>
 
               {/* Direct Search Form */}
@@ -208,8 +208,8 @@ export function HomePage() {
                 <IconQrCode style={{ width: '20px', height: '20px' }} />
               </div>
               <div>
-                <strong className="block text-sm font-bold text-slate-900 mb-1">Encrypted QR Tickets</strong>
-                <p className="m-0 text-[13px] leading-[1.5] text-slate-500">Single-use, anti-counterfeit codes scanned at the door.</p>
+                <strong className="block text-sm font-bold text-slate-900 mb-1">Digital QR Tickets</strong>
+                <p className="m-0 text-[13px] leading-[1.5] text-slate-500">Your pass is checked at the door and can only be used once.</p>
               </div>
             </div>
 
@@ -275,7 +275,7 @@ export function HomePage() {
                 <div className="[flex:1]">
                   <h3 className="mt-0 mx-0 mb-1.5 text-[17px] font-bold text-slate-900">Instant Email Confirmation with QR Pass</h3>
                   <p className="m-0 text-sm leading-[1.6] text-slate-600">
-                    The second payment completes, an official confirmation email arrives in your inbox containing your verified digital ticket pass with an anti-counterfeit QR code.
+                    As soon as your payment is complete, a confirmation email arrives with your digital ticket and QR pass.
                   </p>
                 </div>
               </div>
@@ -353,7 +353,7 @@ export function HomePage() {
 
                   <div className="flex items-center gap-2 pt-3.5 border-t border-slate-200 text-xs font-semibold text-slate-600">
                     <IconCheckCircle style={{ width: '15px', height: '15px', color: '#10b981' }} />
-                    <span>Cryptographically signed · Single-use entry verification</span>
+                    <span>Checked at the entrance · One-time entry</span>
                   </div>
                 </div>
               </div>
@@ -446,9 +446,9 @@ export function HomePage() {
               <div className="w-12 h-12 rounded-[12px] bg-slate-900 text-white flex items-center justify-center mb-5">
                 <IconShield style={{ width: '22px', height: '22px' }} />
               </div>
-              <h3 className="mt-0 mx-0 mb-2.5 text-lg font-bold text-slate-900">Anti-Counterfeit QR Security</h3>
+              <h3 className="mt-0 mx-0 mb-2.5 text-lg font-bold text-slate-900">Easy, Reliable Entry</h3>
               <p className="m-0 text-sm leading-[1.65] text-slate-600">
-                Every ticket is encrypted with a unique single-use token. Once scanned at the door, the system marks the ticket as redeemed in real-time, preventing unauthorized duplicates.
+                Each ticket has its own QR pass. Staff scan it at the entrance, and after it is used, it cannot be used to enter again.
               </p>
             </div>
 

@@ -94,7 +94,7 @@ export function AdminOverviewPage() {
     { label: 'Total Users', value: totalUsers.toLocaleString(), hint: 'Registered accounts', color: '#6366f1', bg: '#eef2ff', icon: <IconUsers /> },
     { label: 'Active Users', value: activeUsers.toLocaleString(), hint: 'Currently active', color: '#10b981', bg: '#ecfdf5', icon: <IconUsers /> },
     { label: 'Total Events', value: totalEvents.toLocaleString(), hint: 'Across all organizers', color: '#f59e0b', bg: '#fffbeb', icon: <IconCalendar /> },
-    { label: 'Platform Revenue', value: gross.length ? `${gross[0].currency} ${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—', hint: 'Verified gross sales', color: '#ec4899', bg: '#fdf2f8', icon: <IconTicket /> },
+    { label: 'Platform Revenue', value: gross.length ? `${gross[0].currency} ${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—', hint: 'Confirmed ticket sales', color: '#ec4899', bg: '#fdf2f8', icon: <IconTicket /> },
     { label: 'Pending Applications', value: pendingApps.toLocaleString(), hint: 'Awaiting review', color: '#ef4444', bg: '#fef2f2', icon: <IconSparkles /> },
     { label: 'Registrations', value: regCount.toLocaleString(), hint: 'Total ticket registrations', color: '#8b5cf6', bg: '#f5f3ff', icon: <IconTicket /> },
   ]

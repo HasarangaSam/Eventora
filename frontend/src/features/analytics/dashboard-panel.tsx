@@ -249,14 +249,14 @@ export function DashboardPanel({ role }: { role: Role }) {
           )}
         </div>
 
-        {/* Right Column: Gross Sales Volume */}
+        {/* Right Column: Confirmed Ticket Sales */}
         <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0, padding: '24px' }}>
-          <h4 style={{ margin: '0 0 16px', fontSize: '16px' }}>Verified Gross Sales</h4>
+          <h4 style={{ margin: '0 0 16px', fontSize: '16px' }}>Confirmed Ticket Sales</h4>
           {gross.length ? (
             gross.map((item) => (
               <div key={item.currency} style={{ marginBottom: '16px' }}>
                 <span className="text-muted" style={{ fontSize: '12px', textTransform: 'uppercase' }}>
-                  {item.currency} Verified Revenue
+                  {item.currency} Confirmed Revenue
                 </span>
                 <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--primary)', letterSpacing: '-0.5px' }}>
                   {item.currency} {Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -264,10 +264,10 @@ export function DashboardPanel({ role }: { role: Role }) {
               </div>
             ))
           ) : (
-            <p className="text-muted">No verified transactions yet.</p>
+            <p className="text-muted">No confirmed payments yet.</p>
           )}
           <p className="text-muted" style={{ fontSize: '12px', margin: '8px 0 0' }}>
-            Gross sales reflect verified payments confirmed via PayHere webhook notifications.
+            Totals include payments confirmed by PayHere, before fees.
           </p>
         </div>
       </div>
