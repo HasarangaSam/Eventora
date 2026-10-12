@@ -48,7 +48,7 @@ The overall status must be updated as work progresses. It must reflect verified 
 | Database                     | VERIFIED    | Initial migration applied to configured Supabase DB; Prisma adapter query succeeded |
 | Authentication               | IMPLEMENTED | Auth routes and signed webhook handling are implemented; real-session sync, DB account-status integration, and Dashboard delivery remain unverified |
 | Roles and organizer approval | IMPLEMENTED | Migration applied; focused authorization tests pass; external admin provisioning and full flow verification remain |
-| Public event discovery       | NOT_STARTED | Phase 5                                                         |
+| Public event discovery       | IMPLEMENTED | Public catalog APIs, category administration, discovery/detail UI, builds and unit checks; live HTTP and visual review remain |
 | Organizer event management   | NOT_STARTED | Phase 6                                                         |
 | Registration and inventory   | NOT_STARTED | Phase 7                                                         |
 | PayHere integration          | NOT_STARTED | Phase 8                                                         |
@@ -237,43 +237,44 @@ Review the role model and authorization tests before Phase 5.
 
 ## 8. Phase 5 — Categories and Public Event Discovery
 
-**Status:** NOT_STARTED
+**Status:** IMPLEMENTED
 
 ### Tasks
 
-- [ ] Implement category listing and administrative category management foundations.
-- [ ] Implement public event discovery.
-- [ ] Add server-side pagination.
-- [ ] Add relevant title/detail search.
-- [ ] Add category and date filters.
-- [ ] Add appropriate sorting.
-- [ ] Implement featured events.
-- [ ] Implement public event details.
-- [ ] Implement public event schedules.
-- [ ] Implement public ticket-type and availability views.
-- [ ] Build the homepage with a meaningful hero image.
-- [ ] Implement responsive event listings and event details.
-- [ ] Apply the approved orange-themed visual system.
-- [ ] Add loading, empty, error, and success states.
-- [ ] Verify accessibility and public data restrictions.
+- [x] Implement category listing and administrative category management foundations.
+- [x] Implement public event discovery.
+- [x] Add server-side pagination.
+- [x] Add relevant title/detail search.
+- [x] Add category and date filters.
+- [x] Add appropriate sorting.
+- [x] Implement featured events.
+- [x] Implement public event details.
+- [x] Implement public event schedules.
+- [x] Implement public ticket-type and availability views.
+- [x] Build the homepage with a meaningful local hero image.
+- [x] Implement responsive event listings and event details in the layout/CSS.
+- [x] Apply the approved orange-themed visual system.
+- [x] Add loading, empty, error, and success states.
+- [x] Add automated checks for published-only queries, category history, pagination input, and ticket availability.
 
 ### Acceptance criteria
 
-- [ ] Public APIs expose only published events.
-- [ ] Draft and private organizer information is not leaked.
-- [ ] Pagination and filters work correctly.
-- [ ] Event details and schedules are accurate.
-- [ ] Category references are handled safely.
-- [ ] The homepage supports practical event discovery.
-- [ ] Layouts work on desktop and mobile.
-- [ ] Relevant frontend checks pass.
+- [x] Public APIs expose only published events.
+- [x] Draft events are treated as not found; public projections omit organizer identity and event capacity/inventory counters.
+- [x] Pagination and filters are applied in database queries and pagination input is bounded.
+- [x] Event details and schedules are limited to published events and ordered by event time.
+- [x] Category references are protected from deletion while events reference them.
+- [x] The homepage supports practical event discovery and pagination.
+- [ ] Layouts have not been visually checked in a real desktop/mobile browser.
+- [x] Frontend build and lint checks pass.
 
 ### Verification record
 
-- API tests:
-- Frontend checks:
-- Responsive/accessibility review:
-- Outstanding issues:
+- API tests: Full backend `npm.cmd run test` passed (6 files, 19 tests); tests cover published-only event queries, non-disclosure projections, public sessions/ticket access, pagination validation, and category history safety.
+- Frontend checks: `npm.cmd run build` and `npm.cmd run lint` passed. Backend `npm.cmd run build`, `npm.cmd run lint`, and `npm.cmd run prisma:validate` passed.
+- Runtime/API review: Nest started successfully with catalog routes registered and Prisma initialized. Local HTTP probes to `127.0.0.1:3000` timed out even outside the sandbox; endpoint responses were not verified over HTTP.
+- Responsive/accessibility review: Semantic labels, keyboard-operable controls, focus styles, reduced motion, and mobile CSS were reviewed in source; no browser visual or assistive-technology review was run.
+- Outstanding issues: Verify API responses and responsive layouts in the browser when local socket access is available. Registration/checkout controls intentionally remain for later phases.
 
 ### Approval gate
 

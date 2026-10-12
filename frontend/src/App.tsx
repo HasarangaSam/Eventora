@@ -4,6 +4,8 @@ import { Link, Route, Routes } from 'react-router'
 import { api } from './lib/api'
 import { AccountPage } from './features/auth/account-page'
 import { AdminPage } from './features/admin/admin-page'
+import { DiscoveryPage, FeaturedEvents } from './features/events/discovery-page'
+import { EventDetailPage } from './features/events/event-detail-page'
 import './App.css'
 
 function HomePage() {
@@ -29,13 +31,8 @@ function HomePage() {
           <div className="hero__image-sticker">Make<br />a night<br /><strong>of it.</strong></div>
         </div>
       </section>
-      <section className="discover" id="discover" aria-labelledby="discover-title">
-        <div className="section-heading">
-          <div><span className="eyebrow">A little inspiration</span><h2 id="discover-title">Find your kind of event.</h2></div>
-          <p>Fresh experiences are on their way.<br />Check back soon to see what’s happening.</p>
-        </div>
-        <div className="empty-state"><span aria-hidden="true">✳</span><p>We’re getting the good stuff ready.</p></div>
-      </section>
+      <FeaturedEvents />
+      <DiscoveryPage />
       <footer className="site-footer"><Link className="brand" to="/">eventora<span>.</span></Link><span>Made for moments worth sharing.</span><span className="api-status"><i className={`api-status__dot api-status__dot--${apiStatus}`} /> API {apiStatus === 'checking' ? 'checking' : apiStatus}</span></footer>
     </main>
   )
@@ -74,6 +71,7 @@ export default function App() {
       </header>
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/events/:eventId" element={<EventDetailPage />} />
         <Route path="/account" element={publishableKey ? <AccountPage /> : <NotFoundPage />} />
         <Route path="/admin" element={publishableKey ? <AdminPage /> : <NotFoundPage />} />
         <Route path="*" element={<NotFoundPage />} />

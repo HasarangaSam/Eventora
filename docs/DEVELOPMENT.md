@@ -35,6 +35,8 @@ npm run start:dev
 
 The frontend uses `VITE_API_BASE_URL`, defaulting to `http://localhost:3000/api`. The public health endpoint is `GET /api/health`. Configure `FRONTEND_ORIGIN` in the backend when the frontend uses a different origin.
 
+Public catalog routes include `GET /api/categories`, `GET /api/events`, `GET /api/events/featured`, `GET /api/events/:eventId`, and the event `sessions` and `ticket-types` routes. Event list queries support page/pageSize, search, categoryId, from/to ISO timestamps, sort, and direction. See `ARCHITECTURE.md` for defaults, response shape, and public-field restrictions.
+
 ## Clerk authentication and webhooks
 
 The frontend Clerk provider uses `VITE_CLERK_PUBLISHABLE_KEY`. Signed-in users can open `/account`; that page requests `GET /api/auth/me` with the Clerk session token in an `Authorization: Bearer ...` header. The backend verifies the token, synchronizes the identity by Clerk user ID, and returns the Eventora role and account status from PostgreSQL. Clerk profile updates do not set or reset those application-controlled fields.

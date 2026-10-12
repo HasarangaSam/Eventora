@@ -31,4 +31,8 @@ Subscribe the Clerk endpoint only to `user.created`, `user.updated`, and `user.d
 
 The organizer decision outbox currently records pending notifications only. Gmail delivery configuration and retry behavior remain for the email implementation phase.
 
+## Public catalog
+
+Public event list, featured, detail, schedule, and ticket-type queries filter by `PUBLISHED` in the database. A draft or missing event returns the same not-found response from detail/schedule/ticket endpoints. Public projections omit organizer records, event capacity, and internal ticket reservation/sold counters; ticket availability is derived from those counters without exposing the raw values. Public category reads include active categories only. Administrator category writes use the database-backed guards, and deletion checks both existing event references and the restrictive foreign key to preserve historical category associations.
+
 Local configuration and invalid-token/webhook-signature behavior have been checked. Phase 3 still needs a real Clerk-issued session through `/api/auth/me`, database-backed account-status verification, and delivery from the configured Clerk Dashboard endpoint before authentication can be marked fully verified.
