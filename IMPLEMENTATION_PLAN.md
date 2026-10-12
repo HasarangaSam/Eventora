@@ -45,7 +45,7 @@ The overall status must be updated as work progresses. It must reflect verified 
 | ---------------------------- | ----------- | --------------------------------------------------------------- |
 | Repository inspection        | IMPLEMENTED | Docs inspected; folder had no source files or Git metadata      |
 | Project foundation           | IMPLEMENTED | Phase 1 committed; runtime checks remain                         |
-| Database                     | IMPLEMENTED | Schema/client/migration ready; DB connection verification pending |
+| Database                     | VERIFIED    | Initial migration applied to configured Supabase DB; Prisma adapter query succeeded |
 | Authentication               | NOT_STARTED | Phase 3                                                         |
 | Roles and organizer approval | NOT_STARTED | Phase 4                                                         |
 | Public event discovery       | NOT_STARTED | Phase 5                                                         |
@@ -107,7 +107,7 @@ Do not begin Phase 2 until Phase 1 has been reviewed and the user has confirmed 
 
 ## 5. Phase 2 — Database and Prisma
 
-**Status:** IMPLEMENTED
+**Status:** VERIFIED
 
 ### Tasks
 
@@ -130,21 +130,21 @@ Do not begin Phase 2 until Phase 1 has been reviewed and the user has confirmed 
 ### Acceptance criteria
 
 - [x] Prisma client generation succeeds.
-- [ ] Migrations apply successfully to the intended development database.
-- [x] Database relationships and constraints are modeled and schema validation succeeds; runtime database verification is pending.
+- [x] Migrations apply successfully to the intended development database.
+- [x] Database relationships and constraints are modeled and schema validation succeeds.
 - [x] Monetary fields use PostgreSQL Decimal, not floating-point types.
 - [x] Historical records are protected by restrictive deletion policies.
-- [ ] Database queries work through the configured Prisma adapter.
+- [x] Database queries work through the configured Prisma adapter.
 - [x] No destructive changes were applied to valuable data.
 
 ### Verification record
 
-- Commands executed in `backend/`: `npm run prisma:validate` (pass, Prisma 7.10.0); `npm run prisma:generate` (pass); `npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script --output prisma/migrations/20261012000000_init/migration.sql` (pass, offline); `npm run build` (pass); `npm run lint` (pass).
-- Migration result: Initial SQL generated from an empty PostgreSQL schema, with reviewed custom CHECK constraints. Not applied to a database.
-- Database connectivity result: Not run; no backend `.env`/`DATABASE_URL` is configured.
+- Commands executed in `backend/`: `npm run prisma:validate` (pass, Prisma 7.10.0); `npm run prisma:generate` (pass); `npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script --output prisma/migrations/20261012000000_init/migration.sql` (pass, offline); `npm run build` (pass); `npm run lint` (pass); `npm run db:deploy` (pass); `npx prisma migrate status` (pass); Prisma adapter `SELECT 1 AS connected` (pass).
+- Migration result: `20261012000000_init` successfully applied to the configured Supabase PostgreSQL database.
+- Database connectivity result: Prisma PostgreSQL adapter returned `{ connected: 1 }`; Prisma reports the database schema is up to date.
 - Schema decisions: Decimal money snapshots; hash-only QR tokens; separate reservation and payment-attempt records; counters for event and ticket-type inventory; database-clock expiry at exactly 10 minutes. Event timezone is explicit per event. Payment exceptions are recorded without defining review actions.
 - Files changed: `backend/package.json` and lockfile; Prisma config/schema/migration; Nest Prisma module/service and app module; backend env example; `.gitignore`; `docs/DATABASE.md` and `docs/DEVELOPMENT.md`; root README and this plan.
-- Outstanding issues: Configure a Supabase development connection string, then apply and inspect the migration, verify Prisma queries, and run the database integration checks before marking Phase 2 verified.
+- Outstanding issues: No Phase 2 database setup blockers remain. Business-feature database integration checks belong to their respective future phases and are not yet applicable.
 
 ### Approval gate
 
