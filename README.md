@@ -53,11 +53,11 @@ The project focuses on reliable payment processing, concurrency-safe ticket inve
 | Supabase                                            | PostgreSQL database hosting                            |
 | PayHere                                             | Real ticket payment processing                         |
 | Cloudinary                                          | Event cover image storage and delivery                 |
-| Gmail or the confirmed transactional email provider | Transactional email delivery                           |
+| Gmail SMTP                                           | Transactional email delivery                           |
 | ngrok                                               | Local webhook development                              |
 | Upstash Redis                                       | Appropriate rate limiting and purchase-related support |
 
-The transactional email delivery method must be confirmed before implementation. Redis should be introduced only where justified by the requirements.
+Gmail SMTP uses a Google App Password. Configure backend-only credentials as described in [docs/EMAIL.md](docs/EMAIL.md). Redis should be introduced only where justified by the requirements.
 
 ## User Roles
 

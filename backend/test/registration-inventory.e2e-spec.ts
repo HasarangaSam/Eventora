@@ -7,6 +7,7 @@ import { PrismaService } from '../src/prisma/prisma.service.js';
 import { InventoryService } from '../src/registrations/inventory.service.js';
 import { RegistrationsService } from '../src/registrations/registrations.service.js';
 import { PaymentsService } from '../src/payments/payments.service.js';
+import { TicketsService } from '../src/tickets/tickets.service.js';
 
 describe('registration inventory concurrency (PostgreSQL)', () => {
   let prisma: PrismaService;
@@ -130,6 +131,7 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
     await prisma.event.update({ where: { id: eventId }, data: { capacity: 2 } });
     await prisma.ticketType.update({ where: { id: ticketTypeId }, data: { quantity: 2 } });
     const merchantSecret = 'phase8-integration-secret';
+    const ticketConfig = new ConfigService({ TICKET_QR_SECRET: 'phase9-integration-qr-secret-with-sufficient-length' });
     const payments = new PaymentsService(prisma, new ConfigService({
       PAYHERE_MERCHANT_ID: '1234567',
       PAYHERE_MERCHANT_SECRET: merchantSecret,
@@ -137,6 +139,7 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
       PAYHERE_NOTIFY_URL: 'https://example.ngrok-free.app/api/webhooks/payhere/notify',
       PAYHERE_RETURN_URL: 'http://localhost:5173/checkout/result',
       PAYHERE_CANCEL_URL: 'http://localhost:5173/checkout/cancelled',
+      TICKET_QR_SECRET: 'phase9-integration-qr-secret-with-sufficient-length',
     }), inventory);
     const checkout = await payments.createCheckout(attendeeIds[1 - winnerIndex], next.id, {
       firstName: 'Test', lastName: 'Attendee', phone: '+94770000000', address: 'Test Road', city: 'Colombo', country: 'Sri Lanka',
@@ -159,8 +162,16 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
     const notification = signedNotification(merchantSecret, payAttempt.merchantReference, 'payhere-test-1', '125.40', 'LKR', '2');
     await expect(payments.handleNotification({ ...notification, md5sig: '0'.repeat(32) })).rejects.toThrow('Invalid PayHere notification signature');
     await expect(payments.handleNotification(notification)).resolves.toMatchObject({ status: 'SUCCEEDED' });
+    expect(await prisma.ticket.count({ where: { registrationId: next.id } })).toBe(1);
+    expect(await prisma.emailDelivery.count({ where: { registrationId: next.id, type: 'PURCHASE_CONFIRMATION' } })).toBe(1);
+    const issuedTicket = await prisma.ticket.findFirstOrThrow({ where: { registrationId: next.id } });
+    const tickets = new TicketsService(prisma, ticketConfig);
+    await expect(tickets.getMine(attendeeIds[1 - winnerIndex], issuedTicket.id)).resolves.toMatchObject({ reference: issuedTicket.reference, qrCode: expect.stringMatching(/^data:image\/png;base64,/) });
+    await expect(tickets.getMine(attendeeIds[winnerIndex], issuedTicket.id)).rejects.toThrow('Ticket not found');
     const duplicateDeliveries = await Promise.all([payments.handleNotification(notification), payments.handleNotification(notification)]);
     expect(duplicateDeliveries.every(({ status }) => status === 'SUCCEEDED')).toBe(true);
+    expect(await prisma.ticket.count({ where: { registrationId: next.id } })).toBe(1);
+    expect(await prisma.emailDelivery.count({ where: { registrationId: next.id, type: 'PURCHASE_CONFIRMATION' } })).toBe(1);
     const secondAttemptSuccess = signedNotification(merchantSecret, initialAttempt.merchantReference, 'payhere-test-declined', '125.40', 'LKR', '2');
     await expect(payments.handleNotification(secondAttemptSuccess)).resolves.toMatchObject({ status: 'SUCCEEDED', fulfilled: false });
     expect(await prisma.paymentException.findFirst({ where: { paymentAttemptId: initialAttempt.id, reasonCode: 'MULTIPLE_SUCCESSFUL_ATTEMPTS' } })).not.toBeNull();
@@ -193,6 +204,8 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
     await expect(payments.handleNotification(lateNotification)).resolves.toMatchObject({ status: 'SUCCEEDED', fulfilled: false });
     paidRegistration = await prisma.registration.findUniqueOrThrow({ where: { id: pendingCancel.id } });
     expect(paidRegistration.status).toBe('EXPIRED');
+    expect(await prisma.ticket.count({ where: { registrationId: pendingCancel.id } })).toBe(0);
+    expect(await prisma.emailDelivery.count({ where: { registrationId: pendingCancel.id, type: 'PURCHASE_CONFIRMATION' } })).toBe(0);
     expect(await prisma.paymentAttempt.findUniqueOrThrow({ where: { id: lateAttempt.id } })).toMatchObject({ status: 'SUCCEEDED', providerAmount: new Prisma.Decimal('125.40'), providerCurrency: 'LKR' });
     expect(await prisma.paymentException.findFirst({ where: { paymentAttemptId: lateAttempt.id, reasonCode: 'LATE_PAYMENT_UNFULFILLED' } })).not.toBeNull();
     event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });

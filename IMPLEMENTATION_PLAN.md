@@ -52,7 +52,7 @@ The overall status must be updated as work progresses. It must reflect verified 
 | Organizer event management   | IMPLEMENTED | Phase 6 organizer APIs and dashboard; build and route checks passed |
 | Registration and inventory   | IMPLEMENTED | Phase 7 APIs, atomic holds, expiry, cancellation release, and PostgreSQL concurrency verification |
 | PayHere integration          | IMPLEMENTED | Hosted checkout UI/API, signed notification processing, late-payment handling; merchant sandbox verification awaits credentials |
-| Digital tickets and email    | NOT_STARTED | Phase 9                                                         |
+| Digital tickets and email    | IMPLEMENTED | Phase 9 code, owner checks, Gmail SMTP authentication; no email sent |
 | Check-in                     | NOT_STARTED | Phase 10                                                        |
 | Dashboards and analytics     | NOT_STARTED | Phase 11                                                        |
 | Final quality review         | NOT_STARTED | Phase 12                                                        |
@@ -413,41 +413,42 @@ Review payment correctness and exception handling before Phase 9.
 
 ## 12. Phase 9 — Digital Tickets and Transactional Email
 
-**Status:** NOT_STARTED
+**Status:** IMPLEMENTED
 
 ### Tasks
 
-- [ ] Implement individual ticket issuance after verified payment.
-- [ ] Generate unique ticket references.
-- [ ] Generate secure, unguessable QR tokens.
-- [ ] Implement attendee ticket listings and ticket details.
-- [ ] Enforce ticket ownership.
-- [ ] Implement payment and registration status views.
-- [ ] Confirm the intended transactional email provider and delivery method.
-- [ ] Implement purchase confirmation and ticket delivery emails.
-- [ ] Implement organizer application decision emails.
-- [ ] Implement email delivery status tracking.
-- [ ] Add appropriate retries without duplicating business operations.
-- [ ] Ensure cancellation notification support is available.
-- [ ] Test repeated payment notifications and email delivery attempts.
+- [x] Implement individual ticket issuance only after verified payment and inventory fulfillment.
+- [x] Generate unique, random ticket references.
+- [x] Generate secure, unguessable QR tokens with a stable server-only HMAC key; store only token hashes.
+- [x] Implement attendee ticket listings, QR details, and owner checks.
+- [x] Enforce ticket ownership in backend queries.
+- [x] Keep the Phase 8 payment and registration status views and link confirmed purchases to the ticket wallet.
+- [x] Confirm Gmail SMTP with a Gmail App Password and TLS transport.
+- [x] Implement purchase confirmation and attached QR ticket emails.
+- [x] Implement organizer application decision emails.
+- [x] Implement database-backed email delivery status tracking.
+- [x] Add bounded exponential retry without duplicating business records.
+- [x] Deliver existing cancellation outbox entries through the email worker.
+- [x] Test repeated payment notifications, ticket issuance, ownership, and email retry state.
 
 ### Acceptance criteria
 
-- [ ] No ticket is issued before verified payment success.
-- [ ] Each purchased ticket has a distinct reference and QR token.
-- [ ] Private ticket information is protected.
-- [ ] Confirmation emails correspond to verified purchases.
-- [ ] Email failure does not corrupt payment or ticket records.
-- [ ] Retries do not duplicate registrations, payments, or tickets.
-- [ ] The configured email provider and setup are documented.
+- [x] No ticket is issued before verified and fulfillable payment success; late unfulfillable success has no ticket or purchase email.
+- [x] Each purchased ticket has a distinct random reference and HMAC QR token.
+- [x] Private ticket information is protected by attendee ownership checks.
+- [x] Purchase confirmation outbox rows are created only for confirmed, ticketed registrations.
+- [x] Email failure is processed outside the payment/ticket transaction and cannot roll back payment or ticket records.
+- [x] Payment retries and email outbox retries do not duplicate registrations, payments, or tickets.
+- [x] Gmail SMTP configuration and provider setup are documented.
 
 ### Verification record
 
-- Ticket issuance tests:
-- QR validation tests:
-- Email provider configuration:
-- Retry and duplicate-delivery tests:
-- Outstanding issues:
+- Ticket issuance tests: `npm.cmd run test:e2e -- --run` — 3 test files / 3 tests passed against configured PostgreSQL; confirmed payment created one ticket and one outbox row, duplicate callbacks created no more, and an unfulfillable late success created neither.
+- QR validation tests: backend unit suite covers stable HMAC derivation, hash verification, tampering rejection, and ticket-reference separation. PostgreSQL e2e verified owner access produces a PNG QR data URL and another attendee receives not found.
+- Email provider configuration: Gmail SMTP authentication succeeded using `backend/.env`; TLS connection verified without sending a message. Local `.env` stays ignored and uncommitted.
+- Retry and duplicate-delivery tests: unit suite verifies bounded retry scheduling and terminal failure after five attempts; transaction and payment integration tests verify outbox idempotency. No live message was sent during verification.
+- Checks: backend `npm.cmd run build`, `npm.cmd run lint`, `npm.cmd test -- --run` (10 files / 31 tests), `npm.cmd run prisma:validate`, PostgreSQL `npm.cmd run test:e2e -- --run` (3 files / 3 tests), frontend `npm.cmd run lint`, and `npm.cmd run build` all passed. Vitest unit runs needed the approved elevated retry after Windows sandbox temp-file `EPERM` errors.
+- Outstanding issues: Outbound Gmail message delivery has not been exercised to avoid sending an unsolicited message. SMTP verification confirmed credentials and connectivity. Gmail SMTP remains at-least-once if a process fails after acceptance and before the `SENT` update; this narrow duplicate window is documented.
 
 ### Approval gate
 

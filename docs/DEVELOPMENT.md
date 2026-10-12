@@ -37,6 +37,8 @@ The frontend uses `VITE_API_BASE_URL`, defaulting to `http://localhost:3000/api`
 
 Organizer event cover uploads require a Cloudinary account. Add `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` to `backend/.env`; keep all three values server-side and out of frontend environment files. Uploads accept JPEG, PNG, and WebP files up to 5 MiB. Without these values, event and ticket management work, while cover upload and deletion return a service configuration error.
 
+Transactional email uses Gmail SMTP. Configure `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `EMAIL_FROM`, and a stable `TICKET_QR_SECRET` in `backend/.env` as described in [EMAIL.md](./EMAIL.md). The Gmail value must be a 16-character Google App Password, not the account password. Keep credentials out of commits and frontend configuration.
+
 Public catalog routes include `GET /api/categories`, `GET /api/events`, `GET /api/events/featured`, `GET /api/events/:eventId`, and the event `sessions` and `ticket-types` routes. Event list queries support page/pageSize, search, categoryId, from/to ISO timestamps, sort, and direction. See `ARCHITECTURE.md` for defaults, response shape, and public-field restrictions.
 
 Approved organizers manage events at `/api/organizer/events`; see `ARCHITECTURE.md` and `SECURITY.md` for ownership checks, status transition rules, ticket inventory protections, and the cover image configuration.

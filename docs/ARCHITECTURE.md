@@ -15,6 +15,8 @@
 - `EventsModule`: public published-event discovery and organizer-owned event management, including publication transitions, Cloudinary covers, schedule entries, and paid ticket types.
 - `RegistrationsModule`: authenticated registration requests, idempotent request handling, transactional inventory holds, pending payment attempts, attendee-owned registration reads, and database-clock reservation expiry/release.
 - `PaymentsModule`: backend-generated PayHere hosted checkout forms, attendee-owned payment reads, and the public signature-verified form notification route. Verified success commits inventory and confirms registrations; late unfulfillable successes are retained as payment exceptions.
+- `TicketsModule`: attendee-owned digital ticket list/detail APIs; ticket details generate a QR image only after confirming registration ownership and payment state.
+- `EmailModule`: database-backed outbox worker with Gmail SMTP, stable message IDs, safe delivery errors, and bounded retries. Purchase ticket rows and their email outbox row commit atomically with verified payment fulfillment.
 - `PrismaModule`: shared Prisma client connected through the PostgreSQL adapter.
 
 ## Public catalog behavior
@@ -31,10 +33,11 @@ The administrator category inventory is `GET /api/categories/admin/list`; create
 
 - `/`: event discovery, featured events, search and filters, pagination, and the local hero asset.
 - `/events/:eventId`: event information, schedule, ticket prices, and availability.
+- `/tickets`: signed-in attendee ticket wallet with private QR codes.
 - `/account`: synchronized account details and the attendee organizer-application panel.
 - `/admin`: administrator application review, account management, and category management.
 
-Registration APIs are implemented at `POST /api/registrations`, `GET /api/registrations/me`, and `GET /api/registrations/:registrationId`. A request accepts only a ticket type, positive integer quantity, and `Idempotency-Key`; the server snapshots price/currency from the ticket type, reserves event and ticket inventory atomically, and creates a pending registration, exact ten-minute reservation, and initiated payment attempt in one transaction. A background worker and the purchase path expire due holds safely. The event detail page creates a reservation and submits a backend-generated PayHere form; the result pages read payment state from the authenticated Eventora API. Digital ticket issuance and delivery remain Phase 9.
+Registration APIs are implemented at `POST /api/registrations`, `GET /api/registrations/me`, and `GET /api/registrations/:registrationId`. A request accepts only a ticket type, positive integer quantity, and `Idempotency-Key`; the server snapshots price/currency from the ticket type, reserves event and ticket inventory atomically, and creates a pending registration, exact ten-minute reservation, and initiated payment attempt in one transaction. A background worker and the purchase path expire due holds safely. The event detail page creates a reservation and submits a backend-generated PayHere form; the result pages read payment state from the authenticated Eventora API. Verified fulfillable payments atomically create one private QR ticket per purchased item and an idempotent Gmail confirmation outbox row. Tickets are available at `GET /api/tickets/me` and `GET /api/tickets/:ticketId`.
 
 Organizer management is available under `/api/organizer/events` and requires a Clerk session, active Eventora account, organizer role, and approved organizer application. Organizers can create drafts, list and edit their own events, publish/unpublish/cancel, manage schedule entries and paid ticket types, upload/remove cover images, and delete events only before registration or inventory history exists. Publication requires valid future event dates, an active category, complete public details, and at least one active paid ticket type with inventory and a usable sales window. Unpublishing is refused after registrations or inventory commitments; cancellation preserves those records and adds idempotent `EVENT_CANCELLATION` deliveries for confirmed attendees.
 

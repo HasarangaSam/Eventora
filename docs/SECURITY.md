@@ -29,7 +29,7 @@ Subscribe the Clerk endpoint only to `user.created`, `user.updated`, and `user.d
 - `FRONTEND_ORIGIN` must be the exact frontend origin allowed to issue Clerk session tokens.
 - Require Clerk sign-ups to provide a primary email address; Eventora's user schema requires one.
 
-The organizer decision outbox currently records pending notifications only. Gmail delivery configuration and retry behavior remain for the email implementation phase.
+The organizer decision outbox records pending notifications transactionally; the Gmail worker delivers them with bounded retries and safe error codes.
 
 Organizer event APIs require the approved-organizer role guard and additionally filter every event and child-record operation by both the requested event ID and the authenticated database organizer ID. Request bodies accept only documented fields; organizers cannot submit status, ownership, slug, or featured flags. Draft-to-published transitions require complete details, an active category, future dates, and an active paid ticket type with remaining inventory. Unpublishing is blocked after registrations or reservations exist. Cancellation is transactional with idempotent outbox entries for confirmed attendees and does not alter payment, ticket, or registration history.
 
@@ -40,6 +40,8 @@ Cloudinary credentials remain in backend configuration. The upload route limits 
 Registration creation requires a verified Clerk session and active database account. The backend accepts no attendee, price, currency, total, role, or ownership values from the request body. It validates the idempotency header and positive integer quantity, then calculates the amount from the ticket record inside the same transaction that reserves inventory and writes the pending registration and payment attempt. Registration reads are scoped to the authenticated attendee. Conditional PostgreSQL updates enforce published event state, future event dates, ticket sales windows, paid ticket prices, event capacity, and ticket-type availability. Reservation expiry and event cancellation serialize with purchase on event/ticket rows and release only still-held reservations.
 
 PayHere checkout form hashes and notifications are generated/verified only on the backend. Notifications must be form-encoded and pass the official `md5sig` check before state changes. Eventora independently validates the merchant, order reference, expected amount and currency; frontend return/cancel routes only query server state. The provider checksum does not include `payment_id`, so Eventora uses it only as an audit/deduplication reference. Unfulfillable verified successes are preserved with payment exceptions and never trigger automatic refunds or inventory/ticket changes.
+
+Tickets are issued only within the verified, fulfillable payment transaction. Ticket list and detail queries scope by the authenticated database user; details also require a confirmed registration. Random ticket references produce stable HMAC-SHA256 QR tokens under the server-only `TICKET_QR_SECRET`; the database stores only a SHA-256 hash of each token. QR images are generated only for the ticket owner. Keep this signing secret stable and out of frontend builds. Email outbox errors store safe codes rather than raw SMTP messages, and mail content escapes untrusted event, organizer, and attendee text.
 
 ## Public catalog
 

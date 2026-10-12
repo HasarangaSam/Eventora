@@ -209,3 +209,20 @@
   .organizer-form-grid { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+.ticket-wallet { width: min(1080px, calc(100% - 48px)); min-height: 65vh; margin: 0 auto; padding: 64px 0 88px; }
+.ticket-wallet > h1 { margin: 14px 0; font: 400 clamp(38px, 6vw, 60px)/1.08 Georgia, serif; }
+.ticket-wallet__intro { max-width: 650px; color: #746e66; line-height: 1.7; }
+.ticket-wallet__layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(270px, .75fr); align-items: start; gap: 22px; margin-top: 30px; }
+.ticket-wallet__list { display: grid; gap: 14px; }
+.ticket-wallet__item { display: grid; grid-template-columns: 104px minmax(0, 1fr) auto; align-items: center; gap: 16px; padding: 14px; border: 1px solid #e9e4de; background: #fffdfa; }
+.ticket-wallet__item > img { width: 104px; height: 100px; object-fit: cover; }
+.ticket-wallet__item h2, .ticket-wallet__detail h2 { margin: 5px 0 8px; font: 400 22px/1.2 Georgia, serif; }
+.ticket-wallet__item p, .ticket-wallet__detail > p { margin: 5px 0; color: #746e66; font-size: 12px; }
+.ticket-wallet__reference { overflow-wrap: anywhere; font-family: ui-monospace, monospace; }
+.ticket-wallet__detail { position: sticky; top: 20px; display: grid; justify-items: center; padding: 20px; border: 1px solid #e9e4de; background: #fffdfa; text-align: center; }
+.ticket-wallet__detail > .text-button { justify-self: end; }
+.ticket-wallet__qr { width: min(256px, 100%); height: auto; margin-top: 12px; }
+.ticket-wallet__note, .ticket-wallet__empty, .ticket-wallet__error { color: #746e66; font-size: 13px; line-height: 1.6; }
+.ticket-wallet__error { color: #9a3412; }
+@media (max-width: 760px) { .ticket-wallet__layout { grid-template-columns: 1fr; } .ticket-wallet__detail { position: static; } }
+@media (max-width: 560px) { .ticket-wallet { width: min(100% - 32px, 1080px); padding-top: 42px; } .ticket-wallet__item { grid-template-columns: 72px minmax(0, 1fr); gap: 10px; } .ticket-wallet__item > img { width: 72px; height: 78px; } .ticket-wallet__item > .button { grid-column: 1 / -1; } }

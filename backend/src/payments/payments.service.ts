@@ -1,9 +1,10 @@
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { BadRequestException, ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { InventoryService } from '../registrations/inventory.service.js';
+import { ticketQrHash, ticketQrToken } from '../tickets/ticket-crypto.js';
 
 type Contact = { firstName: string; lastName: string; phone: string; address: string; city: string; country: string };
 type PayHereNotification = Record<string, unknown>;
@@ -176,6 +177,7 @@ export class PaymentsService {
       }
       if (reservation.status === 'COMMITTED' && snapshot.registration.status === 'CONFIRMED') {
         await tx.paymentAttempt.update({ where: { id: current.id }, data: { status: 'SUCCEEDED', providerPaymentId: current.providerPaymentId ?? paymentId, providerStatus: statusMessage, providerAmount: amount, providerCurrency: currency, paidAt: current.paidAt ?? now, verifiedAt: current.verifiedAt ?? now } });
+        await this.ensureTickets(tx, snapshot.registrationId);
         return { received: true, processed: true, status: 'SUCCEEDED', fulfilled: true };
       }
 
@@ -212,7 +214,30 @@ export class PaymentsService {
       await tx.inventoryReservation.update({ where: { id: reservation.id }, data: { status: 'COMMITTED', committedAt: now, releasedAt: null } });
       await tx.registration.update({ where: { id: snapshot.registrationId }, data: { status: 'CONFIRMED', confirmedAt: now, expiredAt: null } });
       await tx.paymentAttempt.update({ where: { id: current.id }, data: { status: 'SUCCEEDED', providerPaymentId: current.providerPaymentId ?? paymentId, providerStatus: statusMessage, providerAmount: amount, providerCurrency: currency, paidAt: current.paidAt ?? now, verifiedAt: current.verifiedAt ?? now } });
+      await this.ensureTickets(tx, snapshot.registrationId);
       return { received: true, processed: true, status: 'SUCCEEDED', fulfilled: true };
+    });
+  }
+
+  private async ensureTickets(tx: Prisma.TransactionClient, registrationId: string) {
+    const registration = await tx.registration.findUniqueOrThrow({
+      where: { id: registrationId },
+      include: { attendee: { select: { email: true } }, event: { select: { id: true } }, tickets: { select: { id: true, reference: true } } },
+    });
+    if (registration.status !== 'CONFIRMED') throw new Error('TICKETS_REQUIRE_CONFIRMED_REGISTRATION');
+    if (registration.tickets.length === 0) {
+      const tickets = Array.from({ length: registration.quantity }, () => {
+        const reference = `EVT-${randomBytes(12).toString('hex').toUpperCase()}`;
+        const qrToken = ticketQrToken(reference, this.config);
+        return { registrationId, eventId: registration.eventId, ticketTypeId: registration.ticketTypeId, reference, qrTokenHash: ticketQrHash(qrToken) };
+      });
+      await tx.ticket.createMany({ data: tickets });
+    } else if (registration.tickets.length !== registration.quantity) {
+      throw new Error('TICKET_COUNT_DOES_NOT_MATCH_CONFIRMED_QUANTITY');
+    }
+    await tx.emailDelivery.createMany({
+      data: [{ type: 'PURCHASE_CONFIRMATION', idempotencyKey: `purchase-confirmation:${registrationId}`, recipient: registration.attendee.email, registrationId, eventId: registration.event.id }],
+      skipDuplicates: true,
     });
   }
 

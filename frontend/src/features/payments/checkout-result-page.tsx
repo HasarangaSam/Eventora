@@ -70,7 +70,7 @@ export function CheckoutResultPage({ cancelled = false }: { cancelled?: boolean 
             : `Current registration status: ${registration.status.toLowerCase()}; payment status: ${(paymentStatus ?? 'unknown').toLowerCase()}.`}</p>
     <p className="payment-result__reference">Registration reference: <code>{registration.id}</code></p>
     {!confirmed && <button className="button button--dark" type="button" onClick={() => setRefresh((version) => version + 1)}>Check status again</button>}
-    {confirmed && <Link className="button button--dark" to="/account">Go to your account</Link>}
+    {confirmed && <Link className="button button--dark" to="/tickets">View your tickets</Link>}
     <Link className="payment-result__back" to={`/events/${encodeURIComponent(registration.event.id)}`}>Back to event</Link>
   </main>
 }
