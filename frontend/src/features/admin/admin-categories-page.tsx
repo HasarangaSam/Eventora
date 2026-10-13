@@ -77,13 +77,13 @@ export function AdminCategoriesPage() {
   }
 
   return (
-    <DashboardShell role="ADMIN" pageTitle="Category Taxonomy Management">
+    <DashboardShell role="ADMIN" pageTitle="Categories">
       <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
         <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
           <div>
             <h3>Discovery Categories ({categories.length})</h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
-              Create event classifications, manage public slugs, and toggle visibility.
+              Add and update the categories people use to find events.
             </p>
           </div>
         </div>

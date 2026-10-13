@@ -77,6 +77,23 @@ export class OrganizerApplicationsController {
     return this.applications.list(status as OrganizerApplicationStatus | undefined);
   }
 
+  @Get('admin/notifications')
+  @RequireRoles('ADMIN')
+  adminNotifications(@Req() request: AuthenticatedRequest) {
+    return this.applications.adminNotifications(request.eventoraUser!.id);
+  }
+
+  @Patch('admin/notifications/read')
+  @RequireRoles('ADMIN')
+  markNotificationsRead(@Req() request: AuthenticatedRequest, @Body() body: unknown) {
+    const input = objectBody(body);
+    onlyKeys(input, ['notificationIds']);
+    if (!Array.isArray(input.notificationIds) || input.notificationIds.length > 100 || input.notificationIds.some((id) => typeof id !== 'string' || id.length < 1 || id.length > 255) || new Set(input.notificationIds).size !== input.notificationIds.length) {
+      throw new BadRequestException('notificationIds must contain up to 100 distinct notification IDs');
+    }
+    return this.applications.markAdminNotificationsRead(request.eventoraUser!.id, input.notificationIds as string[]);
+  }
+
   @Get('organizer-applications/:applicationId')
   @RequireRoles('ADMIN')
   getById(@Param('applicationId') id: string) {

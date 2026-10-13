@@ -1,239 +1,71 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-} from 'recharts'
 import { DashboardShell } from '../analytics/dashboard-shell'
 import { useAuthenticatedApi } from '../auth/use-authenticated-api'
-import { metricHintClass, metricLabelClass } from '../../components/ui/metric-card-classes'
-import { IconCalendar, IconCamera, IconTicket, IconSparkles } from '../../components/ui/icons'
 
-type Payload = Record<string, unknown>
-type SalesMonth = { month: string; grossSales: { currency: string; amount: string; payments: number }[] }
-
-const STATUS_COLORS: Record<string, string> = { PUBLISHED: '#10b981', DRAFT: '#94a3b8', CANCELLED: '#ef4444', COMPLETED: '#6366f1' }
-
-function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
-      <p style={{ margin: '0 0 8px', fontWeight: 700, fontSize: '13px', color: '#64748b' }}>{label}</p>
-      {payload.map((p) => (
-        <p key={p.name} style={{ margin: '4px 0', fontSize: '14px', fontWeight: 600, color: p.color }}>
-          {p.name}: <strong>{p.value.toLocaleString()}</strong>
-        </p>
-      ))}
-    </div>
-  )
+type EventRow = {
+  id: string; title: string; status: string; startAt: string; city: string; capacity: number | null; ticketsSold: number
+  registrations: { confirmed: number; pending: number; expired: number }
+  tickets: { issued: number; checkedIn: number; voided: number }; attendanceRate: number
+  grossSales: { currency: string; amount: string; payments: number }[]
 }
 
-function PieTip({ active, payload }: { active?: boolean; payload?: { name: string; value: number; payload: { fill: string } }[] }) {
-  if (!active || !payload?.length) return null
-  const p = payload[0]
-  return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '10px 14px', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
-      <p style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: p.payload.fill }}>{p.name}</p>
-      <p style={{ margin: '4px 0 0', fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>{p.value.toLocaleString()}</p>
-    </div>
-  )
+const panel = 'rounded-xl border border-slate-200 bg-white shadow-sm'
+const dateText = (value: string) => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+const amountText = (amount: string, currency: string) => `${currency} ${Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+function State({ value }: { value: string }) {
+  const style = value === 'PUBLISHED' ? 'bg-emerald-50 text-emerald-700' : value === 'DRAFT' ? 'bg-slate-100 text-slate-600' : value === 'CANCELLED' ? 'bg-rose-50 text-rose-700' : 'bg-indigo-50 text-indigo-700'
+  return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${style}`}>{value[0] + value.slice(1).toLowerCase()}</span>
 }
 
 export function OrganizerOverviewPage() {
   const request = useAuthenticatedApi()
-  const [data, setData] = useState<Payload | null>(null)
-  const [salesTrend, setSalesTrend] = useState<SalesMonth[]>([])
+  const [events, setEvents] = useState<EventRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [attempt, setAttempt] = useState(0)
-
+  const [failed, setFailed] = useState(false)
   useEffect(() => {
     let active = true
-    setLoading(true)
-    async function loadDashboard() {
-      try {
-        const [{ data }, { data: sales }] = await Promise.all([
-          request<Payload>({ method: 'GET', url: '/organizer/dashboard' }),
-          request<{ months: SalesMonth[] }>({ method: 'GET', url: '/organizer/analytics/sales' }),
-        ])
-        if (active) { setData(data); setSalesTrend(sales.months) }
-      } catch {
-        if (active) setData(null)
-      } finally {
-        if (active) setLoading(false)
-      }
-    }
-    void loadDashboard()
+    request<{ events: EventRow[] }>({ method: 'GET', url: '/organizer/analytics/events' })
+      .then(({ data }) => { if (active) setEvents(data.events) })
+      .catch(() => { if (active) setFailed(true) })
+      .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [attempt, request])
+  }, [request])
 
-  const eventCount = Number(data?.eventCount ?? 0)
-  const confirmedRegs = Number(data?.confirmedRegistrations ?? 0)
-  const ticketsSold = Number(data?.ticketsSold ?? 0)
-  const gross = Array.isArray(data?.grossSales) ? (data!.grossSales as { currency: string; amount: string }[]) : []
-  const totalRevenue = gross.reduce((s, g) => s + Number(g.amount), 0)
-  const eventsByStatus = (data?.eventsByStatus ?? {}) as Record<string, number>
-  const statusData = Object.entries(eventsByStatus).map(([name, value]) => ({ name, value }))
+  const currencyTotals = useMemo(() => {
+    const totals = new Map<string, number>()
+    for (const event of events) for (const revenue of event.grossSales) totals.set(revenue.currency, (totals.get(revenue.currency) ?? 0) + Number(revenue.amount))
+    return [...totals.entries()]
+  }, [events])
+  const confirmed = events.reduce((total, event) => total + event.registrations.confirmed, 0)
+  const tickets = events.reduce((total, event) => total + event.tickets.issued, 0)
+  const upcoming = events.filter((event) => event.status === 'PUBLISHED' && new Date(event.startAt).getTime() >= Date.now()).sort((a, b) => a.startAt.localeCompare(b.startAt)).slice(0, 5)
+  const needsAttention = events.filter((event) => event.status === 'DRAFT' || event.registrations.pending > 0 || (event.status === 'PUBLISHED' && event.capacity !== null && event.ticketsSold >= event.capacity)).slice(0, 4)
 
-  // Revenue trend chart data
-  const revenueData = salesTrend.map((m) => ({
-    month: m.month,
-    revenue: m.grossSales.reduce((s, g) => s + Number(g.amount), 0),
-    tickets: m.grossSales.reduce((s, g) => s + g.payments, 0),
-  }))
+  return <DashboardShell role="ORGANIZER" pageTitle="Organizer overview">
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="mb-1 text-sm font-semibold text-indigo-700">YOUR ORGANIZER SPACE</p><h1 className="m-0 text-2xl font-bold tracking-tight text-slate-900">Good to see you</h1><p className="mb-0 mt-2 text-sm text-slate-600">Check upcoming events, registrations, and sales from one place.</p></div><Link to="/organizer/events" className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Create or manage events</Link></div>
 
-  const kpis = [
-    { label: 'Published Events', value: eventCount.toLocaleString(), hint: 'Events created', color: '#6366f1', bg: '#eef2ff', icon: <IconCalendar /> },
-    { label: 'Confirmed Attendees', value: confirmedRegs.toLocaleString(), hint: 'Registrations completed', color: '#10b981', bg: '#ecfdf5', icon: <IconCamera /> },
-    { label: 'Tickets Issued', value: ticketsSold.toLocaleString(), hint: 'Digital passes generated', color: '#f59e0b', bg: '#fffbeb', icon: <IconTicket /> },
-    { label: 'Ticket Revenue', value: gross.length ? `${gross[0].currency} ${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '—', hint: 'Confirmed payments', color: '#ec4899', bg: '#fdf2f8', icon: <IconSparkles /> },
-  ]
+      {failed && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">We couldn’t load your organizer overview. Refresh the page to try again.</div>}
 
-  return (
-    <DashboardShell role="ORGANIZER" pageTitle="Organizer Overview & Analytics">
-      {loading ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '400px', flexDirection: 'column', gap: '16px' }}>
-          <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" style={{ width: '40px', height: '40px' }} />
-          <p className="text-muted">Loading your analytics…</p>
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className={`${panel} p-4`}><p className="m-0 text-sm text-slate-500">Events</p><strong className="mt-2 block text-2xl text-slate-900">{loading ? '—' : events.length}</strong><span className="text-xs text-slate-500">Across all event stages</span></div>
+        <div className={`${panel} p-4`}><p className="m-0 text-sm text-slate-500">Confirmed registrations</p><strong className="mt-2 block text-2xl text-slate-900">{loading ? '—' : confirmed.toLocaleString()}</strong><span className="text-xs text-slate-500">People registered for your events</span></div>
+        <div className={`${panel} p-4`}><p className="m-0 text-sm text-slate-500">Tickets issued</p><strong className="mt-2 block text-2xl text-slate-900">{loading ? '—' : tickets.toLocaleString()}</strong><span className="text-xs text-slate-500">Valid tickets across your events</span></div>
+        <div className={`${panel} p-4`}><p className="m-0 text-sm text-slate-500">Verified sales</p>{loading ? <strong className="mt-2 block text-2xl">—</strong> : currencyTotals.length ? <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">{currencyTotals.map(([currency, value]) => <strong key={currency} className="text-lg text-slate-900">{amountText(String(value), currency)}</strong>)}</div> : <strong className="mt-2 block text-2xl text-slate-900">—</strong>}<span className="text-xs text-slate-500">Confirmed by the payment provider</span></div>
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
+        <div className={`${panel} overflow-hidden`}><div className="flex items-center justify-between border-b border-slate-200 px-5 py-4"><div><h2 className="m-0 text-base font-bold text-slate-900">Coming up</h2><p className="mb-0 mt-1 text-sm text-slate-500">Your next published events</p></div><Link to="/organizer/events" className="text-sm font-semibold text-indigo-700 hover:underline">All events</Link></div>
+          {loading ? <p className="p-5 text-sm text-slate-500">Loading events…</p> : upcoming.length ? <div className="divide-y divide-slate-100">{upcoming.map((event) => <Link key={event.id} to="/organizer/sales" className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50"><div><strong className="block text-sm text-slate-900">{event.title}</strong><span className="text-xs text-slate-500">{dateText(event.startAt)} · {event.city}</span></div><div className="flex items-center gap-4 text-right"><span className="text-sm font-semibold text-slate-700">{event.tickets.issued}{event.capacity ? ` / ${event.capacity}` : ''} tickets</span><State value={event.status} /></div></Link>)}</div> : <div className="p-6"><p className="m-0 font-semibold text-slate-800">No upcoming events</p><p className="mt-1 text-sm text-slate-500">Create an event or publish one from your events page.</p></div>}
         </div>
-      ) : !data ? (
-        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-          <p className="text-muted" style={{ marginBottom: '16px' }}>Analytics data could not be loaded.</p>
-          <button type="button" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)]" onClick={() => setAttempt(v => v + 1)}>Retry</button>
+        <div className={`${panel} overflow-hidden`}><div className="border-b border-slate-200 px-5 py-4"><h2 className="m-0 text-base font-bold text-slate-900">Needs your attention</h2><p className="mb-0 mt-1 text-sm text-slate-500">A few items to review</p></div>
+          {loading ? <p className="p-5 text-sm text-slate-500">Loading…</p> : needsAttention.length ? <div className="divide-y divide-slate-100">{needsAttention.map((event) => <Link key={event.id} to="/organizer/events" className="block px-5 py-4 hover:bg-slate-50"><div className="flex items-center justify-between gap-3"><strong className="text-sm text-slate-900">{event.title}</strong><State value={event.status} /></div><span className="mt-1 block text-xs text-slate-500">{event.status === 'DRAFT' ? 'Finish setup and publish your event' : event.registrations.pending ? `${event.registrations.pending} pending registration${event.registrations.pending === 1 ? '' : 's'}` : 'Ticket capacity reached'}</span></Link>)}</div> : <p className="p-5 text-sm text-slate-600">You’re all caught up.</p>}
         </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+      </section>
 
-          {/* KPI Row */}
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-[18px] max-[900px]:grid-cols-[repeat(auto-fit,minmax(170px,1fr))] max-[680px]:grid-cols-2">
-            {kpis.map((k) => (
-              <div key={k.label} className="rounded-[14px] border border-slate-200 bg-white p-[22px] shadow-[0_1px_4px_rgba(0,0,0,0.05)] transition-[box-shadow,transform] duration-[180ms] ease-[ease] hover:translate-y-[-2px] hover:shadow-[0_4px_20px_rgba(0,0,0,0.09)]" style={{ borderTop: `3px solid ${k.color}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <span className={metricLabelClass}>{k.label}</span>
-                    <strong style={{ display: 'block', marginTop: '6px', fontSize: '28px', fontWeight: 800, letterSpacing: '-0.5px', color: k.color }}>{k.value}</strong>
-                    <span className={metricHintClass}>{k.hint}</span>
-                  </div>
-                  <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: k.bg, color: k.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {k.icon}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Revenue Trend Chart */}
-          {revenueData.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-              <h3 className="m-0 text-[17px] font-bold text-slate-900" style={{ marginBottom: '4px' }}>Revenue & Ticket Sales Trend</h3>
-              <p className="mt-1 text-[13px] text-slate-400" style={{ marginBottom: '20px' }}>Gross revenue and ticket volume across recent months</p>
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={revenueData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="ticketsGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '13px', paddingTop: '16px' }} />
-                  <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#10b981" strokeWidth={2.5} fill="url(#revenueGrad)" dot={false} activeDot={{ r: 5, fill: '#10b981' }} />
-                  <Area type="monotone" dataKey="tickets" name="Tickets" stroke="#6366f1" strokeWidth={2.5} fill="url(#ticketsGrad)" dot={false} activeDot={{ r: 5, fill: '#6366f1' }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-
-          {/* Events Status + Quick Nav */}
-          <div style={{ display: 'grid', gridTemplateColumns: statusData.length > 0 ? '1fr 1fr' : '1fr', gap: '24px' }}>
-            {/* Events by Status */}
-            {statusData.length > 0 && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-                <h3 className="m-0 text-[17px] font-bold text-slate-900" style={{ marginBottom: '4px' }}>Events by Status</h3>
-                <p className="mt-1 text-[13px] text-slate-400" style={{ marginBottom: '20px' }}>Your events portfolio breakdown</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <ResponsiveContainer width="50%" height={200}>
-                    <PieChart>
-                      <Pie data={statusData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
-                        {statusData.map((e) => <Cell key={e.name} fill={STATUS_COLORS[e.name] ?? '#94a3b8'} stroke="none" />)}
-                      </Pie>
-                      <Tooltip content={<PieTip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {statusData.map((e) => (
-                      <div key={e.name}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '13px' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '7px', fontWeight: 600, color: '#0f172a' }}>
-                            <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: STATUS_COLORS[e.name] ?? '#94a3b8', display: 'inline-block', flexShrink: 0 }} />
-                            {e.name.charAt(0) + e.name.slice(1).toLowerCase()}
-                          </span>
-                          <strong style={{ color: STATUS_COLORS[e.name] ?? '#94a3b8' }}>{e.value}</strong>
-                        </div>
-                        <div style={{ height: '5px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', background: STATUS_COLORS[e.name] ?? '#94a3b8', width: `${eventCount ? Math.min(100, (e.value / eventCount) * 100) : 0}%`, borderRadius: '3px' }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Quick Nav */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-              <h3 className="m-0 text-[17px] font-bold text-slate-900" style={{ marginBottom: '20px' }}>Quick Access</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {[
-                  { to: '/organizer/events', label: 'Events Studio', sub: 'Create & manage events', color: '#6366f1', bg: '#eef2ff', icon: <IconCalendar /> },
-                  { to: '/organizer/sales', label: 'Sales & Revenue', sub: 'Track revenue & tickets', color: '#10b981', bg: '#ecfdf5', icon: <IconTicket /> },
-                  { to: '/organizer/checkin', label: 'Door Check-in', sub: 'QR scan attendees', color: '#f59e0b', bg: '#fffbeb', icon: <IconCamera /> },
-                  { to: '/organizer/profile', label: 'Organizer Profile', sub: 'Your public info', color: '#ec4899', bg: '#fdf2f8', icon: <IconSparkles /> },
-                ].map((item) => (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className="flex items-center gap-3.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 transition-[all] duration-[180ms] ease-[ease] hover:translate-x-[3px] hover:border-[var(--link-color,var(--primary))] hover:bg-[var(--link-bg,#eef2ff)]"
-                    style={{ '--link-color': item.color, '--link-bg': item.bg } as React.CSSProperties}
-                  >
-                    <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: item.bg, color: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {item.icon}
-                    </div>
-                    <div>
-                      <strong style={{ display: 'block', fontSize: '14px', color: '#0f172a' }}>{item.label}</strong>
-                      <span style={{ fontSize: '12px', color: '#94a3b8' }}>{item.sub}</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Revenue Bar Chart (monthly breakdown) */}
-          {revenueData.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-7 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-              <h3 className="m-0 text-[17px] font-bold text-slate-900" style={{ marginBottom: '4px' }}>Monthly Revenue Breakdown</h3>
-              <p className="mt-1 text-[13px] text-slate-400" style={{ marginBottom: '20px' }}>Gross revenue per month in absolute terms</p>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={revenueData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }} barSize={28}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-
-        </div>
-      )}
-    </DashboardShell>
-  )
+      <section className="grid gap-3 sm:grid-cols-3"><Link to="/organizer/events" className={`${panel} p-4 transition hover:border-indigo-300`}><span className="text-xs font-semibold uppercase tracking-wide text-indigo-700">EVENT SETUP</span><strong className="mt-2 block text-sm text-slate-900">Create and manage events</strong><span className="mt-1 block text-sm text-slate-500">Edit details, tickets, schedule, and event status.</span></Link><Link to="/organizer/sales" className={`${panel} p-4 transition hover:border-indigo-300`}><span className="text-xs font-semibold uppercase tracking-wide text-emerald-700">SALES & PEOPLE</span><strong className="mt-2 block text-sm text-slate-900">Review sales and participants</strong><span className="mt-1 block text-sm text-slate-500">Find registrations, ticket references, and payment details.</span></Link><Link to="/organizer/checkin" className={`${panel} p-4 transition hover:border-indigo-300`}><span className="text-xs font-semibold uppercase tracking-wide text-amber-700">EVENT ENTRY</span><strong className="mt-2 block text-sm text-slate-900">Open check-in</strong><span className="mt-1 block text-sm text-slate-500">Scan ticket QR codes or enter a ticket reference.</span></Link></section>
+    </div>
+  </DashboardShell>
 }

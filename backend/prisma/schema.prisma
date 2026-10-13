@@ -113,9 +113,31 @@ model User {
   cancelledEvents       Event[]                @relation("EventCanceller")
   registrations         Registration[]
   checkIns              CheckIn[]
+  adminNotificationReads AdminNotificationRead[]
+  organizerNotificationReads OrganizerNotificationRead[]
 
   @@index([email])
   @@index([role, status])
+}
+
+model AdminNotificationRead {
+  adminUserId    String
+  notificationId String   @db.VarChar(255)
+  readAt         DateTime @default(now()) @db.Timestamptz(6)
+  adminUser      User     @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@id([adminUserId, notificationId])
+  @@index([adminUserId, readAt])
+}
+
+model OrganizerNotificationRead {
+  organizerUserId String
+  notificationId  String   @db.VarChar(255)
+  readAt          DateTime @default(now()) @db.Timestamptz(6)
+  organizerUser   User     @relation(fields: [organizerUserId], references: [id], onDelete: Cascade)
+
+  @@id([organizerUserId, notificationId])
+  @@index([organizerUserId, readAt])
 }
 
 model OrganizerApplication {

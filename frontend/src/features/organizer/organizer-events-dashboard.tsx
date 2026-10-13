@@ -150,12 +150,33 @@ export function OrganizerEventsDashboard() {
         setSelectedId(response.data.id)
         await refresh(response.data.id)
       } else if (selected) {
-        await request({ method: 'PATCH', url: `/organizer/events/${selected.id}`, data: payload })
+        const original = toForm(selected)
+        const changedPayload: Partial<typeof payload> = {}
+        if (form.title !== original.title) changedPayload.title = payload.title
+        if (form.description !== original.description) changedPayload.description = payload.description
+        if (form.categoryId !== original.categoryId) changedPayload.categoryId = payload.categoryId
+        if (form.venue !== original.venue) changedPayload.venue = payload.venue
+        if (form.city !== original.city) changedPayload.city = payload.city
+        if (form.startAt !== original.startAt) changedPayload.startAt = payload.startAt
+        if (form.endAt !== original.endAt) changedPayload.endAt = payload.endAt
+        if (form.timezone !== original.timezone) changedPayload.timezone = payload.timezone
+        if (form.capacity !== original.capacity) changedPayload.capacity = payload.capacity
+
+        if (!Object.keys(changedPayload).length) {
+          toast.success('No Changes', 'Event details are already up to date.')
+          return
+        }
+
+        await request({ method: 'PATCH', url: `/organizer/events/${selected.id}`, data: changedPayload })
         toast.success('Details Saved', 'Event metadata successfully updated.')
         await refresh(selected.id)
       }
-    } catch {
-      toast.error('Save Failed', 'Please verify all fields and date ranges.')
+    } catch (error) {
+      const apiMessage = error instanceof AxiosError ? error.response?.data?.message : undefined
+      toast.error(
+        'Save Failed',
+        typeof apiMessage === 'string' ? apiMessage : 'Please verify all fields and date ranges.',
+      )
     }
   }
 

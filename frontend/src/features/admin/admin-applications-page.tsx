@@ -74,13 +74,13 @@ export function AdminApplicationsPage() {
   )
 
   return (
-    <DashboardShell role="ADMIN" pageTitle="Organizer Accreditation Queue">
+    <DashboardShell role="ADMIN" pageTitle="Organizer applications">
       <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
         <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold" style={{ flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h3>Pending Applications ({applications.length})</h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
-              Carefully review organizations applying to host and sell tickets on Eventora.
+              Review requests from people and organizations who want to host events.
             </p>
           </div>
 

@@ -10,7 +10,9 @@
 - **Transactional Outbox Pattern:** High-reliability email delivery pipeline committed atomically with business transactions, processed asynchronously by a resilient background worker with exponential backoff and inline CID QR rendering.
 - **Zero-Trust RBAC Pipeline:** Multi-tier server-side authorization cascade (`ClerkAuthGuard` → `AccountGuard` → `RolesGuard` → `OrganizerApplicationGuard`). Roles are strictly database-owned; client claims are never trusted.
 - **Multi-Tier Rate Limiting & Scalper Protection:** Global burst (15 req/s) and sustained (100 req/m) throttling via `@nestjs/throttler` with Bearer token session isolation and strict limits on ticket reservations to prevent scalping bots.
-- **Enterprise UI & Real-Time Scanning:** React 19 SPA with dual-shell layouts (public consumer portal vs. full-height workspace studio), live Recharts data visualizations (Area, Bar, Donut), and camera-based QR check-in station via `@zxing/browser`.
+- **Role-Based Workspaces:** Public event browsing is separated from practical organizer and admin workspaces, with clear navigation, responsive tables, operational summaries, and a stable loading state while signed-in roles are resolved.
+- **Actionable Notifications:** Admins and organizers get role-scoped activity feeds, unread counts, and persistent per-account mark-as-read controls. Organizer updates cover bookings, payment issues, capacity milestones, and platform cancellations.
+- **Event Operations:** Organizers can manage events, review participant and sales details, and run camera-based or manual ticket check-in with `@zxing/browser`.
 
 ---
 
@@ -42,8 +44,8 @@ Eventora is a multi-role event ticketing platform with three distinct user perso
 | Role | Capabilities |
 |---|---|
 | **Attendee** | Browse events, purchase tickets, view QR ticket wallet, check registration & payment status |
-| **Organizer** | Create & publish events, manage ticket types, run door check-in (QR scan + manual), track revenue & attendance |
-| **Admin** | Review organizer applications, manage users & categories, platform-wide event oversight & cancellation |
+| **Organizer** | Create and publish events, manage ticket types, review event-specific participants and sales, track attendance, manage notifications, and run door check-in |
+| **Admin** | Review organizer applications, monitor platform activity, manage accounts and categories, review events, payments, and reports |
 
 Roles are **database-owned** and enforced server-side — the frontend never supplies or influences authorization context.
 
@@ -183,7 +185,7 @@ backend/src/
 ├── categories/             # Public reads + admin CRUD (protected deletion)
 ├── checkins/               # QR validation + check-in commit (transactional, timing-safe)
 ├── email/                  # PostgreSQL outbox worker + rich HTML email templates
-├── events/                 # Public catalog, organizer event management, admin oversight
+├── events/                 # Public catalog, organizer event management, notifications, admin oversight
 ├── organizer-applications/ # Application submission, admin review, transactional approval
 ├── payments/               # PayHere checkout form gen, webhook handling, reconciliation
 ├── prisma/                 # Shared PrismaService (OnModuleInit lifecycle)
@@ -210,11 +212,17 @@ backend/src/
 | `PATCH` | `/api/organizer/events/:id/publish` | Organizer | Publish (validates completeness) |
 | `GET` | `/api/organizer/dashboard` | Organizer | KPIs: events, registrations, tickets, revenue |
 | `GET` | `/api/organizer/analytics/sales` | Organizer | Monthly gross sales trend |
+| `GET` | `/api/organizer/notifications` | Organizer | Recent bookings, payment issues, event milestones, and unread count for owned events |
+| `PATCH` | `/api/organizer/notifications/read` | Organizer | Mark one or more updates as read |
+| `GET` | `/api/organizer/events/:eventId/participants` | Organizer | Event-scoped participant list and registration details |
+| `GET` | `/api/organizer/events/:eventId/analytics` | Organizer | Event sales, registration, and attendance report |
 | `GET` | `/api/admin/dashboard` | Admin | Platform-wide KPIs |
 | `GET` | `/api/admin/events` | Admin | Latest 100 platform events |
 | `PATCH` | `/api/admin/events/:id/cancel` | Admin | Cancel + notify attendees |
-| `GET` | `/api/admin/organizer-applications` | Admin | Application queue |
-| `PATCH` | `/api/admin/organizer-applications/:id` | Admin | Approve / reject (transactional) |
+| `GET` | `/api/organizer-applications` | Admin | Application queue, optionally filtered by status |
+| `PATCH` | `/api/organizer-applications/:applicationId/decision` | Admin | Approve or reject an application |
+| `GET` | `/api/admin/notifications` | Admin | Recent platform activity, pending applications, and unread count |
+| `PATCH` | `/api/admin/notifications/read` | Admin | Mark one or more updates as read |
 | `POST` | `/api/webhooks/payhere/notify` | Public (verified) | PayHere payment notification |
 | `POST` | `/api/auth/webhooks/clerk` | Public (signed) | Clerk user sync webhook |
 
@@ -227,25 +235,30 @@ backend/src/
 /discover                   Searchable + filterable event catalog (URL query params)
 /events/:eventId            Event detail — schedule, ticket types, purchase flow
 /sign-in  /sign-up          Clerk-hosted auth pages (custom styled wrapper)
-/account                    Role-aware dashboard:
-                              ATTENDEE  → registrations, tickets, application panel
-                              ORGANIZER → events studio, sales, check-in, profile
-                              ADMIN     → overview, applications, users, events, categories
+/account                    Attendee account and registration overview
 /tickets                    Attendee ticket wallet with private QR codes
 /checkout/result            Post-payment result (reads server state, never URL params)
 /checkout/cancelled         Cancelled checkout handler
 
 /admin                      Admin shell (sidebar layout)
+  /admin                    Platform overview and admin task links
   /admin/applications        Organizer application review
-  /admin/users               User management + role/status controls
-  /admin/events              Platform event list + cancel action
-  /admin/categories          Category CRUD
+  /admin/notifications       Recent activity with unread and mark-as-read controls
+  /admin/events              Platform event review and cancellation
+  /admin/users               Account management and role/status controls
+  /admin/categories          Category management
+  /admin/payments            Verified sales and payment attempts
+  /admin/reports             Registration and attendance reports
 
 /organizer                  Organizer shell (sidebar layout)
-  /organizer/events          Event management studio (full CRUD + publish/cancel)
-  /organizer/sales           Revenue analytics
+  /organizer                 Organizer overview and event health
+  /organizer/events          Event management, ticket types, schedule, publish/cancel
+  /organizer/participants    Event-filtered participant and ticket details
+  /organizer/sales           Event selection and sales overview
+  /organizer/sales/:eventId  Event-specific sales and participant report
+  /organizer/notifications   Bookings and event updates with unread filters and read controls
   /organizer/checkin         Check-in hub → per-event scanner
-  /organizer/profile         Public organizer profile
+  /organizer/profile         Organizer profile
 
 /organizer/events/:id/check-in  Live check-in page (QR camera + manual entry)
 ```
@@ -256,8 +269,8 @@ backend/src/
 |---|---|
 | `features/auth/` | `AccountPage`, `AuthPage`, `CurrentUserContext` (role provider), `useAuthenticatedApi` hook |
 | `features/events/` | `DiscoveryPage` (filtered catalog), `EventDetailPage` (ticket purchase) |
-| `features/organizer/` | `OrganizerEventsDashboard` (38KB — full event CRUD), `EventCheckinPage` (ZXing camera), `OrganizerOverviewPage` (Recharts analytics) |
-| `features/admin/` | `AdminOverviewPage` (platform analytics with Recharts), `AdminApplicationsPage`, `AdminUsersPage`, `AdminEventsPage`, `AdminCategoriesPage` |
+| `features/organizer/` | Event management, event-scoped sales and participant reports, notifications, check-in, and organizer overview |
+| `features/admin/` | Platform overview, application review, event/account/category management, payment and attendance reports, and notifications |
 | `features/tickets/` | `TicketsPage` — ticket wallet with QR code display |
 | `features/analytics/` | `DashboardShell` (role-aware sidebar layout), role-scoped dashboard panels |
 | `features/payments/` | `CheckoutResultPage` — polls server state post-redirect |
@@ -286,10 +299,12 @@ Page and component presentation primarily uses Tailwind utility classes, with in
 
 ## Database Schema
 
-**15 core tables** across 4 migration files:
+**16 Prisma models** across 6 database migrations:
 
 ```
 User                 — Clerk identity + Eventora role/status
+AdminNotificationRead — Per-admin notification read state
+OrganizerNotificationRead — Per-organizer notification read state
 OrganizerApplication — Application lifecycle + decision audit
 Category             — Event categories (soft-disable, no cascade delete)
 Event                — Full event lifecycle (DRAFT→PUBLISHED→CANCELLED/COMPLETED)
@@ -302,16 +317,17 @@ PaymentException     — Unfulfillable verified payments (audit, no auto-refund)
 Ticket               — Issued digital tickets (reference + QR token hash)
 CheckIn              — Attendance record (unique per ticket)
 EmailDelivery        — Outbox rows with retry metadata + safe error codes
-EventCoverImage      — Cloudinary asset references
 ```
 
 **Financial precision:** All money amounts use `DECIMAL(12,2)` — no floating point.
 
 **Migrations applied:**
-- `init` — full schema with check constraints
-- `organizer_application_review_details` — additive fields, nullable for legacy rows
-- `payhere_metadata` — payment provider fields
-- `pending_organizer_application_unique` — partial unique index (one pending per applicant)
+- `init` — core schema with check constraints
+- `pending_organizer_application_unique` — one pending application per applicant
+- `payhere_provider_amount` — verified PayHere payment details
+- `organizer_application_review_details` — application review fields
+- `admin_notification_reads` — per-admin mark-as-read state
+- `organizer_notification_reads` — per-organizer mark-as-read state
 
 ---
 
@@ -336,6 +352,7 @@ Request
 - **Event/attendee data isolation** — check-in responses never expose attendee contact details or internal IDs
 - **Cloudinary uploads** — file signature checked (magic bytes) before streaming; DB updated only after successful upload; cleanup on DB failure
 - **No payment status from URL** — checkout result page always reads from the authenticated API
+- **Notification ownership** — organizer notifications and read state are scoped to the signed-in organizer and their own events
 
 ---
 
@@ -358,11 +375,11 @@ All emails use a **PostgreSQL outbox pattern** — the email row is committed in
 
 | Email Type | Trigger | Contents |
 |---|---|---|
-| `PURCHASE_CONFIRMATION` | Payment `SUCCEEDED` + inventory committed | Event detail card, per-ticket QR code (inline `cid:` image), reference codes, secure ticket link |
-| `ORGANIZER_APPLICATION_DECISION` | Admin approves/rejects application | Status card (green/red), decision note callout, next-steps guide (approved) or rejection explanation |
-| `EVENT_CANCELLATION` | Admin or organizer cancels event | Cancelled event card, reason callout, "what happens next" guide (3 action items), dual CTA buttons |
+| `PURCHASE_CONFIRMATION` | Payment `SUCCEEDED` + inventory committed | Confirmation, event details, QR codes, and ticket link |
+| `ORGANIZER_APPLICATION_DECISION` | Admin approves/rejects application | Decision, optional note, and organizer link when approved |
+| `EVENT_CANCELLATION` | Admin or organizer cancels event | Cancellation details, optional reason, refund information, and ticket link |
 
-**Template design:** All templates use table-based, inline-CSS HTML for maximum email client compatibility (Gmail, Outlook, Apple Mail). Includes preview text, branded indigo header, structured content cards, and a consistent footer.
+**Template design:** Emails use concise copy and table-based, inline-CSS HTML for compatibility with common email clients. Decorative emoji and promotional copy are avoided.
 
 **Delivery:** Gmail SMTP via nodemailer with exponential backoff (30s → 1h cap, max 5 attempts). Error codes are sanitized before storage.
 
@@ -396,18 +413,19 @@ The QR secret (`TICKET_QR_SECRET`) must be at least 32 bytes. Never in frontend 
 ## Analytics & Dashboards
 
 ### Admin Dashboard (`/admin`)
-Live data from `GET /api/admin/dashboard`:
-- **KPI Cards:** Total Users, Active Users, Total Events, Platform Revenue (gross), Pending Applications, Total Registrations
-- **Platform Growth Trend:** Recharts AreaChart — users + events over 8 months
-- **User Distribution:** Recharts PieChart (donut) — Admin / Organizer / Attendee breakdown
-- **Events by Status:** Recharts BarChart — Published / Draft / Cancelled / Completed
+Live platform totals from `GET /api/admin/dashboard`:
+- Accounts, events, confirmed registrations, and checked-in tickets
+- Events grouped by status and verified sales grouped by currency
+- Direct links to application review, event oversight, accounts, payments, reports, and categories
+- `/admin/notifications` lists platform activity and supports persistent unread/read state
 
 ### Organizer Dashboard (`/organizer`)
-Live data from `GET /api/organizer/dashboard` + `GET /api/organizer/analytics/sales`:
-- **KPI Cards:** Published Events, Confirmed Attendees, Tickets Issued, Gross Revenue
-- **Revenue & Ticket Trend:** Recharts AreaChart — dual series (revenue + tickets) from sales trend endpoint
-- **Events by Status:** Recharts PieChart with progress bar legend
-- **Monthly Revenue Breakdown:** Recharts BarChart per month
+Live event summaries from `GET /api/organizer/analytics/events`:
+- Event count, confirmed registrations, valid tickets, and verified sales grouped by currency
+- Upcoming events, items needing attention, and direct event management links
+- `/organizer/participants` filters participant records by event and registration, payment, and entry status
+- `/organizer/sales` selects an event before showing its sales report
+- `/organizer/notifications` shows recent bookings, payment exceptions, near-capacity events, and admin cancellations; read state persists per organizer
 
 ### Attendee Dashboard (`/account`)
 Live data from `GET /api/attendee/dashboard`:

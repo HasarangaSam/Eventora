@@ -78,13 +78,13 @@ export function AdminEventsPage() {
   )
 
   return (
-    <DashboardShell role="ADMIN" pageTitle="Platform Events Oversight">
+    <DashboardShell role="ADMIN" pageTitle="Events">
       <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
         <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold" style={{ flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <h3>All Platform Events ({events.length})</h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
-              Inspect live, draft, or completed events and execute administrative killswitches if needed.
+              Review event details and status across all organizers. Cancel an event if platform rules require it.
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>

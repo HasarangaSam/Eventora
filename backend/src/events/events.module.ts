@@ -9,10 +9,12 @@ import { AuthModule } from '../auth/auth.module.js';
 import { RegistrationsModule } from '../registrations/registrations.module.js';
 import { CheckinsController } from '../checkins/checkins.controller.js';
 import { CheckinsService } from '../checkins/checkins.service.js';
+import { OrganizerNotificationsController } from './organizer-notifications.controller.js';
+import { OrganizerNotificationsService } from './organizer-notifications.service.js';
 
 @Module({
   imports: [AuthModule, RegistrationsModule],
-  controllers: [EventsController, OrganizerEventsController, AdminEventsController, CheckinsController],
-  providers: [EventsService, OrganizerEventsService, CloudinaryService, CheckinsService],
+  controllers: [EventsController, OrganizerEventsController, OrganizerNotificationsController, AdminEventsController, CheckinsController],
+  providers: [EventsService, OrganizerEventsService, OrganizerNotificationsService, CloudinaryService, CheckinsService],
 })
 export class EventsModule {}

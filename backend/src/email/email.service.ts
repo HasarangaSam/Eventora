@@ -165,16 +165,15 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
         </table>`).join('');
 
       const html = buildEmail({
-        previewText: `Your ${tickets.length === 1 ? 'ticket is' : `${tickets.length} tickets are`} ready for ${registration.event.title}!`,
+        previewText: `Payment confirmed for ${registration.event.title}.`,
         body: `
           <p style="margin:0 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#6366f1;">Purchase Confirmed</p>
           <h1 style="margin:0 0 14px;font-size:28px;font-weight:800;color:#0f172a;line-height:1.2;">
-            You're going to<br><em style="font-style:normal;color:#6366f1;">${escapeHtml(registration.event.title)}</em>! 🎉
+            Payment confirmed
           </h1>
           <p style="margin:0 0 28px;font-size:16px;color:#475569;line-height:1.6;">
-            Hi ${escapeHtml(greeting)}, your payment is confirmed and your
-            ${tickets.length === 1 ? 'ticket is' : `${tickets.length} tickets are`} ready to use.
-            Present the QR code${tickets.length === 1 ? '' : 's'} below at the door.
+            Hi ${escapeHtml(greeting)}, your payment for <strong style="color:#0f172a;">${escapeHtml(registration.event.title)}</strong> is confirmed.
+            ${tickets.length === 1 ? 'Your ticket is' : 'Your tickets are'} below.
           </p>
 
           <!-- Event detail card -->
@@ -191,17 +190,17 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
                   </tr>
                   <tr>
                     <td width="50%" style="padding-bottom:10px;padding-right:16px;vertical-align:top;">
-                      <p style="margin:0 0 2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">📅 Date &amp; Time</p>
+                      <p style="margin:0 0 2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">Date &amp; Time</p>
                       <p style="margin:0;font-size:14px;color:#334155;">${escapeHtml(formatDateText(registration.event.startAt))}</p>
                     </td>
                     <td width="50%" style="padding-bottom:10px;vertical-align:top;">
-                      <p style="margin:0 0 2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">📍 Venue</p>
+                      <p style="margin:0 0 2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">Venue</p>
                       <p style="margin:0;font-size:14px;color:#334155;">${escapeHtml(registration.event.venue)}, ${escapeHtml(registration.event.city)}</p>
                     </td>
                   </tr>
                   <tr>
                     <td colspan="2">
-                      <p style="margin:0 0 2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">🎫 Ticket Type</p>
+                      <p style="margin:0 0 2px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">Ticket Type</p>
                       <p style="margin:0;font-size:14px;color:#334155;">${escapeHtml(registration.ticketType.name)}</p>
                     </td>
                   </tr>
@@ -212,7 +211,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
 
           <!-- QR ticket cards -->
           <p style="margin:0 0 14px;font-size:16px;font-weight:700;color:#0f172a;">
-            Your QR ${tickets.length === 1 ? 'Ticket' : `Tickets (${tickets.length})`}
+            ${tickets.length === 1 ? 'Ticket' : `Tickets (${tickets.length})`}
           </p>
           ${ticketCards}
 
@@ -222,8 +221,8 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
             <tr>
               <td style="padding:14px 18px;">
                 <p style="margin:0;font-size:13px;color:#166534;line-height:1.5;">
-                  🔒 <strong>Keep your QR codes private.</strong>
-                  Eventora support will never ask you to share them. Sharing your QR codes may allow others to gain entry in your place.
+                  <strong>Keep your QR codes private.</strong>
+                  Anyone with a QR code may be able to use that ticket.
                 </p>
               </td>
             </tr>
@@ -236,14 +235,14 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
                 <a href="${escapeHtml(ticketUrl)}"
                    style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;
                           font-size:15px;font-weight:700;padding:14px 34px;border-radius:10px;letter-spacing:0.3px;">
-                  View All My Tickets →
+                  View tickets
                 </a>
               </td>
             </tr>
           </table>
         `,
       });
-      return { subject: `🎟️ Your tickets for ${registration.event.title}`, text, html, attachments };
+      return { subject: `Payment confirmed: ${registration.event.title}`, text, html, attachments };
     }
 
     /* ─────────────────────────────────────────────
@@ -279,10 +278,10 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
             Application ${statusLabel}
           </p>
           <h1 style="margin:0 0 14px;font-size:28px;font-weight:800;color:#0f172a;line-height:1.2;">
-            ${approved ? 'Welcome aboard,<br>Organizer! 🎉' : 'Application Update'}
+            ${approved ? 'Application approved' : 'Application not approved'}
           </h1>
           <p style="margin:0 0 28px;font-size:16px;color:#475569;line-height:1.6;">
-            Hi ${escapeHtml(greeting)}, we've finished reviewing your organizer application for
+            Hi ${escapeHtml(greeting)}, we reviewed your organizer application for
             <strong style="color:#0f172a;">${escapeHtml(application.organizationName)}</strong>.
           </p>
 
@@ -291,19 +290,10 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
                  style="background:${cardBg};border:1px solid ${cardBorder};border-radius:14px;margin-bottom:24px;">
             <tr>
               <td style="padding:22px 26px;">
-                <table cellpadding="0" cellspacing="0" role="presentation">
-                  <tr>
-                    <td style="vertical-align:middle;padding-right:18px;font-size:32px;line-height:1;">
-                      ${approved ? '✅' : '❌'}
-                    </td>
-                    <td style="vertical-align:middle;">
-                      <p style="margin:0 0 4px;font-size:16px;font-weight:700;color:${cardTextColor};">
-                        ${approved ? 'Your application has been approved!' : 'Your application was not approved at this time.'}
-                      </p>
-                      <p style="margin:0;font-size:13px;color:${cardSubColor};">${escapeHtml(application.organizationName)}</p>
-                    </td>
-                  </tr>
-                </table>
+                <p style="margin:0 0 4px;font-size:16px;font-weight:700;color:${cardTextColor};">
+                  ${statusLabel}
+                </p>
+                <p style="margin:0;font-size:13px;color:${cardSubColor};">${escapeHtml(application.organizationName)}</p>
               </td>
             </tr>
           </table>
@@ -321,49 +311,19 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
           </table>` : ''}
 
           ${approved ? `
-          <!-- Next steps for approved -->
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
-                 style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:24px;">
-            <tr>
-              <td style="padding:22px 26px;">
-                <p style="margin:0 0 14px;font-size:14px;font-weight:700;color:#0f172a;">What you can do now</p>
-                <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-                  <tr><td style="padding-bottom:10px;vertical-align:top;">
-                    <table cellpadding="0" cellspacing="0" role="presentation"><tr>
-                      <td style="padding-right:12px;font-size:18px;vertical-align:top;line-height:1.4;">📅</td>
-                      <td><p style="margin:0;font-size:14px;color:#334155;line-height:1.5;"><strong>Create Events</strong> — build and publish events directly from your Organizer Studio.</p></td>
-                    </tr></table>
-                  </td></tr>
-                  <tr><td style="padding-bottom:10px;vertical-align:top;">
-                    <table cellpadding="0" cellspacing="0" role="presentation"><tr>
-                      <td style="padding-right:12px;font-size:18px;vertical-align:top;line-height:1.4;">🎟️</td>
-                      <td><p style="margin:0;font-size:14px;color:#334155;line-height:1.5;"><strong>Sell Tickets</strong> — set up ticket types, pricing, and capacity for each event.</p></td>
-                    </tr></table>
-                  </td></tr>
-                  <tr><td style="vertical-align:top;">
-                    <table cellpadding="0" cellspacing="0" role="presentation"><tr>
-                      <td style="padding-right:12px;font-size:18px;vertical-align:top;line-height:1.4;">📊</td>
-                      <td><p style="margin:0;font-size:14px;color:#334155;line-height:1.5;"><strong>Track Revenue &amp; Attendance</strong> — monitor sales, check in guests, and view analytics.</p></td>
-                    </tr></table>
-                  </td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-
           <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:24px;">
             <tr>
               <td style="text-align:center;">
                 <a href="${escapeHtml(frontendOrigin)}/organizer"
                    style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;
                           font-size:15px;font-weight:700;padding:14px 34px;border-radius:10px;">
-                  Open Organizer Studio →
+                  Open Organizer Studio
                 </a>
               </td>
             </tr>
           </table>` : `
           <p style="margin:0 0 20px;font-size:15px;color:#334155;line-height:1.6;">
-            You're welcome to submit a new application in the future. If you have questions about this decision, please contact our support team.
+            You may submit a new application in the future. Contact support if you have questions about this decision.
           </p>
           <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:24px;">
             <tr>
@@ -371,7 +331,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
                 <a href="${escapeHtml(frontendOrigin)}"
                    style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;
                           font-size:15px;font-weight:700;padding:14px 34px;border-radius:10px;">
-                  Back to Eventora →
+                  Visit Eventora
                 </a>
               </td>
             </tr>
@@ -395,26 +355,26 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
       const text = [
         `Hi ${greeting},`,
         ``,
-        `Unfortunately, ${event.title} has been cancelled by ${cancelledBy}.`,
+        `${event.title} has been cancelled by ${cancelledBy}.`,
         reason ? `\nReason: ${reason}` : '',
         ``,
         `Your Eventora ticket and payment history remain available in your account.`,
-        `Eventora has not issued an automatic refund — please contact the event organizer for questions about next steps.`,
+        `No automatic refund has been issued. Contact the event organizer with questions about a refund.`,
         ``,
         `View your tickets: ${frontendOrigin}/tickets`,
       ].join('\n');
 
       const html = buildEmail({
-        previewText: `Important notice: ${event.title} has been cancelled.`,
+        previewText: `${event.title} has been cancelled.`,
         body: `
           <p style="margin:0 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#dc2626;">
             Event Cancelled
           </p>
           <h1 style="margin:0 0 14px;font-size:28px;font-weight:800;color:#0f172a;line-height:1.2;">
-            We're sorry to<br>let you know
+            Event cancelled
           </h1>
           <p style="margin:0 0 28px;font-size:16px;color:#475569;line-height:1.6;">
-            Hi ${escapeHtml(greeting)}, unfortunately <strong style="color:#0f172a;">${escapeHtml(event.title)}</strong>
+            Hi ${escapeHtml(greeting)}, <strong style="color:#0f172a;">${escapeHtml(event.title)}</strong>
             has been cancelled by ${cancelledBy}.
           </p>
 
@@ -426,7 +386,7 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
                 <p style="margin:0 0 4px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;">Cancelled Event</p>
                 <p style="margin:0 0 8px;font-size:18px;font-weight:700;color:#7f1d1d;">${escapeHtml(event.title)}</p>
                 <p style="margin:0;font-size:13px;color:#b91c1c;">
-                  📅 ${escapeHtml(formatDateText(event.startAt))} &nbsp;·&nbsp; 📍 ${escapeHtml(event.venue ?? 'TBA')}${event.city ? `, ${escapeHtml(event.city)}` : ''}
+                  ${escapeHtml(formatDateText(event.startAt))} &nbsp;·&nbsp; ${escapeHtml(event.venue ?? 'TBA')}${event.city ? `, ${escapeHtml(event.city)}` : ''}
                 </p>
               </td>
             </tr>
@@ -444,50 +404,18 @@ export class EmailService implements OnModuleInit, OnModuleDestroy {
             </tr>
           </table>` : ''}
 
-          <!-- What happens next -->
-          <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
-                 style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;margin-bottom:24px;">
-            <tr>
-              <td style="padding:22px 26px;">
-                <p style="margin:0 0 16px;font-size:14px;font-weight:700;color:#0f172a;">What happens next</p>
-                <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-                  <tr><td style="padding-bottom:12px;vertical-align:top;">
-                    <table cellpadding="0" cellspacing="0" role="presentation"><tr>
-                      <td style="padding-right:12px;font-size:18px;vertical-align:top;line-height:1.4;">📋</td>
-                      <td><p style="margin:0;font-size:14px;color:#334155;line-height:1.5;"><strong>Your ticket record is preserved</strong> — your ticket and payment history remain available in your Eventora account.</p></td>
-                    </tr></table>
-                  </td></tr>
-                  <tr><td style="padding-bottom:12px;vertical-align:top;">
-                    <table cellpadding="0" cellspacing="0" role="presentation"><tr>
-                      <td style="padding-right:12px;font-size:18px;vertical-align:top;line-height:1.4;">💳</td>
-                      <td><p style="margin:0;font-size:14px;color:#334155;line-height:1.5;"><strong>No automatic refund has been issued</strong> — please contact the event organizer directly for refund or transfer information.</p></td>
-                    </tr></table>
-                  </td></tr>
-                  <tr><td style="vertical-align:top;">
-                    <table cellpadding="0" cellspacing="0" role="presentation"><tr>
-                      <td style="padding-right:12px;font-size:18px;vertical-align:top;line-height:1.4;">🎫</td>
-                      <td><p style="margin:0;font-size:14px;color:#334155;line-height:1.5;"><strong>Discover other events</strong> — browse new events happening on Eventora now.</p></td>
-                    </tr></table>
-                  </td></tr>
-                </table>
-              </td>
-            </tr>
-          </table>
+          <p style="margin:0 0 24px;font-size:14px;color:#334155;line-height:1.6;">
+            Your ticket and payment history remain in your account. No automatic refund has been issued;
+            contact the event organizer with refund questions.
+          </p>
 
-          <!-- CTA buttons -->
           <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-top:28px;">
             <tr>
               <td style="text-align:center;">
                 <a href="${escapeHtml(frontendOrigin)}/tickets"
                    style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;
-                          font-size:15px;font-weight:700;padding:14px 28px;border-radius:10px;margin:4px 6px;">
-                  View My Tickets
-                </a>
-                <a href="${escapeHtml(frontendOrigin)}/discover"
-                   style="display:inline-block;background:#f8fafc;color:#6366f1;text-decoration:none;
-                          font-size:15px;font-weight:700;padding:13px 28px;border-radius:10px;
-                          border:2px solid #6366f1;margin:4px 6px;">
-                  Browse Events
+                          font-size:15px;font-weight:700;padding:14px 28px;border-radius:10px;">
+                  View tickets
                 </a>
               </td>
             </tr>

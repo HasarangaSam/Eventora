@@ -131,6 +131,84 @@ export class OrganizerApplicationsService {
     });
   }
 
+  async adminNotifications(adminUserId: string) {
+    const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    const [pendingApplications, applications, newEventCount, newEvents, cancellationCount, cancellations, paymentExceptionCount, paymentExceptions] = await Promise.all([
+      this.prisma.organizerApplication.count({ where: { status: 'PENDING' } }),
+      this.prisma.organizerApplication.findMany({
+        where: { status: 'PENDING' }, orderBy: { submittedAt: 'desc' }, take: 10,
+        select: {
+          id: true, organizationName: true, submittedAt: true, city: true, country: true,
+          applicant: { select: { email: true, firstName: true, lastName: true } },
+        },
+      }),
+      this.prisma.event.count({ where: { createdAt: { gte: since } } }),
+      this.prisma.event.findMany({
+        where: { createdAt: { gte: since } }, orderBy: { createdAt: 'desc' }, take: 10,
+        select: { id: true, title: true, status: true, createdAt: true, organizer: { select: { email: true, firstName: true, lastName: true } } },
+      }),
+      this.prisma.event.count({ where: { status: 'CANCELLED', cancelledAt: { gte: since } } }),
+      this.prisma.event.findMany({
+        where: { status: 'CANCELLED', cancelledAt: { gte: since } }, orderBy: { cancelledAt: 'desc' }, take: 10,
+        select: { id: true, title: true, cancelledAt: true, cancellationReason: true, cancelledBy: { select: { role: true } } },
+      }),
+      this.prisma.paymentException.count({ where: { createdAt: { gte: since } } }),
+      this.prisma.paymentException.findMany({
+        where: { createdAt: { gte: since } }, orderBy: { createdAt: 'desc' }, take: 10,
+        select: { id: true, reasonCode: true, description: true, createdAt: true, registration: { select: { event: { select: { id: true, title: true } } } } },
+      }),
+    ]);
+    const latestNotifications = [
+      ...applications.map((application) => ({
+        id: `application:${application.id}`, type: 'ORGANIZER_APPLICATION_PENDING', title: 'Organizer application needs review',
+        message: `${application.organizationName} has applied to host events.`, createdAt: application.submittedAt,
+        location: [application.city, application.country].filter(Boolean).join(', '),
+        applicant: { ...application.applicant, name: [application.applicant.firstName, application.applicant.lastName].filter(Boolean).join(' ') || application.applicant.email },
+        href: '/admin/applications', actionRequired: true,
+      })),
+      ...newEvents.map((event) => ({
+        id: `event-added:${event.id}`, type: 'EVENT_ADDED', title: 'New event added',
+        message: `${event.title} was added by ${[event.organizer.firstName, event.organizer.lastName].filter(Boolean).join(' ') || event.organizer.email}.`,
+        createdAt: event.createdAt, location: '', eventStatus: event.status, href: '/admin/events', actionRequired: false,
+      })),
+      ...cancellations.map((event) => ({
+        id: `event-cancelled:${event.id}`, type: 'EVENT_CANCELLED', title: 'Event cancelled',
+        message: `${event.title} was cancelled${event.cancellationReason ? `: ${event.cancellationReason}` : '.'}`,
+        createdAt: event.cancelledAt!, location: '', eventStatus: 'CANCELLED',
+        actorRole: event.cancelledBy?.role ?? 'ORGANIZER', href: '/admin/events', actionRequired: false,
+      })),
+      ...paymentExceptions.map((exception) => ({
+        id: `payment-exception:${exception.id}`, type: 'PAYMENT_EXCEPTION', title: 'Payment needs attention',
+        message: `${exception.registration.event.title}: ${exception.reasonCode.replaceAll('_', ' ').toLowerCase()}. ${exception.description.slice(0, 180)}`,
+        createdAt: exception.createdAt, location: '', eventId: exception.registration.event.id,
+        href: '/admin/payments', actionRequired: true,
+      })),
+    ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 30);
+    const readRecords = await this.prisma.adminNotificationRead.findMany({
+      where: { adminUserId, notificationId: { in: latestNotifications.map((item) => item.id) } },
+      select: { notificationId: true },
+    });
+    const readIds = new Set(readRecords.map((record) => record.notificationId));
+    const notifications = latestNotifications.map((item) => ({ ...item, isRead: readIds.has(item.id) }));
+    return {
+      pendingApplications,
+      notificationCount: pendingApplications + newEventCount + cancellationCount + paymentExceptionCount,
+      unreadCount: notifications.filter((item) => !item.isRead).length,
+      periodDays: 14,
+      notifications,
+    };
+  }
+
+  async markAdminNotificationsRead(adminUserId: string, notificationIds: string[]) {
+    if (notificationIds.length) {
+      await this.prisma.adminNotificationRead.createMany({
+        data: notificationIds.map((notificationId) => ({ adminUserId, notificationId })),
+        skipDuplicates: true,
+      });
+    }
+    return { success: true };
+  }
+
   async getById(id: string) {
     const application = await this.prisma.organizerApplication.findUnique({
       where: { id },

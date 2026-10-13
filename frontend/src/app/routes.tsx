@@ -1,4 +1,5 @@
 import { Link, Route, Routes, useLocation } from 'react-router'
+import { useAuth } from '@clerk/react'
 import type { ReactNode } from 'react'
 import { PublicFooter, PublicHeader } from '../components/layout/public-site'
 import { AccountPage } from '../features/auth/account-page'
@@ -8,6 +9,8 @@ import { AdminApplicationsPage } from '../features/admin/admin-applications-page
 import { AdminEventsPage } from '../features/admin/admin-events-page'
 import { AdminUsersPage } from '../features/admin/admin-users-page'
 import { AdminCategoriesPage } from '../features/admin/admin-categories-page'
+import { AdminPaymentsPage, AdminReportsPage } from '../features/admin/admin-finance-pages'
+import { AdminNotificationsPage } from '../features/admin/admin-notifications-page'
 import { DiscoveryPage } from '../features/events/discovery-page'
 import { EventDetailPage } from '../features/events/event-detail-page'
 import { CheckoutResultPage } from '../features/payments/checkout-result-page'
@@ -17,9 +20,10 @@ import { AuthPage } from '../features/auth/auth-page'
 import { HomePage } from '../features/home/home-page'
 import { DashboardShell } from '../features/analytics/dashboard-shell'
 import { OrganizerOverviewPage } from '../features/organizer/organizer-overview-page'
-import { OrganizerEventsPage, OrganizerSalesPage } from '../features/organizer/organizer-pages'
+import { OrganizerEventsPage, OrganizerParticipantsPage, OrganizerSalesPage, OrganizerSalesReportPage } from '../features/organizer/organizer-pages'
 import { OrganizerCheckinHubPage } from '../features/organizer/organizer-checkin-hub-page'
 import { OrganizerProfilePage } from '../features/organizer/organizer-profile-page'
+import { OrganizerNotificationsPage } from '../features/organizer/organizer-notifications-page'
 import { AdminRouteGuard, OrganizerRouteGuard, PublicRouteGuard, useCurrentUser } from '../features/auth/current-user-context'
 
 function NotFoundPage() {
@@ -54,10 +58,16 @@ function AppRoutes() {
       <Route path="/admin/events" element={admin(<AdminEventsPage />)} />
       <Route path="/admin/users" element={admin(<AdminUsersPage />)} />
       <Route path="/admin/categories" element={admin(<AdminCategoriesPage />)} />
+      <Route path="/admin/notifications" element={admin(<AdminNotificationsPage />)} />
+      <Route path="/admin/payments" element={admin(<AdminPaymentsPage />)} />
+      <Route path="/admin/reports" element={admin(<AdminReportsPage />)} />
       <Route path="/admin/legacy" element={admin(<AdminPage />)} />
       <Route path="/organizer" element={organizer(<OrganizerOverviewPage />)} />
       <Route path="/organizer/events" element={organizer(<OrganizerEventsPage />)} />
+      <Route path="/organizer/participants" element={organizer(<OrganizerParticipantsPage />)} />
+      <Route path="/organizer/notifications" element={organizer(<OrganizerNotificationsPage />)} />
       <Route path="/organizer/sales" element={organizer(<OrganizerSalesPage />)} />
+      <Route path="/organizer/sales/:eventId" element={organizer(<OrganizerSalesReportPage />)} />
       <Route path="/organizer/checkin" element={organizer(<OrganizerCheckinHubPage />)} />
       <Route path="/organizer/profile" element={organizer(<OrganizerProfilePage />)} />
       <Route path="/organizer/events/:eventId/check-in" element={organizer(
@@ -71,10 +81,19 @@ function AppRoutes() {
 
 export function RoutedApplication() {
   const location = useLocation()
-  const { role } = useCurrentUser()
+  const { role, isLoading } = useCurrentUser()
+  const { isLoaded, isSignedIn } = useAuth()
   const dedicated = location.pathname.startsWith('/admin') || location.pathname.startsWith('/organizer') ||
     location.pathname.startsWith('/sign-in') || location.pathname.startsWith('/sign-up') ||
     (location.pathname === '/account' && (role === 'ORGANIZER' || role === 'ADMIN'))
+
+  if (isLoaded && isSignedIn && isLoading) {
+    return <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50 font-medium text-slate-600" role="status" aria-live="polite">
+      <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-indigo-100 border-t-indigo-600" />
+      <p className="m-0">Opening your workspace…</p>
+    </main>
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       {!dedicated && <PublicHeader />}
