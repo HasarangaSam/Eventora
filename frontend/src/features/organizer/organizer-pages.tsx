@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
-import { DashboardShell } from '../analytics/dashboard-shell'
-import { OrganizerEventsDashboard } from './organizer-events-dashboard'
 import { useAuthenticatedApi } from '../auth/use-authenticated-api'
+import { DashboardShell } from '../analytics/dashboard-shell'
 
 type EventOption = { id: string; title: string; status: string; startAt: string; city: string; venue?: string }
 type EventSales = EventOption & {
@@ -42,9 +41,9 @@ function StatusPill({ value }: { value: string }) {
   return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${tones[value] ?? 'bg-slate-100 text-slate-600'}`}>{value.replaceAll('_', ' ').toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase())}</span>
 }
 
-export function OrganizerEventsPage() {
-  return <DashboardShell role="ORGANIZER" pageTitle="Events"><OrganizerEventsDashboard /></DashboardShell>
-}
+export { OrganizerEventsPage } from './organizer-events-page'
+export { OrganizerCreateEventPage } from './organizer-create-event-page'
+export { OrganizerEditEventPage } from './organizer-edit-event-page'
 
 export function OrganizerSalesPage() {
   return <OrganizerSalesIndex />
@@ -113,7 +112,7 @@ export function OrganizerSalesReportPage() {
     <div className="space-y-5">
       <Link to="/organizer/sales" className="inline-flex text-sm font-semibold text-indigo-700 hover:underline">← All event reports</Link>
       {loading ? <div className={`${panel} p-10 text-center text-sm text-slate-500`}>Loading event report…</div> : error || !report ? <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{error || 'This event report is unavailable.'}</div> : <>
-        <section className={`${panel} p-5`}><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="mb-2"><StatusPill value={report.event.status} /></div><h1 className="m-0 text-2xl font-bold tracking-tight text-slate-900">{report.event.title}</h1><p className="mb-0 mt-2 text-sm text-slate-600">{dateLabel(report.event.startAt)} · {report.event.venue}, {report.event.city}</p></div><div className="flex flex-wrap gap-2"><Link to={`/organizer/participants?event=${encodeURIComponent(eventId)}`} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Participants</Link><Link to={`/organizer/events/${eventId}/check-in`} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Open check-in</Link><Link to="/organizer/events" className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Edit event</Link></div></div></section>
+        <section className={`${panel} p-5`}><div className="flex flex-wrap items-start justify-between gap-4"><div><div className="mb-2"><StatusPill value={report.event.status} /></div><h1 className="m-0 text-2xl font-bold tracking-tight text-slate-900">{report.event.title}</h1><p className="mb-0 mt-2 text-sm text-slate-600">{dateLabel(report.event.startAt)} · {report.event.venue}, {report.event.city}</p></div><div className="flex flex-wrap gap-2"><Link to={`/organizer/participants?event=${encodeURIComponent(eventId)}`} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Participants</Link><Link to={`/organizer/events/${eventId}/check-in`} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Open check-in</Link><Link to={`/organizer/events/${eventId}/edit`} className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Edit event</Link></div></div></section>
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className={`${panel} p-4`}><span className="text-sm text-slate-500">Verified sales</span>{salesCurrency.length ? salesCurrency.map((row) => <strong key={row.currency} className="mt-2 block text-xl text-slate-900">{money(row.amount, row.currency)}</strong>) : <strong className="mt-2 block text-xl text-slate-900">—</strong>}<span className="mt-1 block text-xs text-slate-500">Payments confirmed by provider</span></div>

@@ -20,7 +20,7 @@ import { AuthPage } from '../features/auth/auth-page'
 import { HomePage } from '../features/home/home-page'
 import { DashboardShell } from '../features/analytics/dashboard-shell'
 import { OrganizerOverviewPage } from '../features/organizer/organizer-overview-page'
-import { OrganizerEventsPage, OrganizerParticipantsPage, OrganizerSalesPage, OrganizerSalesReportPage } from '../features/organizer/organizer-pages'
+import { OrganizerEventsPage, OrganizerCreateEventPage, OrganizerEditEventPage, OrganizerParticipantsPage, OrganizerSalesPage, OrganizerSalesReportPage } from '../features/organizer/organizer-pages'
 import { OrganizerCheckinHubPage } from '../features/organizer/organizer-checkin-hub-page'
 import { OrganizerProfilePage } from '../features/organizer/organizer-profile-page'
 import { OrganizerNotificationsPage } from '../features/organizer/organizer-notifications-page'
@@ -64,6 +64,9 @@ function AppRoutes() {
       <Route path="/admin/legacy" element={admin(<AdminPage />)} />
       <Route path="/organizer" element={organizer(<OrganizerOverviewPage />)} />
       <Route path="/organizer/events" element={organizer(<OrganizerEventsPage />)} />
+      <Route path="/organizer/events/new" element={organizer(<OrganizerCreateEventPage />)} />
+      <Route path="/organizer/events/:eventId/edit" element={organizer(<OrganizerEditEventPage />)} />
+      <Route path="/organizer/events/:eventId" element={organizer(<OrganizerEditEventPage />)} />
       <Route path="/organizer/participants" element={organizer(<OrganizerParticipantsPage />)} />
       <Route path="/organizer/notifications" element={organizer(<OrganizerNotificationsPage />)} />
       <Route path="/organizer/sales" element={organizer(<OrganizerSalesPage />)} />

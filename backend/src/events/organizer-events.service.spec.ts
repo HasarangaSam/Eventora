@@ -62,6 +62,16 @@ describe('OrganizerEventsService', () => {
     expect(cloudinary.upload).not.toHaveBeenCalled();
   });
 
+  it('allows replacing cover image on a published event', async () => {
+    const { service, prisma, cloudinary } = setup();
+    prisma.event.findFirst.mockResolvedValue({ id: 'event-1', organizerId: 'organizer-1', status: 'PUBLISHED', coverImagePublicId: null });
+    cloudinary.upload.mockResolvedValue({ url: 'https://cdn.test/img.png', publicId: 'img-1' });
+    prisma.event.update.mockResolvedValue({});
+    const pngBuffer = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]);
+    const res = await service.replaceCover('organizer-1', 'event-1', { buffer: pngBuffer, mimetype: 'image/png' });
+    expect(res).toEqual({ coverImageUrl: 'https://cdn.test/img.png' });
+  });
+
   it('requires an active, paid ticket with inventory before publication', async () => {
     const { service, prisma } = setup();
     prisma.event.findUniqueOrThrow.mockResolvedValue({ ...baseEvent, category: { isActive: true }, ticketTypes: [] });

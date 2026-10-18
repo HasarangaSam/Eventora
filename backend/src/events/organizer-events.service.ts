@@ -261,7 +261,6 @@ export class OrganizerEventsService {
 
   async replaceCover(organizerId: string, eventId: string, file: UploadedImage) {
     const event = await this.editable(organizerId, eventId);
-    if (event.status === 'PUBLISHED') throw new ConflictException('Unpublish the event before changing its cover image');
     const detected = detectImage(file.buffer);
     if (!detected || detected !== file.mimetype) throw new BadRequestException('Only valid JPEG, PNG, and WebP images are accepted');
     const uploaded = await this.cloudinary.upload(file.buffer, detected);
@@ -286,7 +285,6 @@ export class OrganizerEventsService {
 
   async deleteCover(organizerId: string, eventId: string) {
     const event = await this.editable(organizerId, eventId);
-    if (event.status === 'PUBLISHED') throw new ConflictException('Unpublish the event before changing its cover image');
     if (!event.coverImagePublicId) return { deleted: false };
     await this.prisma.event.update({ where: { id: eventId }, data: { coverImageUrl: null, coverImagePublicId: null } });
     try {
