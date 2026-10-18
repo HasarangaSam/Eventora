@@ -13,6 +13,8 @@ import { AccountGuard } from '../auth/account.guard.js';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
 import { RequireRoles, RolesGuard } from '../auth/roles.guard.js';
 import { CategoriesService } from './categories.service.js';
+import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto.js';
+import { ensureDto } from '../common/validation/dto-validator.js';
 
 @Controller('categories')
 export class CategoriesController {
@@ -38,34 +40,25 @@ export class CategoriesController {
   @Post()
   @UseGuards(ClerkAuthGuard, AccountGuard, RolesGuard)
   @RequireRoles('ADMIN')
-  create(@Body() body: unknown) {
-    const input = objectBody(body);
-    const name = textField(input, 'name', 2, 100);
-    const slug = input.slug === undefined ? slugify(name) : textField(input, 'slug', 2, 120).toLowerCase();
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
-      throw new BadRequestException('slug must contain lowercase letters, numbers, and single hyphens');
-    }
-    return this.categories.create(name, slug, optionalDescription(input.description));
+  create(@Body() body: CreateCategoryDto) {
+    const dto = ensureDto(CreateCategoryDto, body);
+    const name = dto.name.trim();
+    const slug = dto.slug === undefined ? slugify(name) : dto.slug.trim().toLowerCase();
+    const description = dto.description?.trim() || null;
+    return this.categories.create(name, slug, description);
   }
 
   @Patch(':categoryId')
   @UseGuards(ClerkAuthGuard, AccountGuard, RolesGuard)
   @RequireRoles('ADMIN')
-  update(@Param('categoryId') id: string, @Body() body: unknown) {
-    const input = objectBody(body);
+  update(@Param('categoryId') id: string, @Body() body: UpdateCategoryDto) {
+    const dto = ensureDto(UpdateCategoryDto, body);
     const data: { name?: string; slug?: string; description?: string | null; isActive?: boolean } = {};
-    if ('name' in input) data.name = textField(input, 'name', 2, 100);
-    if ('slug' in input) {
-      data.slug = textField(input, 'slug', 2, 120).toLowerCase();
-      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(data.slug)) {
-        throw new BadRequestException('slug must contain lowercase letters, numbers, and single hyphens');
-      }
-    }
-    if ('description' in input) data.description = optionalDescription(input.description);
-    if ('isActive' in input) {
-      if (typeof input.isActive !== 'boolean') throw new BadRequestException('isActive must be a boolean');
-      data.isActive = input.isActive;
-    }
+    if (dto.name !== undefined) data.name = dto.name.trim();
+    if (dto.slug !== undefined) data.slug = dto.slug.trim().toLowerCase();
+    if (dto.description !== undefined) data.description = dto.description === null || dto.description.trim() === '' ? null : dto.description.trim();
+    if (dto.isActive !== undefined) data.isActive = dto.isActive;
+
     if (!Object.keys(data).length) throw new BadRequestException('At least one category field is required');
     return this.categories.update(id, data);
   }
@@ -76,29 +69,6 @@ export class CategoriesController {
   remove(@Param('categoryId') id: string) {
     return this.categories.remove(id);
   }
-}
-
-function objectBody(value: unknown): Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new BadRequestException('A JSON object is required');
-  }
-  return value as Record<string, unknown>;
-}
-
-function textField(body: Record<string, unknown>, field: string, min: number, max: number): string {
-  const value = body[field];
-  if (typeof value !== 'string' || value.trim().length < min || value.trim().length > max) {
-    throw new BadRequestException(`${field} must be between ${min} and ${max} characters`);
-  }
-  return value.trim();
-}
-
-function optionalDescription(value: unknown): string | null {
-  if (value === undefined || value === null || value === '') return null;
-  if (typeof value !== 'string' || value.trim().length > 2000) {
-    throw new BadRequestException('description must be at most 2000 characters');
-  }
-  return value.trim();
 }
 
 function slugify(value: string): string {

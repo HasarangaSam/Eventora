@@ -4,6 +4,8 @@ import { AccountGuard } from '../auth/account.guard.js';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
 import type { AuthenticatedRequest } from '../auth/auth.types.js';
 import { PaymentsService } from './payments.service.js';
+import { CheckoutDto } from './dto/checkout.dto.js';
+import { ensureDto } from '../common/validation/dto-validator.js';
 
 @Controller('payments')
 @UseGuards(ClerkAuthGuard, AccountGuard)
@@ -12,16 +14,15 @@ export class PaymentsController {
 
   @Post(':registrationId/checkout')
   @Throttle({ default: { limit: 15, ttl: 60000 } })
-  checkout(@Req() request: AuthenticatedRequest, @Param('registrationId') registrationId: string, @Body() body: unknown) {
-    const input = objectBody(body);
-    onlyKeys(input, ['firstName', 'lastName', 'phone', 'address', 'city', 'country']);
+  checkout(@Req() request: AuthenticatedRequest, @Param('registrationId') registrationId: string, @Body() body: CheckoutDto) {
+    const dto = ensureDto(CheckoutDto, body);
     return this.payments.createCheckout(request.eventoraUser!.id, registrationId, {
-      firstName: text(input.firstName, 'firstName', 1, 100),
-      lastName: text(input.lastName, 'lastName', 1, 100),
-      phone: text(input.phone, 'phone', 5, 32),
-      address: text(input.address, 'address', 1, 200),
-      city: text(input.city, 'city', 1, 100),
-      country: text(input.country, 'country', 2, 80),
+      firstName: dto.firstName.trim(),
+      lastName: dto.lastName.trim(),
+      phone: dto.phone.trim(),
+      address: dto.address.trim(),
+      city: dto.city.trim(),
+      country: dto.country.trim(),
     });
   }
 
@@ -44,23 +45,9 @@ export class PayHereWebhookController {
   @Post('notify')
   @HttpCode(200)
   notify(@Body() body: unknown) {
-    return this.payments.handleNotification(objectBody(body));
+    if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+      throw new BadRequestException('A form-encoded object is required');
+    }
+    return this.payments.handleNotification(body as Record<string, unknown>);
   }
-}
-
-function objectBody(value: unknown): Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new BadRequestException('A form-encoded object is required');
-  return value as Record<string, unknown>;
-}
-
-function onlyKeys(body: Record<string, unknown>, allowed: readonly string[]) {
-  const unknown = Object.keys(body).find((key) => !allowed.includes(key));
-  if (unknown) throw new BadRequestException(`Unsupported field: ${unknown}`);
-}
-
-function text(value: unknown, field: string, min: number, max: number) {
-  if (typeof value !== 'string' || value.trim().length < min || value.trim().length > max) {
-    throw new BadRequestException(`${field} must be between ${min} and ${max} characters`);
-  }
-  return value.trim();
 }

@@ -1,14 +1,15 @@
 import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
 import { EventsService } from './events.service.js';
+import { ListEventsQueryDto } from './dto/list-events-query.dto.js';
 
 @Controller('events')
 export class EventsController {
   constructor(private readonly events: EventsService) {}
 
   @Get()
-  list(@Query() query: Record<string, string | undefined>) {
-    const page = positiveInteger(query.page, 1, 10_000, 'page');
-    const pageSize = positiveInteger(query.pageSize, 12, 48, 'pageSize');
+  list(@Query() query: ListEventsQueryDto) {
+    const page = positiveInteger(query.page !== undefined ? String(query.page) : undefined, 1, 10_000, 'page');
+    const pageSize = positiveInteger(query.pageSize !== undefined ? String(query.pageSize) : undefined, 12, 48, 'pageSize');
     const search = query.search?.trim();
     if (search && search.length > 120) throw new BadRequestException('search must be at most 120 characters');
     if (query.categoryId && query.categoryId.length > 120) {
@@ -34,7 +35,7 @@ export class EventsController {
       categoryId: query.categoryId,
       from,
       to,
-      sort: sort as 'startAt' | 'newest' | 'title',
+      sort,
       direction,
     });
   }
