@@ -41,6 +41,7 @@ describe('OrganizerEventsService', () => {
     const { service, prisma } = setup();
     await expect(service.addTicketType('organizer-1', 'event-1', {
       name: 'Free', price: '0.00', currency: 'LKR', quantity: 10,
+      description: null, salesStartAt: null, salesEndAt: null, isActive: true,
     })).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.ticketType.create).not.toHaveBeenCalled();
   });
@@ -83,6 +84,7 @@ describe('OrganizerEventsService', () => {
     const { service, prisma } = setup();
     await expect(service.addSession('organizer-1', 'event-1', {
       title: 'After party', startAt: new Date('2030-01-02T12:30:00Z'), endAt: new Date('2030-01-02T13:00:00Z'),
+      description: null, speaker: null, venue: null,
     })).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.eventSession.create).not.toHaveBeenCalled();
   });

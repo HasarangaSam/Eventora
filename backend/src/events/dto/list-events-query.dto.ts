@@ -1,5 +1,6 @@
 import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { IsIsoDate } from '../../common/validation/is-iso-timestamp.decorator.js';
 
 export class ListEventsQueryDto {
   @IsOptional()
@@ -27,12 +28,12 @@ export class ListEventsQueryDto {
   categoryId?: string;
 
   @IsOptional()
-  @IsString({ message: 'from must be a string' })
-  from?: string;
+  @IsIsoDate()
+  from?: Date;
 
   @IsOptional()
-  @IsString({ message: 'to must be a string' })
-  to?: string;
+  @IsIsoDate()
+  to?: Date;
 
   @IsOptional()
   @IsIn(['startAt', 'newest', 'title'], { message: 'sort must be startAt, newest, or title' })

@@ -21,6 +21,7 @@ import { OrganizerApplicationsService } from './organizer-applications.service.j
 import { ClerkService } from '../auth/clerk.service.js';
 import {
   DecideApplicationDto,
+  ListApplicationsQueryDto,
   MarkNotificationsReadDto,
   SetUserRoleDto,
   SetUserStatusDto,
@@ -38,15 +39,9 @@ export class OrganizerApplicationsController {
   @Throttle({ default: { limit: 5, ttl: 600000 } })
   async submit(@Req() request: AuthenticatedRequest, @Body() body: SubmitOrganizerApplicationDto) {
     const dto = ensureDto(SubmitOrganizerApplicationDto, body);
-    if (!Array.isArray(dto.categoryIds) || dto.categoryIds.some((id) => typeof id !== 'string' || id.length < 1 || id.length > 64) || new Set(dto.categoryIds).size !== dto.categoryIds.length) {
-      throw new BadRequestException('Select one or more distinct Eventora categories');
-    }
-    if (!/\d{7,}/.test(dto.contactPhone)) {
-      throw new BadRequestException('contactPhone must be a valid phone number');
-    }
-    const websiteUrl = dto.websiteUrl === undefined || dto.websiteUrl === null || dto.websiteUrl === ''
-      ? null
-      : validUrl(dto.websiteUrl);
+    // categoryIds element-type, length, and uniqueness are enforced by the DTO.
+    // phone format is enforced by the DTO @Matches decorator.
+    // websiteUrl format is enforced by the DTO @IsUrl decorator.
     const profile = await this.clerk.getUser(request.clerkUserId);
     const primaryEmail = profile.primaryEmailAddress;
     if (!primaryEmail || primaryEmail.verification?.status !== 'verified') {
@@ -60,7 +55,7 @@ export class OrganizerApplicationsController {
       organizerType: dto.organizerType,
       country: dto.country.trim(),
       city: dto.city.trim(),
-      websiteUrl,
+      websiteUrl: dto.websiteUrl ?? null,
       experience: dto.experience.trim(),
       eventFrequency: dto.eventFrequency,
       expectedAttendance: dto.expectedAttendance,
@@ -75,11 +70,8 @@ export class OrganizerApplicationsController {
 
   @Get('organizer-applications')
   @RequireRoles('ADMIN')
-  list(@Query('status') status?: string) {
-    if (status && !['PENDING', 'APPROVED', 'REJECTED'].includes(status)) {
-      throw new BadRequestException('status must be PENDING, APPROVED, or REJECTED');
-    }
-    return this.applications.list(status as OrganizerApplicationStatus | undefined);
+  list(@Query() query: ListApplicationsQueryDto) {
+    return this.applications.list(query.status as OrganizerApplicationStatus | undefined);
   }
 
   @Get('admin/notifications')
@@ -92,9 +84,6 @@ export class OrganizerApplicationsController {
   @RequireRoles('ADMIN')
   markNotificationsRead(@Req() request: AuthenticatedRequest, @Body() body: MarkNotificationsReadDto) {
     const dto = ensureDto(MarkNotificationsReadDto, body);
-    if (!Array.isArray(dto.notificationIds) || dto.notificationIds.some((id) => typeof id !== 'string' || id.length < 1 || id.length > 255) || new Set(dto.notificationIds).size !== dto.notificationIds.length) {
-      throw new BadRequestException('notificationIds must contain up to 100 distinct notification IDs');
-    }
     return this.applications.markAdminNotificationsRead(request.eventoraUser!.id, dto.notificationIds);
   }
 
@@ -144,16 +133,5 @@ export class OrganizerApplicationsController {
   ) {
     const dto = ensureDto(SetUserStatusDto, body);
     return this.applications.setUserStatus(id, dto.status, request.eventoraUser!.id);
-  }
-}
-
-function validUrl(value: unknown) {
-  if (typeof value !== 'string' || value.length > 2048) throw new BadRequestException('websiteUrl must be an HTTP or HTTPS URL');
-  try {
-    const url = new URL(value);
-    if (!['http:', 'https:'].includes(url.protocol) || !url.hostname.includes('.')) throw new Error('invalid');
-    return url.toString();
-  } catch {
-    throw new BadRequestException('websiteUrl must be an HTTP or HTTPS URL');
   }
 }

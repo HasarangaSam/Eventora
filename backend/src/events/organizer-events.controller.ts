@@ -31,21 +31,16 @@ export class OrganizerEventsController {
   @Post()
   create(@Req() req: AuthenticatedRequest, @Body() body: CreateEventDto) {
     const dto = ensureDto(CreateEventDto, body);
-    const startAt = date(dto.startAt, 'startAt');
-    const endAt = date(dto.endAt, 'endAt');
-    if (dto.capacity !== undefined && dto.capacity !== null && (!Number.isSafeInteger(dto.capacity) || typeof dto.capacity !== 'number')) {
-      throw new BadRequestException('capacity must be an integer');
-    }
     return this.events.create(userId(req), {
       title: dto.title.trim(),
       categoryId: dto.categoryId.trim(),
       description: dto.description.trim(),
       venue: dto.venue.trim(),
       city: dto.city.trim(),
-      startAt,
-      endAt,
+      startAt: dto.startAt,         // already a Date from @IsIsoTimestamp
+      endAt: dto.endAt,
       timezone: dto.timezone.trim(),
-      capacity: dto.capacity,
+      capacity: dto.capacity ?? null,
     });
   }
 
@@ -61,14 +56,9 @@ export class OrganizerEventsController {
     if (dto.city !== undefined) data.city = dto.city.trim();
     if (dto.timezone !== undefined) data.timezone = dto.timezone.trim();
     if (dto.categoryId !== undefined) data.categoryId = dto.categoryId.trim();
-    if (dto.startAt !== undefined) data.startAt = date(dto.startAt, 'startAt');
-    if (dto.endAt !== undefined) data.endAt = date(dto.endAt, 'endAt');
-    if (dto.capacity !== undefined) {
-      if (dto.capacity !== null && (!Number.isSafeInteger(dto.capacity) || typeof dto.capacity !== 'number')) {
-        throw new BadRequestException('capacity must be an integer');
-      }
-      data.capacity = dto.capacity;
-    }
+    if (dto.startAt !== undefined) data.startAt = dto.startAt;  // already a Date
+    if (dto.endAt !== undefined) data.endAt = dto.endAt;
+    if (dto.capacity !== undefined) data.capacity = dto.capacity;
     if (!Object.keys(data).length) throw new BadRequestException('At least one event field is required');
     return this.events.update(userId(req), eventId, data);
   }
@@ -86,15 +76,13 @@ export class OrganizerEventsController {
   @Post(':eventId/sessions')
   addSession(@Req() req: AuthenticatedRequest, @Param('eventId') eventId: string, @Body() body: CreateSessionDto) {
     const dto = ensureDto(CreateSessionDto, body);
-    const startAt = date(dto.startAt, 'startAt');
-    const endAt = date(dto.endAt, 'endAt');
     return this.events.addSession(userId(req), eventId, {
       title: dto.title.trim(),
-      description: dto.description === null || dto.description === undefined || dto.description === '' ? null : optionalText(dto.description, 'description', 2000),
-      speaker: dto.speaker === null || dto.speaker === undefined || dto.speaker === '' ? null : optionalText(dto.speaker, 'speaker', 200),
-      venue: dto.venue === null || dto.venue === undefined || dto.venue === '' ? null : optionalText(dto.venue, 'venue', 200),
-      startAt,
-      endAt,
+      description: dto.description?.trim() || null,
+      speaker: dto.speaker?.trim() || null,
+      venue: dto.venue?.trim() || null,
+      startAt: dto.startAt,         // already a Date
+      endAt: dto.endAt,
     } as Required<Parameters<OrganizerEventsService['addSession']>[2]>);
   }
 
@@ -103,11 +91,11 @@ export class OrganizerEventsController {
     const dto = ensureDto(UpdateSessionDto, body);
     const data: Record<string, unknown> = {};
     if (dto.title !== undefined) data.title = dto.title.trim();
-    if (dto.description !== undefined) data.description = dto.description === null || dto.description === '' ? null : optionalText(dto.description, 'description', 2000);
-    if (dto.speaker !== undefined) data.speaker = dto.speaker === null || dto.speaker === '' ? null : optionalText(dto.speaker, 'speaker', 200);
-    if (dto.venue !== undefined) data.venue = dto.venue === null || dto.venue === '' ? null : optionalText(dto.venue, 'venue', 200);
-    if (dto.startAt !== undefined) data.startAt = date(dto.startAt, 'startAt');
-    if (dto.endAt !== undefined) data.endAt = date(dto.endAt, 'endAt');
+    if (dto.description !== undefined) data.description = dto.description?.trim() || null;
+    if (dto.speaker !== undefined) data.speaker = dto.speaker?.trim() || null;
+    if (dto.venue !== undefined) data.venue = dto.venue?.trim() || null;
+    if (dto.startAt !== undefined) data.startAt = dto.startAt;  // already a Date
+    if (dto.endAt !== undefined) data.endAt = dto.endAt;
     if (!Object.keys(data).length) throw new BadRequestException('At least one session field is required');
     return this.events.updateSession(userId(req), eventId, sessionId, data);
   }
@@ -117,18 +105,16 @@ export class OrganizerEventsController {
   @Post(':eventId/ticket-types')
   addTicketType(@Req() req: AuthenticatedRequest, @Param('eventId') eventId: string, @Body() body: CreateTicketTypeDto) {
     const dto = ensureDto(CreateTicketTypeDto, body);
-    if (dto.quantity === undefined) throw new BadRequestException('quantity is required');
-    const input: Record<string, unknown> = {
+    return this.events.addTicketType(userId(req), eventId, {
       name: dto.name.trim(),
-      description: dto.description === null || dto.description === undefined || dto.description === '' ? null : optionalText(dto.description, 'description', 2000),
+      description: dto.description?.trim() || null,
       price: dto.price,
       currency: dto.currency.trim().toUpperCase(),
       quantity: dto.quantity,
-      salesStartAt: dto.salesStartAt ? date(dto.salesStartAt, 'salesStartAt') : null,
-      salesEndAt: dto.salesEndAt ? date(dto.salesEndAt, 'salesEndAt') : null,
-    };
-    if (dto.isActive !== undefined) input.isActive = dto.isActive;
-    return this.events.addTicketType(userId(req), eventId, input as Required<Parameters<OrganizerEventsService['addTicketType']>[2]>);
+      salesStartAt: dto.salesStartAt ?? null,   // already Date | null from DTO
+      salesEndAt: dto.salesEndAt ?? null,
+      isActive: dto.isActive,
+    } as Required<Parameters<OrganizerEventsService['addTicketType']>[2]>);
   }
 
   @Patch(':eventId/ticket-types/:ticketTypeId')
@@ -136,12 +122,12 @@ export class OrganizerEventsController {
     const dto = ensureDto(UpdateTicketTypeDto, body);
     const data: Record<string, unknown> = {};
     if (dto.name !== undefined) data.name = dto.name.trim();
-    if (dto.description !== undefined) data.description = dto.description === null || dto.description === '' ? null : optionalText(dto.description, 'description', 2000);
+    if (dto.description !== undefined) data.description = dto.description?.trim() || null;
     if (dto.price !== undefined) data.price = dto.price;
     if (dto.currency !== undefined) data.currency = dto.currency.trim().toUpperCase();
     if (dto.quantity !== undefined) data.quantity = dto.quantity;
-    if (dto.salesStartAt !== undefined) data.salesStartAt = dto.salesStartAt === null ? null : date(dto.salesStartAt, 'salesStartAt');
-    if (dto.salesEndAt !== undefined) data.salesEndAt = dto.salesEndAt === null ? null : date(dto.salesEndAt, 'salesEndAt');
+    if (dto.salesStartAt !== undefined) data.salesStartAt = dto.salesStartAt; // already Date | null
+    if (dto.salesEndAt !== undefined) data.salesEndAt = dto.salesEndAt;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
     if (!Object.keys(data).length) throw new BadRequestException('At least one ticket type field is required');
     return this.events.updateTicketType(userId(req), eventId, ticketTypeId, data);
@@ -168,16 +154,3 @@ export class OrganizerEventsController {
 }
 
 function userId(req: AuthenticatedRequest) { if (!req.eventoraUser) throw new BadRequestException('Authenticated account is required'); return req.eventoraUser.id; }
-
-function optionalText(value: unknown, field: string, max: number): string | null {
-  if (value === null || value === '' || value === undefined) return null;
-  if (typeof value !== 'string' || value.trim().length < 1 || value.trim().length > max) throw new BadRequestException(`${field} must be between 1 and ${max} characters`);
-  return value.trim();
-}
-
-function date(value: unknown, field: string): Date {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) throw new BadRequestException(`${field} must be an ISO timestamp with timezone`);
-  const parsed = new Date(value);
-  if (!Number.isFinite(parsed.getTime())) throw new BadRequestException(`${field} must be a valid ISO timestamp`);
-  return parsed;
-}

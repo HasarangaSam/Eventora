@@ -1,6 +1,7 @@
 import {
   ArrayMaxSize,
   ArrayMinSize,
+  ArrayUnique,
   Equals,
   IsArray,
   IsIn,
@@ -8,9 +9,11 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUrl,
   Length,
   Matches,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
@@ -52,6 +55,11 @@ export class SubmitOrganizerApplicationDto {
   city!: string;
 
   @IsOptional()
+  @IsUrl(
+    { protocols: ['http', 'https'], require_tld: true, require_protocol: true },
+    { message: 'websiteUrl must be an HTTP or HTTPS URL' },
+  )
+  @MaxLength(2048, { message: 'websiteUrl must be an HTTP or HTTPS URL' })
   websiteUrl?: string | null;
 
   @IsString()
@@ -72,6 +80,9 @@ export class SubmitOrganizerApplicationDto {
   @IsArray({ message: 'Select one or more distinct Eventora categories' })
   @ArrayMinSize(1, { message: 'Select one or more distinct Eventora categories' })
   @ArrayMaxSize(20, { message: 'Select one or more distinct Eventora categories' })
+  @ArrayUnique({ message: 'Select one or more distinct Eventora categories' })
+  @IsString({ each: true, message: 'Select one or more distinct Eventora categories' })
+  @MaxLength(64, { each: true, message: 'Select one or more distinct Eventora categories' })
   categoryIds!: string[];
 
   @Equals(true, { message: 'Both application confirmations are required' })
@@ -104,5 +115,14 @@ export class SetUserStatusDto {
 export class MarkNotificationsReadDto {
   @IsArray({ message: 'notificationIds must contain up to 100 distinct notification IDs' })
   @ArrayMaxSize(100, { message: 'notificationIds must contain up to 100 distinct notification IDs' })
+  @ArrayUnique({ message: 'notificationIds must contain up to 100 distinct notification IDs' })
+  @IsString({ each: true, message: 'each notificationId must be a string' })
+  @MaxLength(255, { each: true, message: 'each notificationId must be at most 255 characters' })
   notificationIds!: string[];
+}
+
+export class ListApplicationsQueryDto {
+  @IsOptional()
+  @IsIn(['PENDING', 'APPROVED', 'REJECTED'], { message: 'status must be PENDING, APPROVED, or REJECTED' })
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
 }

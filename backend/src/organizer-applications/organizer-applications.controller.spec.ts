@@ -10,9 +10,10 @@ describe('OrganizerApplicationsController', () => {
   const request = { clerkUserId: 'clerk-1', eventoraUser: user } as AuthenticatedRequest;
   const body = {
     organizationName: 'Community events', description: 'I want to organize events for my community.',
-    contactName: 'Applicant Name', contactPhone: '+94770000000', organizerType: 'INDIVIDUAL',
+    contactName: 'Applicant Name', contactPhone: '+94770000000',
+    organizerType: 'INDIVIDUAL' as const,
     country: 'Sri Lanka', city: 'Colombo', websiteUrl: '', experience: 'I am a beginner organizer.',
-    eventFrequency: 'ONE_TIME', expectedAttendance: 80, categoryIds: ['category-1'],
+    eventFrequency: 'ONE_TIME' as const, expectedAttendance: 80, categoryIds: ['category-1'],
     accuracyConfirmed: true, rulesAccepted: true,
   };
 
@@ -45,7 +46,7 @@ describe('OrganizerApplicationsController', () => {
   it('does not accept a client-supplied applicant email or unchecked agreements', async () => {
     const controller = new OrganizerApplicationsController({} as OrganizerApplicationsService, {} as ClerkService);
 
-    await expect(controller.submit(request, { ...body, applicantEmail: 'spoof@example.com' })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.submit(request, { ...body, applicantEmail: 'spoof@example.com' } as any)).rejects.toBeInstanceOf(BadRequestException);
     await expect(controller.submit(request, { ...body, rulesAccepted: false })).rejects.toBeInstanceOf(BadRequestException);
   });
 });
