@@ -1,0 +1,77 @@
+# ==============================================================================
+# Docker Compose: Runs our entire full-stack system with 1 command!
+#
+# Usage:
+#   To start everything: docker compose up --build
+#   To stop everything:  docker compose down
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # 1. Local PostgreSQL Database
+  # Lets you test the app completely offline without connecting to Supabase.
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: eventora-db
+    restart: always
+    environment:
+      POSTGRES_USER: eventora_user
+      POSTGRES_PASSWORD: eventora_password
+      POSTGRES_DB: eventora
+    ports:
+      - "5432:5432"
+    volumes:
+      # Saves database data on your computer so it isn't lost when containers stop
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventora_user -d eventora"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # 2. NestJS Backend API
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eventora-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      FRONTEND_ORIGIN: http://localhost:80
+      # Connects to the 'postgres' service container defined above
+      DATABASE_URL: postgresql://eventora_user:eventora_password@postgres:5432/eventora?schema=public
+      CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY:-}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
+      PAYHERE_MERCHANT_ID: ${PAYHERE_MERCHANT_ID:-}
+      PAYHERE_MERCHANT_SECRET: ${PAYHERE_MERCHANT_SECRET:-}
+      TICKET_QR_SECRET: ${TICKET_QR_SECRET:-default-development-secret-key-32bytes!}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------------------
+  # 3. React Frontend (served via Nginx)
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:3000/api
+        VITE_CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY:-}
+    container_name: eventora-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+# Persistent volume for PostgreSQL database files
+volumes:
+  postgres_data:

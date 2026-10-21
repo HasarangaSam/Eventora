@@ -12,7 +12,7 @@ describe('OrganizerApplicationsController', () => {
     organizationName: 'Community events', description: 'I want to organize events for my community.',
     contactName: 'Applicant Name', contactPhone: '+94770000000',
     organizerType: 'INDIVIDUAL' as const,
-    country: 'Sri Lanka', city: 'Colombo', websiteUrl: '', experience: 'I am a beginner organizer.',
+    country: 'Sri Lanka', city: 'Colombo', websiteUrl: 'https://example.com', experience: 'I am a beginner organizer.',
     eventFrequency: 'ONE_TIME' as const, expectedAttendance: 80, categoryIds: ['category-1'],
     accuracyConfirmed: true, rulesAccepted: true,
   };
