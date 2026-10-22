@@ -46,6 +46,10 @@ jobs:
         working-directory: ./backend
         run: npx prisma validate
 
+      - name: Backend - Generate Prisma Client
+        working-directory: ./backend
+        run: npx prisma generate
+
       - name: Backend - Run Linter (Oxlint)
         working-directory: ./backend
         run: npm run lint
