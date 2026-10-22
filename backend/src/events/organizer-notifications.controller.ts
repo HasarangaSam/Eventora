@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Patch, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Req, UseGuards } from '@nestjs/common';
 import { AccountGuard } from '../auth/account.guard.js';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
 import { RequireRoles, RolesGuard } from '../auth/roles.guard.js';

@@ -64,7 +64,7 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
     if (!snapshots.length) return 0;
 
     const ids = snapshots.map(({ id }) => id);
-    for (const ticketTypeId of [...new Set(snapshots.map(({ ticketTypeId }) => ticketTypeId))].sort()) {
+    for (const ticketTypeId of [...new Set(snapshots.map(({ ticketTypeId }) => ticketTypeId))].sort((a, b) => a.localeCompare(b))) {
       await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "TicketType" WHERE "id" = ${ticketTypeId} FOR UPDATE`;
     }
     const rows = await tx.$queryRaw<LockedReservation[]>`

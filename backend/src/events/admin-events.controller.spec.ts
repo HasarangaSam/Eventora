@@ -8,10 +8,10 @@ describe('AdminEventsController', () => {
   const events = { listForAdmin: vi.fn(), cancelAsAdmin: vi.fn() };
   const controller = new AdminEventsController(events as unknown as OrganizerEventsService);
 
-  it('rejects unsupported event status filters', () => {
+  it('rejects unsupported event status filters', async () => {
     // The global ValidationPipe rejects invalid enums; in a unit test we call ensureDto path via the DTO directly.
     // An invalid status value would be stripped by whitelist, so just verify valid statuses pass through.
-    controller.list({ status: 'DRAFT' });
+    await controller.list({ status: 'DRAFT' });
     expect(events.listForAdmin).toHaveBeenCalledWith('DRAFT');
   });
 

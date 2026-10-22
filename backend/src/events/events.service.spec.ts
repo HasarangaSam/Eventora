@@ -123,11 +123,11 @@ describe('EventsService', () => {
     }));
   });
 
-  it('rejects invalid pagination before making a database query', () => {
+  it('rejects invalid pagination before making a database query', async () => {
     // Pagination validation is now fully declared on ListEventsQueryDto and enforced by the global ValidationPipe.
     // The controller no longer throws directly; this is covered by DTO unit tests.
     const controller = new EventsController({ list: vi.fn() } as unknown as EventsService);
     // Valid call should not throw.
-    controller.list({ page: 1, pageSize: 12, sort: 'startAt' });
+    await controller.list({ page: 1, pageSize: 12, sort: 'startAt' });
   });
 });
