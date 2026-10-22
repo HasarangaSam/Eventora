@@ -95,8 +95,13 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          npm install
-          npx prisma migrate deploy
+          if [ -z "$DATABASE_URL" ]; then
+            echo "⚠️ DATABASE_URL secret is not set in GitHub Secrets. Skipping automatic migrations."
+            echo "👉 To enable: GitHub Repo > Settings > Secrets and variables > Actions > New repository secret > DATABASE_URL"
+          else
+            npm install
+            npx prisma migrate deploy
+          fi
 
       # STEP B: Trigger hosting deployment (e.g. Render, Railway, or Vercel webhook)
       - name: Trigger Production Deployment
