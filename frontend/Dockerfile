@@ -6,9 +6,9 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files and install exact dependencies
+# Copy package files and install dependencies
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # Copy the rest of the frontend code
 COPY . .

@@ -10,6 +10,7 @@
 - **Transactional Outbox Pattern:** High-reliability email delivery pipeline committed atomically with business transactions, processed asynchronously by a resilient background worker with exponential backoff and inline CID QR rendering.
 - **Zero-Trust RBAC Pipeline:** Multi-tier server-side authorization cascade (`ClerkAuthGuard` → `AccountGuard` → `RolesGuard` → `OrganizerApplicationGuard`). Roles are strictly database-owned; client claims are never trusted.
 - **Multi-Tier Rate Limiting & Scalper Protection:** Global burst (15 req/s) and sustained (100 req/m) throttling via `@nestjs/throttler` with Bearer token session isolation and strict limits on ticket reservations to prevent scalping bots.
+- **Containerized Architecture & Zero-Downtime CI/CD:** Production-ready multi-stage Docker builds for NestJS and React with Alpine Nginx SPA fallback (`try_files`), unified local Docker Compose orchestration, and automated GitHub Actions pipeline executing lints, typechecks, schema validations, Vitest tests, and migrations.
 - **Role-Based Workspaces:** Public event browsing is separated from practical organizer and admin workspaces, with clear navigation, responsive tables, operational summaries, and a stable loading state while signed-in roles are resolved.
 - **Actionable Notifications:** Admins and organizers get role-scoped activity feeds, unread counts, and persistent per-account mark-as-read controls. Organizer updates cover bookings, payment issues, capacity milestones, and platform cancellations.
 - **Event Operations:** Organizers can manage events, review participant and sales details, and run camera-based or manual ticket check-in with `@zxing/browser`.
@@ -22,6 +23,9 @@
 - [Architecture Overview](#architecture-overview)
 - [Tech Stack](#tech-stack)
 - [Key Engineering Highlights](#key-engineering-highlights)
+- [Docker & Containerization](#docker--containerization)
+- [CI/CD Pipeline (GitHub Actions)](#cicd-pipeline-github-actions)
+- [Hosting & Production Deployment](#hosting--production-deployment)
 - [Backend Modules](#backend-modules)
 - [Frontend Pages & Routes](#frontend-pages--routes)
 - [Database Schema](#database-schema)
@@ -113,6 +117,15 @@ Roles are **database-owned** and enforced server-side — the frontend never sup
 | **Recharts** | ^3.10 | Analytics charts (Area, Bar, Pie) |
 | **@zxing/browser** | ^0.2 | Camera-based QR code scanning |
 | **Tailwind CSS** | ^4.3 | Utility-first styling across the frontend |
+
+### DevOps & Infrastructure
+| Technology | Purpose |
+|---|---|
+| **Docker** | Multi-stage containerization for NestJS API and React SPA |
+| **Docker Compose** | One-command local orchestration with PostgreSQL, backend, and frontend |
+| **Nginx** (Alpine) | Production web server with gzip compression and SPA client-side fallback |
+| **GitHub Actions** | Automated CI/CD (linting, schema validation, testing, deployment triggers) |
+| **Supabase** | Managed PostgreSQL database with session connection pooling |
 
 ---
 
@@ -437,9 +450,115 @@ All analytics use **real database aggregates** — no mocked or fabricated data.
 
 ---
 
+## Docker & Containerization
+
+Eventora is fully containerized with production-ready, multi-stage Docker builds designed for low memory footprints, security, and reproducibility.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                         docker-compose.yml                             │
+│                                                                        │
+│  ┌───────────────────┐  ┌────────────────────┐  ┌───────────────────┐  │
+│  │     postgres      │  │      backend       │  │     frontend      │  │
+│  │ (postgres:16-alp) │  │  (NestJS Node 22)  │  │  (Alpine Nginx)   │  │
+│  │    Port 5432      │◄─┼─    Port 3000      │◄─┼─    Port 80       │  │
+│  │  Persistent Data  │  │  Health: /api/heal │  │  SPA /index.html  │  │
+│  └───────────────────┘  └────────────────────┘  └───────────────────┘  │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1. Backend Multi-Stage Build (`backend/Dockerfile`)
+- **Stage 1 (Builder):** Uses `node:22-alpine` with OpenSSL. Installs dependencies (`npm ci`), runs `npx prisma generate` to build type-safe DB clients, compiles TypeScript (`npm run build`), and prunes devDependencies (`npm prune --omit=dev`).
+- **Stage 2 (Runner):** Minimal `node:22-alpine` production image. Runs as an unprivileged non-root user (`USER node`). Uses `dumb-init` as PID 1 to properly handle UNIX process termination signals (`SIGTERM`/`SIGINT`), ensuring NestJS's `enableShutdownHooks()` safely finishes in-flight requests before shutdown.
+
+### 2. Frontend Multi-Stage Build & Nginx SPA Routing (`frontend/Dockerfile`)
+- **Stage 1 (Builder):** Compiles React 19 and Tailwind CSS v4 assets with Vite into optimized static files (`/app/dist`).
+- **Stage 2 (Runner):** Lightweight `nginx:1.27-alpine` web server.
+- **Client-Side Routing Fallback (`nginx.conf`):** Configured with `try_files $uri $uri/ /index.html;`. Because React Router manages URLs client-side, direct navigation or browser refreshes on routes like `/discover`, `/organizer`, or `/account` fallback cleanly to `index.html` instead of returning HTTP 404. Also enables Gzip compression and long-term asset caching headers.
+
+### 3. Local Full-Stack Orchestration (`docker-compose.yml`)
+Spins up the complete Eventora ecosystem with a single command:
+```sh
+docker compose up --build
+```
+Includes a healthy PostgreSQL 16 container, the NestJS API with automatic database dependency checks, and the Nginx React frontend.
+
+---
+
+## CI/CD Pipeline (GitHub Actions)
+
+Eventora uses an automated GitHub Actions pipeline ([`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml)) implementing strict quality gates and continuous deployment:
+
+```
+ [ Pull Request / Push to main ]
+               │
+               ▼
+ ┌──────────────────────────────────────────────┐
+ │ JOB 1: Code Quality & Automated Tests        │
+ │ ├── Checkout repository & Setup Node.js 22   │
+ │ ├── Backend: npm ci & prisma validate        │
+ │ ├── Backend: Oxlint type-aware linting       │
+ │ ├── Backend: Vitest unit & integration tests │
+ │ ├── Frontend: npm ci & Oxlint                │
+ │ └── Frontend: tsc -b && vite build test      │
+ └──────────────────────┬───────────────────────┘
+                        │
+                        ▼ (On merge to main)
+ ┌──────────────────────────────────────────────┐
+ │ JOB 2: Continuous Deployment & Migration     │
+ │ ├── Pre-deploy: npx prisma migrate deploy    │
+ │ └── Trigger Zero-Downtime Container Rolling  │
+ └──────────────────────────────────────────────┘
+```
+
+### Zero-Downtime Database Migration Pattern
+In production CD, `npx prisma migrate deploy` executes **before** the new container version is routed live traffic. This ensures the database schema is updated safely before new application instances attempt to query new fields.
+
+---
+
+## Hosting & Production Deployment
+
+Eventora is designed for cost-effective, high-availability cloud hosting:
+
+| Component | Recommended Host | Why? |
+|---|---|---|
+| **Frontend SPA** | **Vercel** / **Cloudflare Pages** | Global Anycast Edge CDN, instant global invalidation, free SSL, and zero server maintenance. |
+| **Backend API** | **Render** / **Railway** / **Fly.io** | Automated Docker container builds, persistent background processes, health check monitoring at `/api/health`. |
+| **Database** | **Supabase PostgreSQL** | Managed Postgres with automated backups and PgBouncer connection pooling on port 5432. |
+
+### Production Webhooks
+In production, external webhook URLs are registered directly in third-party dashboards:
+- **PayHere Payment Notifications:** `https://api.yourdomain.com/api/webhooks/payhere/notify`
+- **Clerk User Synchronization:** `https://api.yourdomain.com/api/auth/webhooks/clerk`
+
+Both endpoints verify incoming cryptographic signatures (`HMAC-SHA256` with `crypto.timingSafeEqual`) to prevent spoofing.
+
+---
+
 ## Getting Started
 
-### Prerequisites
+### Option A: Quickstart with Docker Compose (Fastest & Zero Setup)
+
+If you have Docker Desktop installed, run the entire stack with a single command:
+
+```sh
+# 1. Clone the repository
+git clone <repo>
+cd eventora
+
+# 2. Build and start all services (PostgreSQL, Backend API, Frontend Nginx)
+docker compose up --build
+```
+
+- **Frontend:** [http://localhost:80](http://localhost:80)
+- **Backend API:** [http://localhost:3000/api](http://localhost:3000/api)
+- **Health Check:** [http://localhost:3000/api/health](http://localhost:3000/api/health)
+
+---
+
+### Option B: Manual Local Development (Node.js)
+
+#### Prerequisites
 - Node.js 20+
 - npm
 - Supabase PostgreSQL project (Session Pooler URL)

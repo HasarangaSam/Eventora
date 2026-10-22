@@ -40,7 +40,7 @@ jobs:
       # Step 3: Backend checks
       - name: Backend - Install dependencies
         working-directory: ./backend
-        run: npm ci
+        run: npm install
 
       - name: Backend - Validate Prisma database schema
         working-directory: ./backend
@@ -57,7 +57,7 @@ jobs:
       # Step 4: Frontend checks
       - name: Frontend - Install dependencies
         working-directory: ./frontend
-        run: npm ci
+        run: npm install
 
       - name: Frontend - Run Linter
         working-directory: ./frontend
@@ -91,7 +91,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          npm ci
+          npm install
           npx prisma migrate deploy
 
       # STEP B: Trigger hosting deployment (e.g. Render, Railway, or Vercel webhook)

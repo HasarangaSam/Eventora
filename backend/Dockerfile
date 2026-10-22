@@ -16,8 +16,8 @@ COPY package*.json ./
 COPY prisma ./prisma/
 COPY prisma.config.ts tsconfig*.json ./
 
-# 2. Run a clean install of all dependencies (uses exact versions from package-lock.json)
-RUN npm ci
+# 2. Install dependencies (handles any lockfile differences across OS)
+RUN npm install
 
 # 3. Generate the Prisma Client code (safe to do without a live database)
 RUN npx prisma generate

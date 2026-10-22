@@ -1,5 +1,5 @@
 export const PLACEHOLDER_IMAGES = {
-  hero: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1600&q=80',
+  hero: 'https://explorerevents.ae/hs-fs/hubfs/Event%20Management.webp?width=2560&height=1496&name=Event%20Management.webp',
   music: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1200&q=80',
   tech: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80',
   food: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1200&q=80',
