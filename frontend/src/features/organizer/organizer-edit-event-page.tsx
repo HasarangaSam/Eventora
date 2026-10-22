@@ -101,7 +101,7 @@ export function OrganizerEditEventPage() {
         startAt: toLocal(data.startAt),
         endAt: toLocal(data.endAt),
       }))
-    } catch (err) {
+    } catch {
       toast.error('Loading Error', 'Could not load event data.')
       navigate('/organizer/events')
     } finally {

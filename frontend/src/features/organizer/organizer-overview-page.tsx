@@ -40,7 +40,8 @@ export function OrganizerOverviewPage() {
   }, [events])
   const confirmed = events.reduce((total, event) => total + event.registrations.confirmed, 0)
   const tickets = events.reduce((total, event) => total + event.tickets.issued, 0)
-  const upcoming = events.filter((event) => event.status === 'PUBLISHED' && new Date(event.startAt).getTime() >= Date.now()).sort((a, b) => a.startAt.localeCompare(b.startAt)).slice(0, 5)
+  const now = useMemo(() => Date.now(), [])
+  const upcoming = events.filter((event) => event.status === 'PUBLISHED' && new Date(event.startAt).getTime() >= now).sort((a, b) => a.startAt.localeCompare(b.startAt)).slice(0, 5)
   const needsAttention = events.filter((event) => event.status === 'DRAFT' || event.registrations.pending > 0 || (event.status === 'PUBLISHED' && event.capacity !== null && event.ticketsSold >= event.capacity)).slice(0, 4)
 
   return <DashboardShell role="ORGANIZER" pageTitle="Organizer overview">
