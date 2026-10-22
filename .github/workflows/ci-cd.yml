@@ -21,8 +21,6 @@ jobs:
   test-and-lint:
     name: Code Quality & Automated Tests
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/eventora?schema=public'
 
     steps:
       # Step 1: Download the repository code

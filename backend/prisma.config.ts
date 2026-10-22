@@ -6,8 +6,9 @@ export default defineConfig({
   migrations: {
     path: 'prisma/migrations',
   },
-  // Generation and validation work without a database connection, but require a valid URL format.
-  datasource: {
-    url: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/eventora?schema=public',
-  },
+  ...(process.env.DATABASE_URL ? {
+    datasource: {
+      url: process.env.DATABASE_URL,
+    },
+  } : {}),
 });
