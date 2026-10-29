@@ -16,11 +16,12 @@ I built this project to move beyond basic CRUD applications and learn how to sol
   - [3. Cryptographic Ticket QR Generation & Validation](#3-cryptographic-ticket-qr-generation--validation)
   - [4. Safe Payment Webhook Reconciliation](#4-safe-payment-webhook-reconciliation)
   - [5. Zero-Trust Role Authorization](#5-zero-trust-role-authorization)
+- [Docker & Containerization](#docker--containerization)
 - [Project Structure](#project-structure)
 - [Local Setup & Getting Started](#local-setup--getting-started)
 - [Environment Variables](#environment-variables)
 - [Available Scripts](#available-scripts)
-- [What I Learned & Future Improvements](#what-i-learned--future-improvements)
+- [What I Learned](#what-i-learned)
 
 ---
 
@@ -138,6 +139,37 @@ Payment gateways communicate via asynchronous webhooks that can arrive late, out
 
 ---
 
+## Docker & Containerization
+
+Eventora is containerized using multi-stage Docker builds and an orchestrated local setup:
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                          docker-compose.yml                            │
+│                                                                        │
+│   ┌────────────────────┐   ┌───────────────────┐   ┌────────────────┐  │
+│   │   postgres:16      │   │  NestJS Backend   │   │  React Nginx   │  │
+│   │   (Database)       │◄──┼── (API port 3000) ┼───┼─  (port 80)    │  │
+│   │   Port 5432        │   │   Node 22 Runner  │   │  SPA Fallback  │  │
+│   └────────────────────┘   └───────────────────┘   └────────────────┘  │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Backend Multi-Stage Build (`backend/Dockerfile`):**
+  - **Stage 1 (Builder):** Installs packages, generates the Prisma client with OpenSSL, compiles TypeScript, and prunes development dependencies.
+  - **Stage 2 (Runner):** Uses a minimal `node:22-alpine` image running as an unprivileged `node` user with `dumb-init` to handle process termination signals (`SIGTERM`) gracefully.
+- **Frontend Multi-Stage Build & Nginx (`frontend/Dockerfile`):**
+  - Builds the React 19 single-page application into optimized static assets (`dist/`).
+  - Serves files using a lightweight `nginx:alpine` image—Node.js is completely excluded from the production image.
+  - **SPA Fallback Rule (`frontend/nginx.conf`):** Uses `try_files $uri $uri/ /index.html;` so direct page refreshes on client-side routes (like `/discover` or `/organizer`) return `/index.html` instead of an HTTP 404.
+- **Local Compose Orchestration (`docker-compose.yml`):**
+  Spins up the full stack (local PostgreSQL, NestJS API, and Nginx frontend) with automated health checks using one command:
+  ```bash
+  docker compose up --build
+  ```
+
+---
+
 ## Project Structure
 
 ```text
@@ -174,17 +206,34 @@ eventora/
 
 ## Local Setup & Getting Started
 
-### Prerequisites
+### Option A: Docker Compose (Fastest & Zero Local DB Setup)
 
+If you have Docker Desktop installed, you can run the database, backend, and frontend together:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/HasarangaSam/Eventora.git
+cd Eventora
+
+# 2. Build and run all services
+docker compose up --build
+```
+- Frontend: `http://localhost:80`
+- Backend API: `http://localhost:3000/api`
+- Health check: `http://localhost:3000/api/health`
+
+---
+
+### Option B: Manual Local Development (Node.js)
+
+#### Prerequisites
 - **Node.js** (v20 or v22 recommended)
 - **npm**
 - **Git**
 - A free **Supabase** project (or local PostgreSQL instance)
 - A free **Clerk** account for authentication
 
----
-
-### Step 1: Clone the Repository
+#### Step 1: Clone the Repository
 
 ```bash
 git clone https://github.com/HasarangaSam/Eventora.git
@@ -193,7 +242,7 @@ cd Eventora
 
 ---
 
-### Step 2: Configure Backend
+#### Step 2: Configure Backend
 
 ```bash
 cd backend
@@ -223,7 +272,7 @@ The backend will run on `http://localhost:3000/api`. You can test health at `htt
 
 ---
 
-### Step 3: Configure Frontend
+#### Step 3: Configure Frontend
 
 In a second terminal:
 
@@ -247,9 +296,11 @@ npm run dev
 
 Open `http://localhost:5173` in your browser.
 
+> **Note:** If you start the frontend before the backend is running, Vite's proxy will show `[vite] http proxy error: ECONNREFUSED`. Simply ensure the backend is running on port 3000 in your first terminal.
+
 ---
 
-### Step 4: Provisioning an Admin User (Optional)
+#### Step 4: Provisioning an Admin User (Optional)
 
 1. Sign up on the frontend using your Clerk account.
 2. Find your Clerk User ID (e.g., `user_2t...`) in your Clerk Dashboard or your database `User` table.
