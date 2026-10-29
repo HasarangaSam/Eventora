@@ -1,15 +1,7 @@
-# ==============================================================================
-# Docker Compose: Runs our entire full-stack system with 1 command!
-#
-# Usage:
-#   To start everything: docker compose up --build
-#   To stop everything:  docker compose down
-# ==============================================================================
-
 services:
   # ----------------------------------------------------------------------------
   # 1. Local PostgreSQL Database
-  # Lets you test the app completely offline without connecting to Supabase.
+  # Test the app completely offline without connecting to Supabase.
   # ----------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine

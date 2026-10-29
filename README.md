@@ -1,635 +1,263 @@
-# Eventora — Premium Events & Ticketing Platform
+# Eventora — Event Discovery & Ticketing Platform
 
-**Version 1**
+Eventora is a full-stack event discovery and ticketing web application built with **NestJS**, **React 19**, **PostgreSQL (Prisma 7)**, **Clerk Authentication**, and **PayHere Payments**.
 
-> A full-stack, production-grade event ticketing platform built with NestJS, React 19, PostgreSQL (Supabase), Clerk auth, and PayHere payments. Designed with security-first principles, transactional inventory management, and a premium consumer UI.
-
-### 🎯 Key Engineering Highlights for Recruiters & Technical Reviewers
-- **Concurrency Control & Zero Overselling:** Guaranteed transactional inventory locking via PostgreSQL `SELECT ... FOR UPDATE SKIP LOCKED` combined with strict database-clock reservation expiry (10-minute hold window).
-- **Cryptographic Security & Timing Safety:** HMAC-SHA256 signed ticket QR tokens with SHA-256 storage hashes; `crypto.timingSafeEqual` prevents timing attacks on both ticket check-in and PayHere gateway webhook signatures.
-- **Transactional Outbox Pattern:** High-reliability email delivery pipeline committed atomically with business transactions, processed asynchronously by a resilient background worker with exponential backoff and inline CID QR rendering.
-- **Zero-Trust RBAC Pipeline:** Multi-tier server-side authorization cascade (`ClerkAuthGuard` → `AccountGuard` → `RolesGuard` → `OrganizerApplicationGuard`). Roles are strictly database-owned; client claims are never trusted.
-- **Multi-Tier Rate Limiting & Scalper Protection:** Global burst (15 req/s) and sustained (100 req/m) throttling via `@nestjs/throttler` with Bearer token session isolation and strict limits on ticket reservations to prevent scalping bots.
-- **Containerized Architecture & Zero-Downtime CI/CD:** Production-ready multi-stage Docker builds for NestJS and React with Alpine Nginx SPA fallback (`try_files`), unified local Docker Compose orchestration, and automated GitHub Actions pipeline executing lints, typechecks, schema validations, Vitest tests, and migrations.
-- **Role-Based Workspaces:** Public event browsing is separated from practical organizer and admin workspaces, with clear navigation, responsive tables, operational summaries, and a stable loading state while signed-in roles are resolved.
-- **Actionable Notifications:** Admins and organizers get role-scoped activity feeds, unread counts, and persistent per-account mark-as-read controls. Organizer updates cover bookings, payment issues, capacity milestones, and platform cancellations.
-- **Event Operations:** Organizers can manage events, review participant and sales details, and run camera-based or manual ticket check-in with `@zxing/browser`.
+I built this project to move beyond basic CRUD applications and learn how to solve practical engineering challenges—such as preventing overselling during concurrent ticket purchases, handling payment gateway webhooks reliably, delivering transactional emails using the outbox pattern, and designing secure, server-enforced role permissions.
 
 ---
 
-## Table of Contents
+## 📌 Table of Contents
 
-- [Project Overview](#project-overview)
-- [Architecture Overview](#architecture-overview)
-- [Tech Stack](#tech-stack)
-- [Key Engineering Highlights](#key-engineering-highlights)
-- [Docker & Containerization](#docker--containerization)
-- [CI/CD Pipeline (GitHub Actions)](#cicd-pipeline-github-actions)
-- [Hosting & Production Deployment](#hosting--production-deployment)
-- [Backend Modules](#backend-modules)
-- [Frontend Pages & Routes](#frontend-pages--routes)
-- [Database Schema](#database-schema)
-- [Security Model](#security-model)
-- [Payment Integration](#payment-integration)
-- [Transactional Email](#transactional-email)
-- [QR Ticket System](#qr-ticket-system)
-- [Analytics & Dashboards](#analytics--dashboards)
-- [Getting Started](#getting-started)
+- [Overview & Features](#overview--features)
+- [Architecture & Tech Stack](#architecture--tech-stack)
+- [How It Works: Core Engineering Concepts](#how-it-works-core-engineering-concepts)
+  - [1. Preventing Overselling with Concurrency Control](#1-preventing-overselling-with-concurrency-control)
+  - [2. Reliable Email Delivery via Transactional Outbox](#2-reliable-email-delivery-via-transactional-outbox)
+  - [3. Cryptographic Ticket QR Generation & Validation](#3-cryptographic-ticket-qr-generation--validation)
+  - [4. Safe Payment Webhook Reconciliation](#4-safe-payment-webhook-reconciliation)
+  - [5. Zero-Trust Role Authorization](#5-zero-trust-role-authorization)
+- [Project Structure](#project-structure)
+- [Local Setup & Getting Started](#local-setup--getting-started)
 - [Environment Variables](#environment-variables)
-- [Scripts Reference](#scripts-reference)
-- [Further Documentation](#further-documentation)
+- [Available Scripts](#available-scripts)
+- [What I Learned & Future Improvements](#what-i-learned--future-improvements)
 
 ---
 
-## Project Overview
+## Overview & Features
 
-Eventora is a multi-role event ticketing platform with three distinct user personas:
+Eventora supports three user roles, each with clear boundaries:
 
-| Role | Capabilities |
+| Role | What They Can Do |
 |---|---|
-| **Attendee** | Browse events, purchase tickets, view QR ticket wallet, check registration & payment status |
-| **Organizer** | Create and publish events, manage ticket types, review event-specific participants and sales, track attendance, manage notifications, and run door check-in |
-| **Admin** | Review organizer applications, monitor platform activity, manage accounts and categories, review events, payments, and reports |
-
-Roles are **database-owned** and enforced server-side — the frontend never supplies or influences authorization context.
+| **Attendee** | Browse published events, search and filter by category, reserve tickets with a 10-minute price/inventory hold, complete PayHere checkout, and access their personal QR ticket wallet. |
+| **Organizer** | Apply for organizer status, create events and schedule sessions, define tiered ticket pricing and capacities, track live ticket sales and attendee check-ins, and scan QR tickets at the venue via webcam or mobile camera. |
+| **Admin** | Review and approve/reject organizer applications, monitor platform-wide metrics and payments, manage event categories, and review or cancel events if necessary. |
 
 ---
 
-## Architecture Overview
-
-```
-┌──────────────────────────────────────────────────────────┐
-│                    Browser (React 19 / Vite)              │
-│  Public Routes        Attendee        Organizer   Admin   │
-│  /  /discover         /account        /organizer  /admin  │
-└────────────────────────┬─────────────────────────────────┘
-                         │ HTTPS / Axios (Bearer token)
-                         ▼
-┌──────────────────────────────────────────────────────────┐
-│              NestJS API  (port 3000)                      │
-│  ClerkAuthGuard → AccountGuard → RolesGuard               │
-│                                                           │
-│  Auth  │ Events  │ Registrations │ Payments │ Tickets     │
-│  Users │ Checkins│ Analytics     │ Email    │ Organizer   │
-└────────────────────────┬─────────────────────────────────┘
-                         │ Prisma 7 + @prisma/adapter-pg
-                         ▼
-┌──────────────────────────────────────────────────────────┐
-│         Supabase PostgreSQL (Session Pooler)              │
-│  15 core tables · DECIMAL(12,2) money · DB-clock expiry   │
-└──────────────────────────────────────────────────────────┘
-         │                    │                │
-    Clerk Auth          PayHere PGWC      Cloudinary CDN
-  (identity/JWT)       (payments)         (event covers)
-         │                    │
-    Gmail SMTP          ngrok (dev)
-  (email outbox)
-```
-
----
-
-## Tech Stack
-
-### Backend
-| Technology | Version | Purpose |
-|---|---|---|
-| **NestJS** | ^12 | API framework, DI, guards, decorators |
-| **TypeScript** | ^6 | Static typing throughout |
-| **Prisma ORM** | ^7.10 | Schema, migrations, type-safe DB client |
-| **@prisma/adapter-pg** | ^7.10 | PostgreSQL native driver adapter |
-| **PostgreSQL** | Supabase | Primary data store |
-| **@clerk/backend** | ^3.23 | JWT verification, user sync webhooks |
-| **nodemailer** | ^10 | Gmail SMTP transactional email delivery |
-| **qrcode** | ^1.5 | QR code image generation (PNG buffer) |
-| **cloudinary** | ^2 | Event cover image upload & CDN |
-| **Vitest** | ^4 | Unit & E2E test runner |
-| **oxlint** | ^1 | Fast Rust-based linter |
-
-### Frontend
-| Technology | Version | Purpose |
-|---|---|---|
-| **React** | ^19.2 | UI library |
-| **TypeScript** | ~6.0 | Type safety |
-| **Vite** | ^8.3 | Build tool & dev server |
-| **React Router** | ^8.4 | Client-side routing |
-| **Axios** | ^1.20 | HTTP client with bearer token injection |
-| **@clerk/react** | ^6.17 | Authentication UI & session management |
-| **Recharts** | ^3.10 | Analytics charts (Area, Bar, Pie) |
-| **@zxing/browser** | ^0.2 | Camera-based QR code scanning |
-| **Tailwind CSS** | ^4.3 | Utility-first styling across the frontend |
-
-### DevOps & Infrastructure
-| Technology | Purpose |
-|---|---|
-| **Docker** | Multi-stage containerization for NestJS API and React SPA |
-| **Docker Compose** | One-command local orchestration with PostgreSQL, backend, and frontend |
-| **Nginx** (Alpine) | Production web server with gzip compression and SPA client-side fallback |
-| **GitHub Actions** | Automated CI/CD (linting, schema validation, testing, deployment triggers) |
-| **Supabase** | Managed PostgreSQL database with session connection pooling |
-
----
-
-## Key Engineering Highlights
-
-### 1. Transactional Inventory with `SELECT … FOR UPDATE SKIP LOCKED`
-Registration creation and checkout both use PostgreSQL row-level locking. The `InventoryService.reserve()` method atomically increments `ticketsReserved` on the `Event` row and `quantityReserved` on the `TicketType` row inside the same transaction — only if availability constraints hold. Competing concurrent requests serialize correctly; no overselling is possible.
-
-```sql
--- Simplified reservation lock
-UPDATE "Event"
-SET "ticketsReserved" = "ticketsReserved" + $quantity
-WHERE "id" = $eventId
-  AND "status" = 'PUBLISHED'
-  AND (capacity IS NULL OR "ticketsReserved" + "ticketsSold" + $quantity <= capacity)
-RETURNING "id"
-```
-
-### 2. Idempotent Operations Throughout
-- Registrations use client-supplied `Idempotency-Key` headers; duplicate requests return the existing registration.
-- Email outbox rows carry a stable idempotency key committed in the same transaction as the triggering event (payment confirmed, application decided, event cancelled).
-- PayHere webhook handler deduplicates by `merchantReference`; duplicate `SUCCEEDED` notifications do not double-issue tickets.
-
-### 3. Database-Clock Reservation Expiry
-Reservation rows are created with `expiresAt = CURRENT_TIMESTAMP + interval '10 minutes'` — the database supplies the clock, not the application server. A background worker polls every 60 seconds using `SELECT … FOR UPDATE SKIP LOCKED` to safely release held reservations even under multiple application instances.
-
-### 4. HMAC-SHA256 Ticket QR Signing
-QR tokens are never stored in the database. Instead:
-1. A random `reference` is generated per ticket.
-2. `HMAC-SHA256(secret, "eventora-ticket:{reference}")` produces the token — `base64url` encoded.
-3. Only the `SHA-256(token)` hash is stored in the database.
-4. Verification uses `timingSafeEqual` for both the hash comparison and token comparison, preventing timing attacks.
-
-### 5. Fulfillability-Aware Payment Reconciliation
-Late or duplicate PayHere webhooks are handled gracefully:
-- If a verified `SUCCEEDED` notification arrives after the reservation has expired, Eventora checks current inventory.
-- If fulfillable: commits inventory, confirms registration, issues tickets atomically.
-- If **not** fulfillable: records a `PaymentException` — the verified payment is preserved for audit without corrupting inventory or issuing invalid tickets.
-
-### 6. Role Escalation Prevention
-- `ClerkAuthGuard` → `AccountGuard` → `RolesGuard` runs in strict order.
-- The Clerk webhook upsert **deliberately excludes** `role` and `status` from update fields.
-- Profile sync at `/api/auth/me` never elevates roles.
-- Admin provisioning is CLI-only (`npm run admin:provision`) and refuses to run if an admin already exists.
-- Organizers additionally need an `APPROVED` organizer application checked at the service layer.
-
-### 7. Database-Backed Email Outbox Worker
-Email delivery uses a PostgreSQL outbox pattern:
-- Email rows are written **in the same transaction** as the business event (payment, decision, cancellation).
-- A background `setInterval` worker claims batches of `PENDING` rows using `FOR UPDATE SKIP LOCKED` to prevent duplicate delivery across instances.
-- Exponential back-off (30s → 1h cap) with bounded retries (5 attempts max).
-- Failure codes are sanitized (`SMTP_DELIVERY_FAILED`, etc.) — raw SMTP errors never reach the database.
-
-### 8. PayHere Webhook Signature Verification
-```
-md5sig = uppercase(MD5(
-  merchant_id + order_id + amount + currency + status_code + uppercase(MD5(merchant_secret))
-))
-```
-Verification uses `timingSafeEqual` (constant-time comparison). Only after verification does the handler inspect or change payment state.
-
----
-
-## Backend Modules
-
-```
-backend/src/
-├── auth/                   # Clerk JWT guard, account guard, roles guard, webhook sync
-├── analytics/              # Role-scoped dashboard aggregates, monthly sales trend
-├── categories/             # Public reads + admin CRUD (protected deletion)
-├── checkins/               # QR validation + check-in commit (transactional, timing-safe)
-├── email/                  # PostgreSQL outbox worker + rich HTML email templates
-├── events/                 # Public catalog, organizer event management, notifications, admin oversight
-├── organizer-applications/ # Application submission, admin review, transactional approval
-├── payments/               # PayHere checkout form gen, webhook handling, reconciliation
-├── prisma/                 # Shared PrismaService (OnModuleInit lifecycle)
-├── registrations/          # Registration create, inventory service, expiry worker
-└── tickets/                # Ticket list/detail, QR image generation
-```
-
-### Key API Endpoints
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `GET` | `/api/events` | Public | Paginated event catalog with search, filter, sort |
-| `GET` | `/api/events/featured` | Public | Featured published events |
-| `GET` | `/api/events/:id` | Public | Event detail with sessions + ticket types |
-| `GET` | `/api/categories` | Public | Active event categories |
-| `POST` | `/api/registrations` | Attendee | Create registration + reserve inventory (idempotent) |
-| `GET` | `/api/registrations/me` | Attendee | Own registration history |
-| `POST` | `/api/payments/:id/checkout` | Attendee | Generate PayHere form fields |
-| `GET` | `/api/tickets/me` | Attendee | Ticket wallet with QR images |
-| `POST` | `/api/check-ins/validate` | Organizer | Validate QR/reference without recording |
-| `POST` | `/api/check-ins` | Organizer | Commit attendance (transactional) |
-| `GET` | `/api/organizer/events` | Organizer | Own events list |
-| `POST` | `/api/organizer/events` | Organizer | Create draft event |
-| `PATCH` | `/api/organizer/events/:id/publish` | Organizer | Publish (validates completeness) |
-| `GET` | `/api/organizer/dashboard` | Organizer | KPIs: events, registrations, tickets, revenue |
-| `GET` | `/api/organizer/analytics/sales` | Organizer | Monthly gross sales trend |
-| `GET` | `/api/organizer/notifications` | Organizer | Recent bookings, payment issues, event milestones, and unread count for owned events |
-| `PATCH` | `/api/organizer/notifications/read` | Organizer | Mark one or more updates as read |
-| `GET` | `/api/organizer/events/:eventId/participants` | Organizer | Event-scoped participant list and registration details |
-| `GET` | `/api/organizer/events/:eventId/analytics` | Organizer | Event sales, registration, and attendance report |
-| `GET` | `/api/admin/dashboard` | Admin | Platform-wide KPIs |
-| `GET` | `/api/admin/events` | Admin | Latest 100 platform events |
-| `PATCH` | `/api/admin/events/:id/cancel` | Admin | Cancel + notify attendees |
-| `GET` | `/api/organizer-applications` | Admin | Application queue, optionally filtered by status |
-| `PATCH` | `/api/organizer-applications/:applicationId/decision` | Admin | Approve or reject an application |
-| `GET` | `/api/admin/notifications` | Admin | Recent platform activity, pending applications, and unread count |
-| `PATCH` | `/api/admin/notifications/read` | Admin | Mark one or more updates as read |
-| `POST` | `/api/webhooks/payhere/notify` | Public (verified) | PayHere payment notification |
-| `POST` | `/api/auth/webhooks/clerk` | Public (signed) | Clerk user sync webhook |
-
----
-
-## Frontend Pages & Routes
-
-```
-/                           Home page — editorial hero, how-to-register, recent events
-/discover                   Searchable + filterable event catalog (URL query params)
-/events/:eventId            Event detail — schedule, ticket types, purchase flow
-/sign-in  /sign-up          Clerk-hosted auth pages (custom styled wrapper)
-/account                    Attendee account and registration overview
-/tickets                    Attendee ticket wallet with private QR codes
-/checkout/result            Post-payment result (reads server state, never URL params)
-/checkout/cancelled         Cancelled checkout handler
-
-/admin                      Admin shell (sidebar layout)
-  /admin                    Platform overview and admin task links
-  /admin/applications        Organizer application review
-  /admin/notifications       Recent activity with unread and mark-as-read controls
-  /admin/events              Platform event review and cancellation
-  /admin/users               Account management and role/status controls
-  /admin/categories          Category management
-  /admin/payments            Verified sales and payment attempts
-  /admin/reports             Registration and attendance reports
-
-/organizer                  Organizer shell (sidebar layout)
-  /organizer                 Organizer overview and event health
-  /organizer/events          Event management, ticket types, schedule, publish/cancel
-  /organizer/participants    Event-filtered participant and ticket details
-  /organizer/sales           Event selection and sales overview
-  /organizer/sales/:eventId  Event-specific sales and participant report
-  /organizer/notifications   Bookings and event updates with unread filters and read controls
-  /organizer/checkin         Check-in hub → per-event scanner
-  /organizer/profile         Organizer profile
-
-/organizer/events/:id/check-in  Live check-in page (QR camera + manual entry)
-```
-
-### Frontend Feature Breakdown
-
-| Feature Directory | Key Components |
-|---|---|
-| `features/auth/` | `AccountPage`, `AuthPage`, `CurrentUserContext` (role provider), `useAuthenticatedApi` hook |
-| `features/events/` | `DiscoveryPage` (filtered catalog), `EventDetailPage` (ticket purchase) |
-| `features/organizer/` | Event management, event-scoped sales and participant reports, notifications, check-in, and organizer overview |
-| `features/admin/` | Platform overview, application review, event/account/category management, payment and attendance reports, and notifications |
-| `features/tickets/` | `TicketsPage` — ticket wallet with QR code display |
-| `features/analytics/` | `DashboardShell` (role-aware sidebar layout), role-scoped dashboard panels |
-| `features/payments/` | `CheckoutResultPage` — polls server state post-redirect |
-| `features/home/` | Rich editorial landing page with registration guide, featured events |
-
-### Frontend Structure
-
-The frontend keeps route setup, shared interface elements, and product features in clear, focused folders:
+## Architecture & Tech Stack
 
 ```text
-frontend/src/
-  app/                Route definitions and app-level composition
-  assets/             Local image and static assets
-  components/
-    layout/            Public site shell, page introductions, Eventora logo
-    ui/                Reusable buttons, icons, dialogs, notifications
-  features/            Home, events, auth, tickets, payments, analytics, admin, organizer
-  lib/                 Shared API client and data helpers
-  App.tsx              Root application setup
-  index.css            Tailwind entry point, theme tokens, and global browser styles
-```
-
-Page and component presentation primarily uses Tailwind utility classes, with inline styles retained where values are calculated at runtime, such as chart colors and progress widths. `index.css` contains the Tailwind entry point, shared theme values, browser-wide defaults, focus states, and global animations. Shared layout and UI components keep navigation, branding, and interaction patterns consistent across the public site and workspace pages.
-
----
-
-## Database Schema
-
-**16 Prisma models** across 6 database migrations:
-
-```
-User                 — Clerk identity + Eventora role/status
-AdminNotificationRead — Per-admin notification read state
-OrganizerNotificationRead — Per-organizer notification read state
-OrganizerApplication — Application lifecycle + decision audit
-Category             — Event categories (soft-disable, no cascade delete)
-Event                — Full event lifecycle (DRAFT→PUBLISHED→CANCELLED/COMPLETED)
-EventSession         — Schedule entries (within event dates, non-bookable)
-TicketType           — Priced ticket types with inventory counters
-InventoryReservation — 10-minute holds (DB-clock expiry, FOR UPDATE SKIP LOCKED)
-Registration         — Attendee purchase record + price snapshot
-PaymentAttempt       — Per-attempt payment tracking (INITIATED→SUCCEEDED/FAILED/CHARGEDBACK)
-PaymentException     — Unfulfillable verified payments (audit, no auto-refund)
-Ticket               — Issued digital tickets (reference + QR token hash)
-CheckIn              — Attendance record (unique per ticket)
-EmailDelivery        — Outbox rows with retry metadata + safe error codes
-```
-
-**Financial precision:** All money amounts use `DECIMAL(12,2)` — no floating point.
-
-**Migrations applied:**
-- `init` — core schema with check constraints
-- `pending_organizer_application_unique` — one pending application per applicant
-- `payhere_provider_amount` — verified PayHere payment details
-- `organizer_application_review_details` — application review fields
-- `admin_notification_reads` — per-admin mark-as-read state
-- `organizer_notification_reads` — per-organizer mark-as-read state
-
----
-
-## Security Model
-
-### Authentication & Authorization Chain
-```
-Request
-  → ClerkAuthGuard     (verifies JWT, checks authorized party = FRONTEND_ORIGIN)
-  → AccountGuard       (resolves database user, rejects DEACTIVATED accounts)
-  → RolesGuard         (checks database role — never browser-supplied)
-  → [Organizer routes] OrganizerApplicationGuard (checks APPROVED application)
-  → Service layer      (re-verifies ownership: organizerId, userId, eventId scoping)
-```
-
-### Notable Security Properties
-- **No self-service role elevation** — only CLI provisioning for first admin
-- **Timing-safe comparisons** everywhere sensitive (`timingSafeEqual` for QR tokens, PayHere signature)
-- **Raw body preservation** for webhook signature verification (Clerk + PayHere)
-- **QR token never stored** — only `SHA-256(HMAC-SHA256(secret, ref))` in DB
-- **Price snapshot on registration** — price is copied from ticket type at reservation time, locked in the DB, never re-read from the request
-- **Event/attendee data isolation** — check-in responses never expose attendee contact details or internal IDs
-- **Cloudinary uploads** — file signature checked (magic bytes) before streaming; DB updated only after successful upload; cleanup on DB failure
-- **No payment status from URL** — checkout result page always reads from the authenticated API
-- **Notification ownership** — organizer notifications and read state are scoped to the signed-in organizer and their own events
-
----
-
-## Payment Integration
-
-Eventora uses **PayHere Hosted Checkout** (Sri Lanka's leading payment gateway):
-
-1. **Checkout form generation** — Backend signs the checkout hash using `PAYHERE_MERCHANT_SECRET`. The browser receives only pre-signed form fields and posts them to PayHere.
-2. **Webhook verification** — `POST /api/webhooks/payhere/notify` verifies `md5sig` using constant-time comparison before any state change.
-3. **Fulfillability check** — After verification, the handler locks the `Event` + `TicketType` rows and checks if the reservation is still valid before committing inventory.
-4. **Late success handling** — Verified but unfulfillable payments are stored as `PaymentException` without inventory mutation.
-
-Supported currencies: **LKR**, **USD**
-
----
-
-## Transactional Email
-
-All emails use a **PostgreSQL outbox pattern** — the email row is committed in the same database transaction as the triggering event:
-
-| Email Type | Trigger | Contents |
-|---|---|---|
-| `PURCHASE_CONFIRMATION` | Payment `SUCCEEDED` + inventory committed | Confirmation, event details, QR codes, and ticket link |
-| `ORGANIZER_APPLICATION_DECISION` | Admin approves/rejects application | Decision, optional note, and organizer link when approved |
-| `EVENT_CANCELLATION` | Admin or organizer cancels event | Cancellation details, optional reason, refund information, and ticket link |
-
-**Template design:** Emails use concise copy and table-based, inline-CSS HTML for compatibility with common email clients. Decorative emoji and promotional copy are avoided.
-
-**Delivery:** Gmail SMTP via nodemailer with exponential backoff (30s → 1h cap, max 5 attempts). Error codes are sanitized before storage.
-
----
-
-## QR Ticket System
-
-```
-Registration confirmed (payment succeeded)
-  ↓
-For each purchased ticket:
-  reference = random UUID-based string
-  token     = HMAC-SHA256(TICKET_QR_SECRET, "eventora-ticket:{reference}") → base64url
-  hash      = SHA-256(token) → stored in DB (Ticket.qrTokenHash)
-  
-QR image = QRCode.toBuffer(token) → PNG, sent as inline email attachment
-
-At check-in:
-  Organizer scans QR or enters reference
-  Backend: compute token from reference using same secret
-           compute hash of that token
-           timingSafeEqual(computed_hash, stored_hash)  ← timing-safe
-           timingSafeEqual(computed_token, scanned_token) ← timing-safe
-           if valid: lock ticket row FOR UPDATE, insert CheckIn, update Ticket.status
-```
-
-The QR secret (`TICKET_QR_SECRET`) must be at least 32 bytes. Never in frontend builds. Never in logs.
-
----
-
-## Analytics & Dashboards
-
-### Admin Dashboard (`/admin`)
-Live platform totals from `GET /api/admin/dashboard`:
-- Accounts, events, confirmed registrations, and checked-in tickets
-- Events grouped by status and verified sales grouped by currency
-- Direct links to application review, event oversight, accounts, payments, reports, and categories
-- `/admin/notifications` lists platform activity and supports persistent unread/read state
-
-### Organizer Dashboard (`/organizer`)
-Live event summaries from `GET /api/organizer/analytics/events`:
-- Event count, confirmed registrations, valid tickets, and verified sales grouped by currency
-- Upcoming events, items needing attention, and direct event management links
-- `/organizer/participants` filters participant records by event and registration, payment, and entry status
-- `/organizer/sales` selects an event before showing its sales report
-- `/organizer/notifications` shows recent bookings, payment exceptions, near-capacity events, and admin cancellations; read state persists per organizer
-
-### Attendee Dashboard (`/account`)
-Live data from `GET /api/attendee/dashboard`:
-- Recent registrations with event details + payment status
-- Active ticket count + upcoming event dates
-- Quick access to ticket wallet
-
-All analytics use **real database aggregates** — no mocked or fabricated data. Currency totals remain separate (no cross-currency summing).
-
----
-
-## Docker & Containerization
-
-Eventora is fully containerized with production-ready, multi-stage Docker builds designed for low memory footprints, security, and reproducibility.
-
-```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                         docker-compose.yml                             │
+│                        Frontend (React 19 + Vite)                      │
+│   Public Catalog          Attendee Wallet         Organizer / Admin    │
+│   /discover               /tickets, /account      /organizer, /admin   │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ HTTPS + Bearer Token (Clerk JWT)
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                         Backend API (NestJS 12)                        │
+│   ClerkAuthGuard ──► AccountGuard ──► RolesGuard ──► AppThrottlerGuard │
 │                                                                        │
-│  ┌───────────────────┐  ┌────────────────────┐  ┌───────────────────┐  │
-│  │     postgres      │  │      backend       │  │     frontend      │  │
-│  │ (postgres:16-alp) │  │  (NestJS Node 22)  │  │  (Alpine Nginx)   │  │
-│  │    Port 5432      │◄─┼─    Port 3000      │◄─┼─    Port 80       │  │
-│  │  Persistent Data  │  │  Health: /api/heal │  │  SPA /index.html  │  │
-│  └───────────────────┘  └────────────────────┘  └───────────────────┘  │
+│   Events Module   · Registrations & Inventory  · Payments (PayHere)    │
+│   Tickets & QR    · Check-ins (Camera/Manual)  · Transactional Outbox  │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ Prisma ORM 7 + @prisma/adapter-pg
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                  PostgreSQL Database (Supabase / Local)                │
+│   15 Relational Tables · Row Locks (FOR UPDATE) · Decimal(12,2) Money  │
 └────────────────────────────────────────────────────────────────────────┘
+         │                                │                       │
+    Clerk Identity                 PayHere Gateway          Nodemailer SMTP
+    (User Auth & JWT)            (Hosted Checkout)          (Email Delivery)
 ```
 
-### 1. Backend Multi-Stage Build (`backend/Dockerfile`)
-- **Stage 1 (Builder):** Uses `node:22-alpine` with OpenSSL. Installs dependencies (`npm ci`), runs `npx prisma generate` to build type-safe DB clients, compiles TypeScript (`npm run build`), and prunes devDependencies (`npm prune --omit=dev`).
-- **Stage 2 (Runner):** Minimal `node:22-alpine` production image. Runs as an unprivileged non-root user (`USER node`). Uses `dumb-init` as PID 1 to properly handle UNIX process termination signals (`SIGTERM`/`SIGINT`), ensuring NestJS's `enableShutdownHooks()` safely finishes in-flight requests before shutdown.
+### Technologies Used
 
-### 2. Frontend Multi-Stage Build & Nginx SPA Routing (`frontend/Dockerfile`)
-- **Stage 1 (Builder):** Compiles React 19 and Tailwind CSS v4 assets with Vite into optimized static files (`/app/dist`).
-- **Stage 2 (Runner):** Lightweight `nginx:1.27-alpine` web server.
-- **Client-Side Routing Fallback (`nginx.conf`):** Configured with `try_files $uri $uri/ /index.html;`. Because React Router manages URLs client-side, direct navigation or browser refreshes on routes like `/discover`, `/organizer`, or `/account` fallback cleanly to `index.html` instead of returning HTTP 404. Also enables Gzip compression and long-term asset caching headers.
-
-### 3. Local Full-Stack Orchestration (`docker-compose.yml`)
-Spins up the complete Eventora ecosystem with a single command:
-```sh
-docker compose up --build
-```
-Includes a healthy PostgreSQL 16 container, the NestJS API with automatic database dependency checks, and the Nginx React frontend.
+- **Backend:** NestJS 12, TypeScript, Prisma ORM 7 (`@prisma/adapter-pg`), PostgreSQL, `@nestjs/throttler`, Nodemailer, QRCode.
+- **Frontend:** React 19, TypeScript, Vite, React Router 8, Tailwind CSS v4, Lucide Icons, Recharts, `@zxing/browser` (camera scanner).
+- **External Services:** Clerk (authentication), PayHere (payments), Cloudinary (event image hosting), Gmail SMTP (transactional email).
+- **Testing & Tooling:** Vitest (unit & integration tests), Oxlint (linter), Docker & Docker Compose, GitHub Actions (CI pipeline).
 
 ---
 
-## CI/CD Pipeline (GitHub Actions)
+## How It Works: Core Engineering Concepts
 
-Eventora uses an automated GitHub Actions pipeline ([`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml)) implementing strict quality gates and continuous deployment:
+Rather than relying purely on default framework assumptions, I wanted to understand the failure modes that happen in real ticketing workflows. Here are the main problems I addressed:
 
-```
- [ Pull Request / Push to main ]
-               │
-               ▼
- ┌──────────────────────────────────────────────┐
- │ JOB 1: Code Quality & Automated Tests        │
- │ ├── Checkout repository & Setup Node.js 22   │
- │ ├── Backend: npm ci & prisma validate        │
- │ ├── Backend: Oxlint type-aware linting       │
- │ ├── Backend: Vitest unit & integration tests │
- │ ├── Frontend: npm ci & Oxlint                │
- │ └── Frontend: tsc -b && vite build test      │
- └──────────────────────┬───────────────────────┘
-                        │
-                        ▼ (On merge to main)
- ┌──────────────────────────────────────────────┐
- │ JOB 2: Continuous Deployment & Migration     │
- │ ├── Pre-deploy: npx prisma migrate deploy    │
- │ └── Trigger Zero-Downtime Container Rolling  │
- └──────────────────────────────────────────────┘
-```
+### 1. Preventing Overselling with Concurrency Control
 
-### Zero-Downtime Database Migration Pattern
-In production CD, `npx prisma migrate deploy` executes **before** the new container version is routed live traffic. This ensures the database schema is updated safely before new application instances attempt to query new fields.
+When popular tickets go on sale, multiple users click "Buy" at the exact same moment. If the system reads the remaining stock and then updates it in separate steps, two simultaneous requests might both think 1 ticket is left, selling 2 tickets for 1 seat.
 
----
+* **Guarded SQL Updates:** Inventory reservation uses an atomic update directly in SQL:
+  ```sql
+  UPDATE "TicketType"
+  SET "quantityReserved" = "quantityReserved" + $quantity, "updatedAt" = CURRENT_TIMESTAMP
+  WHERE "id" = $ticketTypeId
+    AND "isActive" = TRUE
+    AND "quantityReserved" + "quantitySold" + $quantity <= "quantity"
+  RETURNING "price", "currency";
+  ```
+  PostgreSQL evaluates this condition atomically on the locked row. If another transaction took the last seat milliseconds before, the update matches 0 rows and fails safely with `TICKET_UNAVAILABLE`.
+* **Deterministic Lock Hierarchy:** When confirming payments or releasing held inventory across multiple tables, locks are acquired in a consistent order:
+  $$\text{Event} \longrightarrow \text{TicketType} \longrightarrow \text{InventoryReservation} \longrightarrow \text{PaymentAttempt}$$
+  This prevents database deadlocks when concurrent processes touch the same resources.
+* **10-Minute Hold Expiry:** Reserved tickets are held for 10 minutes (`expiresAt = CURRENT_TIMESTAMP + interval '10 minutes'`) using the database clock rather than the application server clock, avoiding clock-skew issues. A background worker periodically cleans up uncompleted reservations.
 
-## Hosting & Production Deployment
+### 2. Reliable Email Delivery via Transactional Outbox
 
-Eventora is designed for cost-effective, high-availability cloud hosting:
+Normally, sending an email directly inside an HTTP handler introduces the "Dual-Write Problem": if the SMTP server fails or times out after payment succeeded, either the payment rolls back or the user never gets their tickets.
 
-| Component | Recommended Host | Why? |
-|---|---|---|
-| **Frontend SPA** | **Vercel** / **Cloudflare Pages** | Global Anycast Edge CDN, instant global invalidation, free SSL, and zero server maintenance. |
-| **Backend API** | **Render** / **Railway** / **Fly.io** | Automated Docker container builds, persistent background processes, health check monitoring at `/api/health`. |
-| **Database** | **Supabase PostgreSQL** | Managed Postgres with automated backups and PgBouncer connection pooling on port 5432. |
+* **The Outbox Table:** When a purchase or cancellation commits, an `EmailDelivery` row is inserted **in the exact same database transaction** as the ticket/order confirmation.
+* **Safe Polling with `SKIP LOCKED`:** A background worker claims pending emails in batches using:
+  ```sql
+  SELECT "id" FROM "EmailDelivery"
+  WHERE "status" = 'PENDING' AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= CURRENT_TIMESTAMP)
+  ORDER BY "createdAt" FOR UPDATE SKIP LOCKED LIMIT 10;
+  ```
+  `SKIP LOCKED` ensures that if multiple backend instances run concurrently, they skip locked rows without waiting or duplicating email sends.
+* **Exponential Backoff:** If delivery fails, attempts retry with exponential delays (`30s`, `60s`, `120s`...) up to 5 attempts before marking as terminal.
 
-### Production Webhooks
-In production, external webhook URLs are registered directly in third-party dashboards:
-- **PayHere Payment Notifications:** `https://api.yourdomain.com/api/webhooks/payhere/notify`
-- **Clerk User Synchronization:** `https://api.yourdomain.com/api/auth/webhooks/clerk`
+### 3. Cryptographic Ticket QR Generation & Validation
 
-Both endpoints verify incoming cryptographic signatures (`HMAC-SHA256` with `crypto.timingSafeEqual`) to prevent spoofing.
+Tickets need to be verifiable at the door without allowing attendees to forge codes or change a ticket ID to gain entry.
 
----
+* **HMAC Token Signing:** The QR token contains an HMAC-SHA256 signature calculated from the ticket reference and a server-side secret (`TICKET_QR_SECRET`).
+* **Hashed Storage (Defense-in-Depth):** The database does **not** store the HMAC token in plain text; it only stores `SHA-256(token)`. If the database were ever compromised, an attacker would still not have the tokens needed to forge valid QRs.
+* **Timing-Safe Comparison:** At the door, `crypto.timingSafeEqual` is used to verify signatures and tokens, preventing timing-attack vulnerabilities.
+* **Double Check-In Guard:** When an organizer scans a ticket, the ticket row is locked with `FOR UPDATE` inside a database transaction. If two door attendants scan the same QR code simultaneously, only one transaction commits; the second receives `ALREADY_CHECKED_IN`.
 
-## Getting Started
+### 4. Safe Payment Webhook Reconciliation
 
-### Option A: Quickstart with Docker Compose (Fastest & Zero Setup)
+Payment gateways communicate via asynchronous webhooks that can arrive late, out of order, or multiple times.
 
-If you have Docker Desktop installed, run the entire stack with a single command:
+* **Signature Verification:** Incoming PayHere callbacks verify the MD5 signature using `timingSafeEqual` before reading or changing any payment data.
+* **Idempotency:** If PayHere sends the same webhook notification twice, the handler detects that the attempt is already `SUCCEEDED` and returns success immediately without incrementing inventory or issuing duplicate tickets.
+* **Late Payment Handling:** If a buyer completes payment after their 10-minute reservation hold has expired, Eventora checks if unsold capacity remains:
+  * If capacity is still available, it fulfills the tickets.
+  * If the event sold out while the user was delayed, it records a `PaymentException` (`LATE_PAYMENT_UNFULFILLED`) so administrators can process a refund without overselling the event.
 
-```sh
-# 1. Clone the repository
-git clone <repo>
-cd eventora
+### 5. Zero-Trust Role Authorization
 
-# 2. Build and start all services (PostgreSQL, Backend API, Frontend Nginx)
-docker compose up --build
-```
-
-- **Frontend:** [http://localhost:80](http://localhost:80)
-- **Backend API:** [http://localhost:3000/api](http://localhost:3000/api)
-- **Health Check:** [http://localhost:3000/api/health](http://localhost:3000/api/health)
+* **Database-Owned Roles:** Clerk is used only for authentication identity (who the user is). Roles (`ATTENDEE`, `ORGANIZER`, `ADMIN`) and account statuses (`ACTIVE`, `DEACTIVATED`) are stored and managed exclusively in PostgreSQL.
+* **Tamper-Proof Sync:** When syncing profiles from Clerk, the backend deliberately avoids updating the `role` or `status` columns, preventing users from elevating their privileges via client-side metadata.
+* **Guard Cascade:** Protected routes pass through:
+  `ClerkAuthGuard` (validates JWT) $\longrightarrow$ `AccountGuard` (checks DB account is active) $\longrightarrow$ `RolesGuard` (verifies required role and approved organizer status).
 
 ---
 
-### Option B: Manual Local Development (Node.js)
+## Project Structure
 
-#### Prerequisites
-- Node.js 20+
-- npm
-- Supabase PostgreSQL project (Session Pooler URL)
-- Clerk application (publishable key, secret key, webhook secret)
-
-### 1. Clone & Install
-
-```sh
-git clone <repo>
-cd eventora
-
-# Install backend dependencies
-cd backend && npm install
-
-# Install frontend dependencies  
-cd ../frontend && npm install
+```text
+eventora/
+├── backend/
+│   ├── prisma/
+│   │   ├── schema.prisma       # Database models, relations, and indexes
+│   │   └── migrations/         # Version-controlled SQL migrations
+│   ├── src/
+│   │   ├── auth/               # Clerk JWT authentication & role guards
+│   │   ├── events/             # Public catalog & organizer event management
+│   │   ├── registrations/      # Reservation logic & concurrency management
+│   │   ├── payments/           # PayHere checkout fields & webhook handling
+│   │   ├── tickets/            # HMAC QR signing & ticket queries
+│   │   ├── checkins/           # Venue entry validation (camera & manual)
+│   │   ├── email/              # Transactional outbox worker & HTML templates
+│   │   ├── analytics/          # Sales aggregates & organizer metrics
+│   │   └── main.ts             # Application entry point & configuration
+│   └── test/                   # Vitest unit and integration tests
+│
+├── frontend/
+│   ├── src/
+│   │   ├── app/                # Route configuration & shell layouts
+│   │   ├── components/         # Reusable buttons, badges, dialogs, navbars
+│   │   ├── features/           # Feature pages (events, organizer, admin, tickets)
+│   │   └── lib/                # Axios API client with Clerk token injection
+│   └── nginx.conf              # SPA fallback configuration for container deployment
+│
+├── .github/workflows/          # GitHub Actions CI pipeline
+└── docker-compose.yml          # Local containerized setup (Postgres + API + Web)
 ```
 
-### 2. Configure Environment
+---
 
-```sh
-# Backend
-cp backend/.env.example backend/.env
-# → Set DATABASE_URL, CLERK_*, PAYHERE_*, GMAIL_*, CLOUDINARY_*, TICKET_QR_SECRET
+## Local Setup & Getting Started
 
-# Frontend
-cp frontend/.env.example frontend/.env.local
-# → Set VITE_CLERK_PUBLISHABLE_KEY
+### Prerequisites
+
+- **Node.js** (v20 or v22 recommended)
+- **npm**
+- **Git**
+- A free **Supabase** project (or local PostgreSQL instance)
+- A free **Clerk** account for authentication
+
+---
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/HasarangaSam/Eventora.git
+cd Eventora
 ```
 
-### 3. Database Setup
+---
 
-```sh
+### Step 2: Configure Backend
+
+```bash
 cd backend
-npm run prisma:validate   # validate schema
-npm run prisma:generate   # generate Prisma client
-npm run db:deploy         # apply migrations to Supabase
+npm install
+cp .env.example .env
 ```
 
-### 4. Provision Initial Admin
+Open `backend/.env` and fill in your keys:
+- `DATABASE_URL`: Your PostgreSQL connection string.
+- `CLERK_PUBLISHABLE_KEY` & `CLERK_SECRET_KEY`: From your Clerk dashboard.
+- `TICKET_QR_SECRET`: Any random string of 32+ characters for signing ticket QRs.
+- `FRONTEND_ORIGIN`: `http://localhost:5173` (for local development).
 
-After first sign-in via the frontend:
+Run database migrations and generate the Prisma client:
 
-```sh
-cd backend
-npm run admin:provision -- user_<clerk-id>
+```bash
+npx prisma generate
+npx prisma migrate deploy
 ```
 
-### 5. Start Development Servers
+Start the backend development server:
 
-```sh
-# Terminal 1 — Backend (port 3000, hot reload)
-cd backend && npm run start:dev
+```bash
+npm run start:dev
+```
+The backend will run on `http://localhost:3000/api`. You can test health at `http://localhost:3000/api/health`.
 
-# Terminal 2 — Frontend (port 5173, HMR)
-cd frontend && npm run dev
+---
+
+### Step 3: Configure Frontend
+
+In a second terminal:
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
 ```
 
-### 6. Configure Webhooks (for local development)
-
-```sh
-# Expose backend via ngrok
-ngrok http 3000
-
-# Set in Clerk Dashboard:
-# Webhook URL: https://<ngrok-host>/api/auth/webhooks/clerk
-# Events: user.created, user.updated, user.deleted
-
-# Set for PayHere (in backend/.env):
-# PAYHERE_NOTIFY_URL=https://<ngrok-host>/api/webhooks/payhere/notify
+Open `frontend/.env.local` and add your Clerk publishable key:
+```env
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+VITE_API_BASE_URL=http://localhost:3000/api
 ```
+
+Start the frontend development server:
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:5173` in your browser.
+
+---
+
+### Step 4: Provisioning an Admin User (Optional)
+
+1. Sign up on the frontend using your Clerk account.
+2. Find your Clerk User ID (e.g., `user_2t...`) in your Clerk Dashboard or your database `User` table.
+3. In the `backend/` directory, run:
+   ```bash
+   npm run admin:provision -- user_your_clerk_id
+   ```
+4. Refresh your browser; you will now have access to the `/admin` portal.
 
 ---
 
@@ -637,83 +265,54 @@ ngrok http 3000
 
 ### Backend (`backend/.env`)
 
-| Variable | Required | Description |
-|---|---|---|
-| `DATABASE_URL` | ✅ | Supabase Session Pooler connection string |
-| `CLERK_PUBLISHABLE_KEY` | ✅ | Clerk public key |
-| `CLERK_SECRET_KEY` | ✅ | Clerk secret key (server-only) |
-| `CLERK_WEBHOOK_SIGNING_SECRET` | ✅ | Webhook signature verification |
-| `FRONTEND_ORIGIN` | ✅ | Exact frontend URL (e.g. `http://localhost:5173`) |
-| `TICKET_QR_SECRET` | ✅ | HMAC key for QR tokens (min 32 chars, stable) |
-| `PAYHERE_MERCHANT_ID` | ✅ | PayHere merchant ID |
-| `PAYHERE_MERCHANT_SECRET` | ✅ | PayHere merchant secret |
-| `PAYHERE_ENVIRONMENT` | ✅ | `sandbox` or `live` |
-| `PAYHERE_NOTIFY_URL` | ✅ | Public HTTPS URL for payment notifications |
-| `PAYHERE_RETURN_URL` | ✅ | Frontend URL after successful payment |
-| `PAYHERE_CANCEL_URL` | ✅ | Frontend URL after cancelled payment |
-| `GMAIL_USER` | ✅ Email | Gmail address |
-| `GMAIL_APP_PASSWORD` | ✅ Email | 16-character Google App Password |
-| `EMAIL_FROM` | ✅ Email | `"Eventora" <noreply@...>` format |
-| `CLOUDINARY_CLOUD_NAME` | ✅ Covers | Cloudinary cloud name |
-| `CLOUDINARY_API_KEY` | ✅ Covers | Cloudinary API key |
-| `CLOUDINARY_API_SECRET` | ✅ Covers | Cloudinary API secret |
-| `PORT` | Optional | API port (default: `3000`) |
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string (Supabase Session Pooler or local) |
+| `CLERK_PUBLISHABLE_KEY` | Clerk public key |
+| `CLERK_SECRET_KEY` | Clerk secret key for backend token verification |
+| `FRONTEND_ORIGIN` | Allowed origin for CORS (e.g. `http://localhost:5173`) |
+| `TICKET_QR_SECRET` | Secret key used to HMAC-sign ticket QR codes (minimum 32 chars) |
+| `PAYHERE_MERCHANT_ID` | PayHere sandbox merchant ID |
+| `PAYHERE_MERCHANT_SECRET` | PayHere merchant secret used for signature verification |
+| `PAYHERE_NOTIFY_URL` | Webhook URL where PayHere posts payment status updates |
+| `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Optional Gmail SMTP credentials for sending ticket emails |
+| `CLOUDINARY_*` | Optional Cloudinary credentials for event cover uploads |
 
 ### Frontend (`frontend/.env.local`)
 
-| Variable | Required | Description |
-|---|---|---|
-| `VITE_CLERK_PUBLISHABLE_KEY` | ✅ | Clerk publishable key (safe to expose) |
-| `VITE_API_BASE_URL` | Optional | Backend URL (default: `http://localhost:3000/api`) |
-
----
-
-## Scripts Reference
-
-### Backend (`cd backend`)
-
-```sh
-npm run start:dev        # Start with hot reload (watch mode)
-npm run start:prod       # Start compiled production build
-npm run build            # Compile TypeScript + generate Prisma client
-npm run test             # Run unit tests (Vitest)
-npm run test:e2e         # Run E2E tests
-npm run test:cov         # Coverage report
-npm run prisma:generate  # Regenerate Prisma client from schema
-npm run prisma:validate  # Validate schema.prisma
-npm run db:migrate       # Create + apply a new development migration
-npm run db:deploy        # Apply committed migrations (production)
-npm run admin:provision -- <clerk-user-id>  # Bootstrap initial admin
-npm run lint             # oxlint type-aware linting
-```
-
-### Frontend (`cd frontend`)
-
-```sh
-npm run dev              # Vite dev server with HMR (port 5173)
-npm run build            # TypeScript check + Vite production build
-npm run preview          # Preview production build locally
-npm run lint             # oxlint
-```
-
----
-
-## Further Documentation
-
-| Document | Contents |
+| Variable | Description |
 |---|---|
-| [`backend/README.md`](backend/README.md) | NestJS architecture, concurrency models, Prisma ORM, outbox worker, security guards |
-| [`frontend/README.md`](frontend/README.md) | React 19 UI architecture, Recharts analytics, ZXing camera scanner, design system |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Module breakdown, API catalog, frontend route inventory |
-| [`docs/DATABASE.md`](docs/DATABASE.md) | Schema design, migration history, Prisma setup |
-| [`docs/SECURITY.md`](docs/SECURITY.md) | Auth chain, role guards, inventory protection, QR security |
-| [`docs/PAYMENTS.md`](docs/PAYMENTS.md) | PayHere integration, webhook verification, local testing |
-| [`docs/EMAIL.md`](docs/EMAIL.md) | Email outbox, Gmail SMTP setup, template descriptions |
-| [`docs/FRONTEND.md`](docs/FRONTEND.md) | Frontend structure, design system, UX guidelines |
-| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | Full local setup guide, webhook configuration, admin provisioning |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Clerk publishable key (safe for browser) |
+| `VITE_API_BASE_URL` | Backend API URL (default: `http://localhost:3000/api`) |
 
 ---
+
+## Available Scripts
+
+### Backend (`backend/`)
+
+- `npm run start:dev` — Start backend in watch mode (NestJS)
+- `npm run build` — Compile TypeScript and generate Prisma client
+- `npm test` — Run all unit and integration test suites with Vitest (15 test suites, 48 tests)
+- `npm run lint` — Lint code with Oxlint
+- `npm run prisma:validate` — Check Prisma schema syntax
+
+### Frontend (`frontend/`)
+
+- `npm run dev` — Start Vite local development server
+- `npm run build` — Type-check with TypeScript and bundle production assets with Vite
+- `npm run lint` — Lint React components with Oxlint
+- `npm run preview` — Locally preview the production build
+
+---
+
+## What I Learned & Future Improvements
+
+### Key Takeaways from Building Eventora:
+1. **Concurrency is subtle:** Using normal ORM updates for stock counts quickly causes race conditions under load; combining raw SQL conditional updates with ORM relations gave both safety and productivity.
+2. **External services fail:** Webhooks and emails can fail independently of database commits. Designing around idempotency and the outbox pattern proved much more reliable than inline API calls.
+3. **Security requires layers:** Relying solely on client tokens is fragile. Storing hashed tokens and verifying roles strictly on the server prevented privilege elevation bugs.
 
 ## License
 
-Private / Unlicensed — all rights reserved.
+This project was built for educational and portfolio purposes. Feel free to explore and learn from the code!
