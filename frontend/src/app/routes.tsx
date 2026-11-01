@@ -17,6 +17,7 @@ import { CheckoutResultPage } from '../features/payments/checkout-result-page'
 import { TicketsPage } from '../features/tickets/tickets-page'
 import { EventCheckinPage } from '../features/organizer/event-checkin-page'
 import { AuthPage } from '../features/auth/auth-page'
+import { RoleLandingPage } from '../features/auth/role-landing-page'
 import { HomePage } from '../features/home/home-page'
 import { DashboardShell } from '../features/analytics/dashboard-shell'
 import { OrganizerOverviewPage } from '../features/organizer/organizer-overview-page'
@@ -50,6 +51,7 @@ function AppRoutes() {
       <Route path="/events/:eventId" element={<EventDetailPage />} />
       <Route path="/checkout/result" element={<CheckoutResultPage />} />
       <Route path="/checkout/cancelled" element={<CheckoutResultPage cancelled />} />
+      <Route path="/auth/continue" element={<RoleLandingPage />} />
       <Route path="/tickets" element={publishableKey ? <TicketsPage /> : unavailable} />
       <Route path="/sign-in/*" element={publishableKey ? <AuthPage mode="sign-in" /> : unavailable} />
       <Route path="/sign-up/*" element={publishableKey ? <AuthPage mode="sign-up" /> : unavailable} />
@@ -87,10 +89,10 @@ export function RoutedApplication() {
   const { role, isLoading } = useCurrentUser()
   const { isLoaded, isSignedIn } = useAuth()
   const dedicated = location.pathname.startsWith('/admin') || location.pathname.startsWith('/organizer') ||
-    location.pathname.startsWith('/sign-in') || location.pathname.startsWith('/sign-up') ||
+    location.pathname.startsWith('/sign-in') || location.pathname.startsWith('/sign-up') || location.pathname === '/auth/continue' ||
     (location.pathname === '/account' && (role === 'ORGANIZER' || role === 'ADMIN'))
 
-  if (isLoaded && isSignedIn && isLoading) {
+  if (isLoaded && isSignedIn && isLoading && location.pathname !== '/auth/continue') {
     return <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50 font-medium text-slate-600" role="status" aria-live="polite">
       <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-indigo-100 border-t-indigo-600" />
       <p className="m-0">Opening your workspace…</p>

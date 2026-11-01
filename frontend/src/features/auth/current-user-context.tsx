@@ -17,6 +17,7 @@ interface CurrentUserContextValue {
   user: CurrentUser | null
   role: UserRole | null
   isLoading: boolean
+  loadError: boolean
   refetch: () => Promise<void>
 }
 
@@ -24,6 +25,7 @@ const CurrentUserContext = createContext<CurrentUserContextValue>({
   user: null,
   role: null,
   isLoading: false,
+  loadError: false,
   refetch: async () => {},
 })
 
@@ -32,19 +34,23 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
   const authenticatedRequest = useAuthenticatedApi()
   const [user, setUser] = useState<CurrentUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   const fetchUser = useCallback(async () => {
     if (!isLoaded || !isSignedIn || !userId) {
       setUser(null)
+      setLoadError(false)
       setIsLoading(false)
       return
     }
     setIsLoading(true)
+    setLoadError(false)
     try {
       const { data } = await authenticatedRequest<CurrentUser>({ method: 'GET', url: '/auth/me' })
       setUser(data)
     } catch {
       setUser(null)
+      setLoadError(true)
     } finally {
       setIsLoading(false)
     }
@@ -60,6 +66,7 @@ export function CurrentUserProvider({ children }: { children: ReactNode }) {
         user,
         role: user?.role ?? null,
         isLoading: isLoaded && isSignedIn ? isLoading : false,
+        loadError,
         refetch: fetchUser,
       }}
     >
@@ -75,7 +82,7 @@ export function useCurrentUser() {
 /**
  * Ensures that Admins and Organizers cannot access public consumer pages.
  * - Admin is redirected to /admin
- * - Organizer is redirected to /account
+ * - Organizer is redirected to /organizer
  * - Attendees and Guests pass through to the public page.
  */
 export function PublicRouteGuard({ children }: { children: ReactNode }) {

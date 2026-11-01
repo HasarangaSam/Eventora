@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { GoneException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import QRCode from 'qrcode';
 import type { Prisma } from '../generated/prisma/client.js';
@@ -49,6 +49,9 @@ export class TicketsService {
   private async present(ticket: Prisma.TicketGetPayload<{ include: typeof ticketInclude }>) {
     if (ticket.registration.status !== 'CONFIRMED') {
       throw new NotFoundException('Ticket not found');
+    }
+    if (ticket.status !== 'ISSUED' || ticket.event.status !== 'PUBLISHED' || ticket.event.endAt <= new Date()) {
+      throw new GoneException('This QR pass is no longer valid for entry');
     }
     // Recreate the signed QR token from its reference; only the token hash is stored in the database.
     const qrToken = ticketQrToken(ticket.reference, this.config);

@@ -1,5 +1,5 @@
 import { SignIn, SignUp } from '@clerk/react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { PLACEHOLDER_IMAGES } from '../../lib/placeholders'
 import { EventoraLogo } from '../../components/layout/eventora-logo'
 
@@ -162,6 +162,14 @@ const clerkAppearance = {
 
 export function AuthPage({ mode }: { mode: 'sign-in' | 'sign-up' }) {
   const signingIn = mode === 'sign-in'
+  const location = useLocation()
+  const from = (location.state as { from?: { pathname?: string; search?: string; hash?: string } } | null)?.from
+  const requestedPath = from?.pathname && from.pathname.startsWith('/') && !['/sign-in', '/sign-up', '/auth/continue'].includes(from.pathname)
+    ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`
+    : null
+  const postAuthUrl = requestedPath
+    ? `/auth/continue?returnTo=${encodeURIComponent(requestedPath)}`
+    : '/auth/continue'
 
   return (
     <main className="grid [grid-template-columns:1fr_1fr] min-h-screen overflow-hidden max-[768px]:[grid-template-columns:1fr] max-[768px]:[grid-template-rows:auto_1fr]">
@@ -234,7 +242,7 @@ export function AuthPage({ mode }: { mode: 'sign-in' | 'sign-up' }) {
                 routing="path"
                 path="/sign-in"
                 signUpUrl="/sign-up"
-                forceRedirectUrl="/account"
+                forceRedirectUrl={postAuthUrl}
                 appearance={clerkAppearance}
               />
             ) : (
@@ -242,7 +250,7 @@ export function AuthPage({ mode }: { mode: 'sign-in' | 'sign-up' }) {
                 routing="path"
                 path="/sign-up"
                 signInUrl="/sign-in"
-                forceRedirectUrl="/account"
+                forceRedirectUrl={postAuthUrl}
                 appearance={clerkAppearance}
               />
             )}

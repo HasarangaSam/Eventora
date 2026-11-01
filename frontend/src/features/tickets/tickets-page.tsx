@@ -51,25 +51,36 @@ export function TicketsPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [pageInfo, setPageInfo] = useState({ total: 0, pageCount: 0 })
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 250)
+    return () => window.clearTimeout(timer)
+  }, [search])
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return
     let active = true
     async function loadTickets() {
+      setIsRefreshing(true)
+      setError('')
       try {
         const params = new URLSearchParams({ view, page: String(page), pageSize: '25' })
-        if (search.trim()) params.set('search', search.trim())
+        if (debouncedSearch) params.set('search', debouncedSearch)
         const { data } = await authenticatedRequest<{ items: TicketSummary[]; total: number; pageCount: number }>({ method: 'GET', url: `/tickets/me?${params}` })
         if (active) { setTickets(data.items); setPageInfo({ total: data.total, pageCount: data.pageCount }) }
       } catch {
         if (active) setError('Could not load your digital tickets. Please refresh.')
+      } finally {
+        if (active) setIsRefreshing(false)
       }
     }
     void loadTickets()
     return () => {
       active = false
     }
-  }, [authenticatedRequest, isLoaded, isSignedIn, reload, view, page, search])
+  }, [authenticatedRequest, isLoaded, isSignedIn, reload, view, page, debouncedSearch])
 
   useEffect(() => { setPage(1) }, [view, search])
 
@@ -103,7 +114,7 @@ export function TicketsPage() {
         <IconTicket style={{ width: '48px', height: '48px', color: 'var(--primary)', marginBottom: '12px' }} />
         <h2 style={{ fontSize: '24px', fontWeight: 800 }}>Sign in to View Tickets</h2>
         <p className="text-muted">Your tickets and QR access passes are linked to your Eventora account.</p>
-        <LinkButton to="/sign-in">
+        <LinkButton to="/sign-in" state={{ from: { pathname: '/tickets' } }}>
           Sign In
         </LinkButton>
       </div>
@@ -111,14 +122,18 @@ export function TicketsPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-[1280px] px-6 pt-12 pb-20">
+    <main className="mx-auto w-full max-w-[1240px] px-5 pb-20 pt-9 sm:px-6 sm:pt-12" aria-busy={isRefreshing}>
       <PageIntro
-        centered
         eyebrow="Your Eventora wallet"
-        title="Your digital passes & tickets"
-        description="Show your QR pass at the venue entrance. Staff will scan it to confirm your ticket and check you in."
+        title="My tickets"
+        description="Your entry passes, event details, and ticket history in one place. Open a pass when you arrive at the venue."
+        actions={<div className="flex flex-wrap gap-2"><LinkButton variant="secondary" to="/account">Orders &amp; account</LinkButton><LinkButton to="/discover"><IconSearch style={{ width: '15px', height: '15px' }} /> Find an event</LinkButton></div>}
       />
-      <section className="mx-auto mb-6 flex w-full max-w-[900px] flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex flex-wrap gap-2" role="group" aria-label="Ticket wallet views">{([['UPCOMING', 'Upcoming'], ['PAST', 'Past'], ['CANCELLED', 'Cancelled'], ['ALL', 'All tickets']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={view === value} onClick={() => { setView(value); setPage(1) }} className={`rounded-full px-3 py-2 text-sm font-semibold ${view === value ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{label}</button>)}</div><label className="flex min-w-[220px] items-center gap-2 rounded-lg border border-slate-300 px-3 py-2"><IconSearch className="h-4 w-4 text-slate-400" /><input className="w-full border-0 text-sm outline-none" type="search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="Search your events" aria-label="Search tickets by event" /></label></section>
+      <section className="mb-5 flex w-full flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between" aria-label="Ticket filters">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Ticket wallet views">{([['UPCOMING', 'Upcoming'], ['PAST', 'Past'], ['CANCELLED', 'Cancelled'], ['ALL', 'All tickets']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={view === value} onClick={() => { setView(value); setPage(1) }} className={`rounded-full px-3.5 py-2 text-sm font-semibold transition-colors ${view === value ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{label}</button>)}</div>
+        <label className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-slate-300 px-3 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 sm:max-w-[320px]"><IconSearch className="h-4 w-4 shrink-0 text-slate-400" /><input className="w-full border-0 bg-transparent text-sm outline-none" type="search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="Search event name" aria-label="Search tickets by event" /></label>
+      </section>
+      {tickets && <div className="mb-3 flex min-h-5 items-center justify-between text-sm text-slate-500" aria-live="polite"><span>{isRefreshing ? 'Updating tickets…' : `${pageInfo.total} ${pageInfo.total === 1 ? 'ticket' : 'tickets'}`}</span>{search && <button type="button" onClick={() => setSearch('')} className="font-semibold text-indigo-700 hover:underline">Clear search</button>}</div>}
 
       {error && (
         <div className="mx-auto mb-6 flex max-w-[600px] items-start gap-3 rounded-[var(--radius-md)] border-l-4 border-l-[var(--danger)] bg-white px-[18px] py-3.5 shadow-[0_10px_25px_-5px_rgba(15,23,42,0.2),0_8px_10px_-6px_rgba(15,23,42,0.1)] animate-[toastSlideIn_0.25s_cubic-bezier(0.16,1,0.3,1)]">
@@ -144,22 +159,23 @@ export function TicketsPage() {
       )}
 
       {tickets && tickets.length === 0 && (
-        <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ maxWidth: '600px', margin: '0 auto', padding: '60px', textAlign: 'center' }}>
+        <div className="mx-auto mb-8 max-w-2xl rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center shadow-sm sm:px-10">
           <IconTicket style={{ width: '48px', height: '48px', color: 'var(--text-muted)', margin: '0 auto 16px' }} />
-          <h3 style={{ margin: '0 0 8px', fontSize: '20px', fontWeight: 700 }}>{view === 'UPCOMING' ? 'No Upcoming Passes' : 'No Tickets in This View'}</h3>
-          <p className="text-muted" style={{ margin: '0 0 24px', fontSize: '14px' }}>
-            {view === 'UPCOMING' && !search ? 'Confirmed tickets for upcoming events will appear here.' : 'Try another wallet view or clear your search to find a ticket.'}
+          <h3 className="mb-2 mt-0 text-xl font-bold text-slate-900">{search ? 'No matching tickets' : view === 'UPCOMING' ? 'No upcoming tickets yet' : view === 'PAST' ? 'No past tickets' : view === 'CANCELLED' ? 'No cancelled-event tickets' : 'No tickets yet'}</h3>
+          <p className="mx-auto mb-6 max-w-md text-sm leading-6 text-slate-600">
+            {search ? 'Try a different event name or clear the search to see your tickets.' : view === 'UPCOMING' || view === 'ALL' ? 'When you book an event, your confirmed entry pass will appear here.' : 'Tickets for this view will appear here when you have matching bookings.'}
           </p>
-          <Link to="/discover" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]">
-            Explore Upcoming Events
-          </Link>
+          {search || view !== 'UPCOMING' ? <button type="button" onClick={() => { setSearch(''); setView('UPCOMING'); setPage(1) }} className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Reset filters</button> : <LinkButton to="/discover">Explore upcoming events</LinkButton>}
         </div>
       )}
 
       {tickets && tickets.length > 0 && (
-        <div className="mt-8 grid grid-cols-[repeat(auto-fill,minmax(360px,1fr))] gap-6">
-          {tickets.map((t) => (
-            <article className="relative flex flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)] before:absolute after:absolute before:top-[130px] after:top-[130px] before:left-[-10px] after:right-[-10px] before:z-[2] after:z-[2] before:h-5 after:h-5 before:w-5 after:w-5 before:rounded-full after:rounded-full before:bg-[var(--surface-alt)] after:bg-[var(--surface-alt)] before:content-[''] after:content-['']" key={t.id}>
+        <div className={`grid grid-cols-1 gap-4 transition-opacity sm:grid-cols-2 xl:grid-cols-3 ${isRefreshing ? 'opacity-60' : 'opacity-100'}`}>
+          {tickets.map((t) => {
+            const passState = ticketState(t)
+            const qrUnavailable = !canOpenQr(t)
+            const qrUnavailableLabel = t.event.status === 'CANCELLED' ? 'Event cancelled' : t.status === 'VOIDED' ? 'Ticket voided' : t.status === 'CHECKED_IN' ? 'Already used' : 'QR expired'
+            return <article className="relative flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)] before:absolute after:absolute before:top-[130px] after:top-[130px] before:left-[-10px] after:right-[-10px] before:z-[2] after:z-[2] before:h-5 after:h-5 before:w-5 after:w-5 before:rounded-full after:rounded-full before:bg-[var(--surface-alt)] after:bg-[var(--surface-alt)] before:content-[''] after:content-['']" key={t.id}>
               <div className="relative h-[140px] overflow-hidden bg-slate-900">
                 <img
                   className="h-full w-full object-cover"
@@ -169,11 +185,9 @@ export function TicketsPage() {
               </div>
 
               <div className="flex flex-col gap-3 p-6">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5] [--badge-dot-color:#6366f1]">{t.ticketType.name}</span>
-                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${t.event.status === 'CANCELLED' ? 'bg-rose-50 text-rose-700' : t.status === 'CHECKED_IN' ? 'bg-slate-100 text-slate-700' : t.status === 'VOIDED' ? 'bg-rose-50 text-rose-700' : new Date(t.event.startAt) < new Date() ? 'bg-slate-100 text-slate-700' : 'bg-emerald-50 text-emerald-700'}`}>
-                    {t.event.status === 'CANCELLED' ? 'Event cancelled' : t.status === 'CHECKED_IN' ? 'Already checked in' : t.status === 'VOIDED' ? 'Ticket voided' : new Date(t.event.endAt) < new Date() ? 'Past event' : 'Valid pass'}
-                  </span>
+                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${passState.tone}`}>{passState.label}</span>
                 </div>
 
                 <h3 style={{ margin: '4px 0 0', fontSize: '18px', fontWeight: 700 }}>{t.event.title}</h3>
@@ -187,33 +201,30 @@ export function TicketsPage() {
                     <IconMapPin style={{ width: '14px', height: '14px' }} />
                     {t.event.venue}, {t.event.city}
                   </span>
+                  {t.event.status === 'CANCELLED' && t.event.cancellationReason && <span className="mt-1 rounded-lg bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800">Cancellation note: {t.event.cancellationReason}</span>}
                 </div>
 
                 <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    paddingTop: '16px',
-                    borderTop: '1px dashed var(--border)',
-                    marginTop: '8px',
-                  }}
+                  className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-slate-200 pt-4"
                 >
                   <code style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>
                     {t.reference}
                   </code>
+                  <div className="flex flex-wrap items-center gap-3">
+                  <Link to={`/events/${t.event.slug}`} className="text-xs font-semibold text-indigo-700 hover:underline">Event details</Link>
                   <button
                     type="button"
                     className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
                     onClick={() => void openTicket(t)}
-                    disabled={loadingModal || t.event.status === 'CANCELLED' || t.status === 'VOIDED'}
+                    disabled={loadingModal || qrUnavailable}
                   >
-                    <IconQrCode /> View Pass
+                    <IconQrCode /> {qrUnavailable ? qrUnavailableLabel : 'View QR pass'}
                   </button>
+                  </div>
                 </div>
               </div>
             </article>
-          ))}
+          })}
         </div>
       )}
       {tickets && pageInfo.pageCount > 1 && <div className="mx-auto mt-6 flex max-w-[900px] items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm"><span>{pageInfo.total} passes · Page {page} of {pageInfo.pageCount}</span><div className="flex gap-2"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="rounded border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={page >= pageInfo.pageCount} onClick={() => setPage((value) => value + 1)} className="rounded border px-3 py-1.5 disabled:opacity-40">Next</button></div></div>}
@@ -242,11 +253,11 @@ export function TicketsPage() {
                 marginBottom: '20px',
               }}
             >
-              <img
+              {canOpenQr(selected) ? <img
                 src={selected.qrCode}
                 alt={`Entry code for ${selected.reference}`}
                 style={{ width: '220px', height: '220px', display: 'block' }}
-              />
+              /> : <p className="m-0 max-w-[240px] text-sm leading-6 text-slate-600">{selected.event.status === 'CANCELLED' ? 'This event was cancelled, so the QR pass is no longer available.' : selected.status === 'CHECKED_IN' ? 'This ticket has already been used for entry.' : 'This event has ended, so the QR pass is no longer valid.'}</p>}
             </div>
 
             <div className="text-muted" style={{ fontSize: '13px', lineHeight: 1.5 }}>
@@ -257,18 +268,18 @@ export function TicketsPage() {
                 {formatEventDate(selected.event.startAt, selected.event.timezone)}
               </p>
               <div
+                className={`flex items-center justify-center gap-2 text-xs font-semibold ${selected.status === 'CHECKED_IN' ? 'text-slate-600' : selected.status === 'VOIDED' || selected.event.status === 'CANCELLED' ? 'text-rose-700' : 'text-emerald-700'}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
                   justifyContent: 'center',
-                  color: 'var(--success)',
                   fontSize: '12px',
                   fontWeight: 600,
                 }}
               >
                 <IconShield style={{ width: '14px', height: '14px' }} />
-                Your one-time entry QR pass
+                {selected.status === 'CHECKED_IN' ? 'This ticket has already been checked in.' : selected.status === 'VOIDED' ? 'This ticket is no longer valid for entry.' : selected.event.status === 'CANCELLED' ? 'This event was cancelled; keep this with your booking history.' : new Date(selected.event.endAt) < new Date() ? 'This event has ended; keep this with your booking history.' : 'Have this QR ready when you arrive at the venue.'}
               </div>
             </div>
           </div>
@@ -282,4 +293,20 @@ function formatEventDate(value: string, timezone: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'full', timeStyle: 'short', timeZone: timezone }).format(
     new Date(value),
   )
+}
+
+function ticketState(ticket: TicketSummary) {
+  if (ticket.event.status === 'CANCELLED') return { label: 'Event cancelled', tone: 'bg-rose-50 text-rose-700' }
+  if (ticket.status === 'VOIDED') return { label: 'Ticket voided', tone: 'bg-rose-50 text-rose-700' }
+  if (ticket.status === 'CHECKED_IN') return { label: 'Already checked in', tone: 'bg-slate-100 text-slate-700' }
+  const now = Date.now()
+  if (new Date(ticket.event.endAt).getTime() < now) return { label: 'Past event', tone: 'bg-slate-100 text-slate-700' }
+  if (new Date(ticket.event.startAt).getTime() <= now) return { label: 'Event in progress', tone: 'bg-emerald-50 text-emerald-700' }
+  return { label: 'Ready for entry', tone: 'bg-emerald-50 text-emerald-700' }
+}
+
+function canOpenQr(ticket: TicketSummary) {
+  return ticket.status === 'ISSUED'
+    && ticket.event.status === 'PUBLISHED'
+    && new Date(ticket.event.endAt).getTime() > Date.now()
 }

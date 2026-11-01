@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type CSSProperties, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
 import { IconCheck, IconAlertCircle, IconAlertTriangle, IconInfo, IconX } from './icons'
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
@@ -43,15 +43,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }
   }, [dismiss])
 
-  const contextValue: ToastContextValue = {
-    toast: {
-      success: (title, message, duration) => addToast('success', title, message, duration),
-      error: (title, message, duration) => addToast('error', title, message, duration),
-      warning: (title, message, duration) => addToast('warning', title, message, duration),
-      info: (title, message, duration) => addToast('info', title, message, duration),
-      dismiss,
-    },
-  }
+  const toast = useMemo(() => ({
+    success: (title: string, message?: string, duration?: number) => addToast('success', title, message, duration),
+    error: (title: string, message?: string, duration?: number) => addToast('error', title, message, duration),
+    warning: (title: string, message?: string, duration?: number) => addToast('warning', title, message, duration),
+    info: (title: string, message?: string, duration?: number) => addToast('info', title, message, duration),
+    dismiss,
+  }), [addToast, dismiss])
+  const contextValue = useMemo<ToastContextValue>(() => ({ toast }), [toast])
 
   return (
     <ToastContext.Provider value={contextValue}>
