@@ -20,6 +20,7 @@ import { OrganizerApplicationsService } from './organizer-applications.service.j
 import { ClerkService } from '../auth/clerk.service.js';
 import {
   DecideApplicationDto,
+  AdminUsersQueryDto,
   ListApplicationsQueryDto,
   MarkNotificationsReadDto,
   SetUserRoleDto,
@@ -70,7 +71,7 @@ export class OrganizerApplicationsController {
   @Get('organizer-applications')
   @RequireRoles('ADMIN')
   list(@Query() query: ListApplicationsQueryDto) {
-    return this.applications.list(query.status as OrganizerApplicationStatus | undefined);
+    return this.applications.list(query.status as OrganizerApplicationStatus | undefined, query.search, query.page, query.pageSize);
   }
 
   @Get('admin/notifications')
@@ -108,9 +109,13 @@ export class OrganizerApplicationsController {
 
   @Get('users')
   @RequireRoles('ADMIN')
-  listUsers() {
-    return this.applications.listUsers();
+  listUsers(@Query() query: AdminUsersQueryDto) {
+    return this.applications.listUsers(query);
   }
+
+  @Get('admin/users/:userId/audit-log')
+  @RequireRoles('ADMIN')
+  userAuditHistory(@Param('userId') id: string) { return this.applications.userAuditHistory(id); }
 
   @Patch('users/:userId/role')
   @RequireRoles('ADMIN')
@@ -120,7 +125,7 @@ export class OrganizerApplicationsController {
     @Body() body: SetUserRoleDto,
   ) {
     const dto = ensureDto(SetUserRoleDto, body);
-    return this.applications.setUserRole(id, dto.role, request.eventoraUser!.id);
+    return this.applications.setUserRole(id, dto.role, request.eventoraUser!.id, dto.reason.trim());
   }
 
   @Patch('users/:userId/status')
@@ -131,6 +136,6 @@ export class OrganizerApplicationsController {
     @Body() body: SetUserStatusDto,
   ) {
     const dto = ensureDto(SetUserStatusDto, body);
-    return this.applications.setUserStatus(id, dto.status, request.eventoraUser!.id);
+    return this.applications.setUserStatus(id, dto.status, request.eventoraUser!.id, dto.reason.trim());
   }
 }

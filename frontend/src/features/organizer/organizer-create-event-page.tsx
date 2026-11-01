@@ -39,7 +39,7 @@ export function OrganizerCreateEventPage() {
   // Optional initial ticket tier
   const [includeTicket, setIncludeTicket] = useState(true)
   const [ticketName, setTicketName] = useState('General Admission')
-  const [ticketPrice, setTicketPrice] = useState('0')
+  const [ticketPrice, setTicketPrice] = useState('1500')
   const [ticketCurrency] = useState('LKR')
   const [ticketQuantity, setTicketQuantity] = useState('100')
 
@@ -106,10 +106,15 @@ export function OrganizerCreateEventPage() {
         return
       }
       const priceNum = Number(ticketPrice)
-      if (isNaN(priceNum) || priceNum < 0) {
-        toast.error('Invalid Ticket Price', 'Ticket price must be a valid amount (0 for free).')
+      if (isNaN(priceNum) || priceNum <= 0) {
+        toast.error('Invalid Ticket Price', 'Ticket price must be greater than 0.')
         return
       }
+    }
+
+    if (publishImmediately && !includeTicket) {
+      toast.error('Paid ticket required', 'Publishing requires at least one active paid ticket tier. Add your first tier or save this event as a draft.')
+      return
     }
 
     setSubmitting(true)
@@ -133,6 +138,8 @@ export function OrganizerCreateEventPage() {
         data: payload,
       })
       const eventId = createResponse.data.id
+      const setupIssues: string[] = []
+      let ticketCreated = false
 
       // 2. Upload cover image if provided
       if (coverFile) {
@@ -146,7 +153,7 @@ export function OrganizerCreateEventPage() {
             headers: { 'Content-Type': 'multipart/form-data' },
           })
         } catch {
-          toast.error('Banner Notice', 'Event was created, but banner upload failed. You can upload it from the editor.')
+          setupIssues.push('The banner upload failed. You can retry it from the event editor.')
         }
       }
 
@@ -163,30 +170,47 @@ export function OrganizerCreateEventPage() {
               quantity: Number(ticketQuantity),
             },
           })
-        } catch {
-          toast.error('Ticket Notice', 'Event was created, but could not set up initial ticket tier.')
+          ticketCreated = true
+        } catch (err) {
+          const message = err instanceof AxiosError ? err.response?.data?.message : undefined
+          setupIssues.push(typeof message === 'string' ? `The ticket tier was not saved: ${message}` : 'The ticket tier was not saved. Retry setup from the event editor.')
         }
       }
 
       // 4. Publish if selected
-      if (publishImmediately && includeTicket) {
+      let published = false
+      if (publishImmediately && ticketCreated) {
         try {
           await request({
             method: 'PATCH',
             url: `/organizer/events/${eventId}/publish`,
           })
-          toast.success('Event Published!', 'Your event is now live and open for registration.')
-        } catch {
-          toast.success('Event Draft Created', 'Draft created successfully. You can publish it once verified.')
+          published = true
+        } catch (err) {
+          const data = err instanceof AxiosError ? err.response?.data : undefined
+          const issues = Array.isArray(data?.issues) ? (data.issues as { message?: string }[]).map((issue) => issue.message).filter(Boolean).join(' ') : ''
+          const message = typeof data?.message === 'string' ? data.message : issues
+          setupIssues.push(message || 'The event could not be published yet. Review the readiness checklist in the editor.')
         }
-      } else {
-        toast.success('Event Draft Created', 'Configure your agenda and ticket tiers, then publish when ready.')
+      } else if (publishImmediately) {
+        setupIssues.push('Publishing was skipped because the paid ticket tier still needs to be saved.')
       }
+
+      if (published && setupIssues.length) toast.warning('Event published with an item to fix', setupIssues.join(' '))
+      else if (published) toast.success('Event published', 'Your event is now live and open for registration.')
+      else if (setupIssues.length) toast.warning('Draft saved with setup to finish', setupIssues.join(' '))
+      else toast.success('Draft saved', 'You can continue setup and publish it from the event editor.')
 
       // Redirect to the dedicated management page for this event
       navigate(`/organizer/events/${eventId}/edit`)
     } catch (err) {
-      const apiMessage = err instanceof AxiosError ? err.response?.data?.message : undefined
+      const data = err instanceof AxiosError ? err.response?.data : undefined
+      const apiMessage = Array.isArray(data?.message)
+        ? data.message.join(', ')
+        : typeof data?.message === 'string'
+          ? data.message
+          : data?.error || (err instanceof Error ? err.message : undefined)
+      console.error('Event creation failed:', err, data)
       toast.error(
         'Creation Failed',
         typeof apiMessage === 'string' ? apiMessage : 'Could not create event. Please verify all fields.',
@@ -453,7 +477,7 @@ export function OrganizerCreateEventPage() {
                       required={includeTicket}
                       value={ticketPrice}
                       onChange={(e) => setTicketPrice(e.target.value)}
-                      placeholder="0 for Free"
+                      placeholder="e.g. 1500"
                       className="mt-1 h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
                     />
                   </div>

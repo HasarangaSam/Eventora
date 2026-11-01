@@ -1,10 +1,12 @@
-import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query, Req, UseGuards } from '@nestjs/common';
 import { AccountGuard } from '../auth/account.guard.js';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
 import type { AuthenticatedRequest } from '../auth/auth.types.js';
 import { RequireRoles, RolesGuard } from '../auth/roles.guard.js';
 import { AnalyticsService } from './analytics.service.js';
-import { ParticipantsQueryDto } from './dto/participants-query.dto.js';
+import { AdminPaymentExceptionsQueryDto, AdminReportRangeDto, ParticipantsQueryDto } from './dto/participants-query.dto.js';
+import { ReviewPaymentExceptionDto } from '../organizer-applications/dto/organizer-application.dto.js';
+import { ensureDto } from '../common/validation/dto-validator.js';
 
 @Controller()
 @UseGuards(ClerkAuthGuard, AccountGuard, RolesGuard)
@@ -70,11 +72,11 @@ export class AnalyticsController {
 
   @Get('admin/analytics/sales')
   @RequireRoles('ADMIN')
-  adminSales() { return this.analytics.adminSales(); }
+  adminSales(@Query() query: AdminReportRangeDto) { return this.analytics.adminSales(query.months); }
 
   @Get('admin/analytics/registrations')
   @RequireRoles('ADMIN')
-  adminRegistrations() { return this.analytics.adminRegistrations(); }
+  adminRegistrations(@Query() query: AdminReportRangeDto) { return this.analytics.adminRegistrations(query.months); }
 
   @Get('admin/analytics/attendance')
   @RequireRoles('ADMIN')
@@ -83,4 +85,14 @@ export class AnalyticsController {
   @Get('admin/analytics/payments')
   @RequireRoles('ADMIN')
   adminPayments() { return this.analytics.adminPayments(); }
+
+  @Get('admin/payment-exceptions')
+  @RequireRoles('ADMIN')
+  adminPaymentExceptions(@Query() query: AdminPaymentExceptionsQueryDto) { return this.analytics.adminPaymentExceptions(query); }
+
+  @Patch('admin/payment-exceptions/:id/review')
+  @RequireRoles('ADMIN')
+  reviewPaymentException(@Req() req: AuthenticatedRequest, @Param('id') id: string, @Body() body: ReviewPaymentExceptionDto) {
+    return this.analytics.reviewPaymentException(id, req.eventoraUser!.id, ensureDto(ReviewPaymentExceptionDto, body).reviewNote.trim());
+  }
 }

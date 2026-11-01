@@ -36,10 +36,18 @@ class IsIsoTimestampConstraint implements ValidatorConstraintInterface {
  */
 export function IsIsoTimestamp(validationOptions?: ValidationOptions): PropertyDecorator {
   return applyDecorators(
-    Transform(({ value }) => {
+    Transform(({ value, obj, key }) => {
       if (value === undefined || value === null) return value;
-      if (typeof value !== 'string' || !ISO_TIMESTAMP_REGEX.test(value)) return new Date(NaN);
-      return new Date(value);
+      const raw =
+        obj && key && typeof obj[key] === 'string'
+          ? obj[key]
+          : typeof value === 'string'
+            ? value
+            : null;
+      if (!raw || !ISO_TIMESTAMP_REGEX.test(raw)) return new Date(NaN);
+      return value instanceof Date && Number.isFinite(value.getTime())
+        ? value
+        : new Date(raw);
     }),
     (target: object, propertyKey: string | symbol) => {
       registerDecorator({
@@ -76,10 +84,18 @@ class IsIsoDateConstraint implements ValidatorConstraintInterface {
  */
 export function IsIsoDate(validationOptions?: ValidationOptions): PropertyDecorator {
   return applyDecorators(
-    Transform(({ value }) => {
+    Transform(({ value, obj, key }) => {
       if (value === undefined || value === null) return value;
-      if (typeof value !== 'string' || !ISO_DATE_REGEX.test(value)) return new Date(NaN);
-      return new Date(value);
+      const raw =
+        obj && key && typeof obj[key] === 'string'
+          ? obj[key]
+          : typeof value === 'string'
+            ? value
+            : null;
+      if (!raw || !ISO_DATE_REGEX.test(raw)) return new Date(NaN);
+      return value instanceof Date && Number.isFinite(value.getTime())
+        ? value
+        : new Date(raw);
     }),
     (target: object, propertyKey: string | symbol) => {
       registerDecorator({

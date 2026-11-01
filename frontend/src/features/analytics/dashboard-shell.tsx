@@ -92,7 +92,8 @@ export function DashboardShell({ role, children, pageTitle }: DashboardShellProp
     { label: 'Events', to: '/admin/events', icon: <IconCalendar />, group: 'Manage platform' },
     { label: 'Accounts', to: '/admin/users', icon: <IconUsers /> },
     { label: 'Categories', to: '/admin/categories', icon: <IconSparkles /> },
-    { label: 'Payments', to: '/admin/payments', icon: <IconTicket />, group: 'Reports' },
+    { label: 'Notifications', to: '/admin/notifications', icon: <IconBell />, badge: unreadNotificationCount, group: 'Review & insights' },
+    { label: 'Payments', to: '/admin/payments', icon: <IconTicket /> },
     { label: 'Reports', to: '/admin/reports', icon: <IconChart /> },
   ]
 

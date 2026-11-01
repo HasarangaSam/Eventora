@@ -36,23 +36,70 @@ export class OrganizerEventsService {
     return this.prisma.event.findMany({ where: { organizerId }, orderBy: { updatedAt: 'desc' }, include: ownerDetails });
   }
 
-  listForAdmin(status?: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED') {
-    return this.prisma.event.findMany({
-      where: status ? { status } : undefined,
-      orderBy: { updatedAt: 'desc' },
-      take: 100,
-      select: {
+  async listForAdmin(query: { status?: 'DRAFT' | 'PUBLISHED' | 'CANCELLED' | 'COMPLETED'; search?: string; page: number; pageSize: number }) {
+    const term = query.search?.trim() ?? '';
+    const where = {
+      ...(query.status ? { status: query.status } : {}),
+      ...(term ? { OR: [
+        { title: { contains: term, mode: 'insensitive' as const } },
+        { city: { contains: term, mode: 'insensitive' as const } },
+        { venue: { contains: term, mode: 'insensitive' as const } },
+        { organizer: { email: { contains: term, mode: 'insensitive' as const } } },
+        { organizer: { firstName: { contains: term, mode: 'insensitive' as const } } },
+        { organizer: { lastName: { contains: term, mode: 'insensitive' as const } } },
+      ] } : {}),
+    };
+    const select = {
         id: true, title: true, slug: true, city: true, venue: true, startAt: true, endAt: true, status: true,
         ticketsReserved: true, ticketsSold: true,
-        organizer: { select: { email: true, firstName: true, lastName: true } },
+        updatedAt: true, cancelledAt: true, cancellationReason: true,
+        organizer: { select: { id: true, email: true, firstName: true, lastName: true } },
         _count: { select: { registrations: true, tickets: true } },
+    } as const;
+    const [items, total] = await Promise.all([
+      this.prisma.event.findMany({ where, orderBy: { updatedAt: 'desc' }, skip: (query.page - 1) * query.pageSize, take: query.pageSize, select }),
+      this.prisma.event.count({ where }),
+    ]);
+    return { items, total, page: query.page, pageSize: query.pageSize, pageCount: Math.ceil(total / query.pageSize) };
+  }
+
+  getForAdmin(eventId: string) {
+    return this.prisma.event.findUnique({
+      where: { id: eventId },
+      include: {
+        category: { select: { id: true, name: true } }, sessions: { orderBy: { startAt: 'asc' } },
+        ticketTypes: { orderBy: { createdAt: 'asc' } },
+        organizer: { select: { id: true, email: true, firstName: true, lastName: true, status: true } },
+        _count: { select: { registrations: true, tickets: true, reservations: true, checkIns: true } },
       },
+    }).then((event) => {
+      if (!event) throw new NotFoundException('Event not found');
+      return event;
     });
   }
 
   async get(organizerId: string, eventId: string) {
     await this.owned(organizerId, eventId);
     return this.prisma.event.findUniqueOrThrow({ where: { id: eventId }, include: ownerDetails });
+  }
+
+  async readiness(organizerId: string, eventId: string) {
+    const event = await this.owned(organizerId, eventId);
+    const details = await this.prisma.event.findUniqueOrThrow({ where: { id: eventId }, include: { ticketTypes: true, category: true } });
+    const readiness = this.getPublishReadiness(event, details);
+    const history = await this.prisma.event.findUniqueOrThrow({ where: { id: eventId }, select: { _count: { select: { registrations: true, reservations: true } } } });
+    const canUnpublish = event.status === 'PUBLISHED'
+      && history._count.registrations === 0
+      && history._count.reservations === 0
+      && event.ticketsReserved === 0
+      && event.ticketsSold === 0;
+    return {
+      ...readiness,
+      canUnpublish,
+      unpublishBlocker: event.status === 'PUBLISHED' && !canUnpublish
+        ? 'Attendee or ticket history prevents returning this event to draft.'
+        : null,
+    };
   }
 
   async create(organizerId: string, input: CreateEventInput) {
@@ -114,20 +161,26 @@ export class OrganizerEventsService {
     const event = await this.owned(organizerId, eventId);
     const details = await this.prisma.event.findUniqueOrThrow({ where: { id: eventId }, include: { ticketTypes: true, category: true } });
     if (event.status !== 'DRAFT') throw new ConflictException('Only draft events can be published');
-    if (event.startAt <= new Date() || event.endAt <= event.startAt) throw new BadRequestException('Event dates must be valid and in the future');
-    if (!event.title.trim() || !event.description.trim() || !event.venue.trim() || !event.city.trim() || !details.category.isActive) {
-      throw new BadRequestException('Title, description, location, and an active category are required before publishing');
-    }
-    const now = new Date();
-    // Require at least one genuinely purchasable paid ticket before making the event public.
-    if (!details.ticketTypes.some((ticket) => ticket.isActive && ticket.price.greaterThan(0)
-      && ticket.quantity - ticket.quantityReserved - ticket.quantitySold > 0
-      && (!ticket.salesStartAt || ticket.salesStartAt < event.startAt)
-      && (!ticket.salesEndAt || ticket.salesEndAt > now))) {
-      throw new BadRequestException('At least one active paid ticket type with available inventory is required');
-    }
-    if (event.capacity !== null && event.capacity < event.ticketsReserved + event.ticketsSold) throw new ConflictException('Event capacity is below committed inventory');
+    const readiness = this.getPublishReadiness(event, details);
+    if (!readiness.ready) throw new BadRequestException({ code: 'EVENT_NOT_READY', message: 'This event needs changes before it can be published.', issues: readiness.issues });
     return this.prisma.event.update({ where: { id: eventId }, data: { status: 'PUBLISHED', publishedAt: new Date() }, include: ownerDetails });
+  }
+
+  private getPublishReadiness(event: { title: string; description: string; venue: string; city: string; startAt: Date; endAt: Date; capacity: number | null; ticketsReserved: number; ticketsSold: number }, details: { category: { isActive: boolean }; ticketTypes: Array<{ isActive: boolean; price: Prisma.Decimal; quantity: number; quantityReserved: number; quantitySold: number; salesStartAt: Date | null; salesEndAt: Date | null }> }) {
+    const now = new Date();
+    const issues: { field: string; code: string; message: string }[] = [];
+    if (!event.title.trim()) issues.push({ field: 'title', code: 'TITLE_REQUIRED', message: 'Add an event title.' });
+    if (!event.description.trim()) issues.push({ field: 'description', code: 'DESCRIPTION_REQUIRED', message: 'Add an event description.' });
+    if (!event.venue.trim() || !event.city.trim()) issues.push({ field: 'location', code: 'LOCATION_REQUIRED', message: 'Add the venue and city.' });
+    if (!details.category.isActive) issues.push({ field: 'categoryId', code: 'CATEGORY_UNAVAILABLE', message: 'Choose an active event category.' });
+    if (event.startAt <= now || event.endAt <= event.startAt) issues.push({ field: 'startAt', code: 'INVALID_EVENT_DATES', message: 'Set a future event start and an end time after the start.' });
+    if (event.capacity !== null && event.capacity < event.ticketsReserved + event.ticketsSold) issues.push({ field: 'capacity', code: 'CAPACITY_TOO_LOW', message: 'Event capacity is below tickets already reserved or sold.' });
+    const paidTicketAvailable = details.ticketTypes.some((ticket) => ticket.isActive && ticket.price.greaterThan(0)
+      && ticket.quantity - ticket.quantityReserved - ticket.quantitySold > 0
+      && (!ticket.salesStartAt || ticket.salesStartAt <= now)
+      && (!ticket.salesEndAt || ticket.salesEndAt > now));
+    if (!paidTicketAvailable) issues.push({ field: 'ticketTypes', code: 'NO_AVAILABLE_PAID_TICKETS', message: 'Add or activate a paid ticket tier with remaining inventory that is on sale now.' });
+    return { ready: issues.length === 0, issues };
   }
 
   async unpublish(organizerId: string, eventId: string) {

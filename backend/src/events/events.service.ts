@@ -38,10 +38,11 @@ export class EventsService {
   async list(filters: EventFilters) {
     const where: Prisma.EventWhereInput = {
       status: 'PUBLISHED',
+      endAt: { gt: new Date() },
       ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
       ...(filters.from || filters.to
         ? { startAt: { ...(filters.from ? { gte: filters.from } : {}), ...(filters.to ? { lte: filters.to } : {}) } }
-        : { endAt: { gte: new Date() } }),
+        : {}),
       ...(filters.search
         ? {
             OR: [
@@ -141,7 +142,7 @@ export class EventsService {
 
   async get(identifier: string) {
     const event = await this.prisma.event.findFirst({
-      where: { OR: [{ id: identifier }, { slug: identifier }], status: 'PUBLISHED' },
+      where: { OR: [{ id: identifier }, { slug: identifier }], status: { in: ['PUBLISHED', 'CANCELLED', 'COMPLETED'] } },
       select: {
         id: true,
         slug: true,
@@ -151,6 +152,8 @@ export class EventsService {
         city: true,
         startAt: true,
         endAt: true,
+        status: true,
+        cancellationReason: true,
         timezone: true,
         coverImageUrl: true,
         category: { select: { id: true, name: true, slug: true } },
@@ -163,7 +166,7 @@ export class EventsService {
   }
 
   async sessions(identifier: string) {
-    const event = await this.findPublished(identifier);
+    const event = await this.findVisible(identifier);
     return this.prisma.eventSession.findMany({
       where: { eventId: event.id },
       orderBy: { startAt: 'asc' },
@@ -173,10 +176,11 @@ export class EventsService {
 
   async ticketTypes(identifier: string) {
     const event = await this.prisma.event.findFirst({
-      where: { OR: [{ id: identifier }, { slug: identifier }], status: 'PUBLISHED' },
-      select: { id: true, capacity: true, ticketsReserved: true, ticketsSold: true },
+      where: { OR: [{ id: identifier }, { slug: identifier }], status: { in: ['PUBLISHED', 'CANCELLED', 'COMPLETED'] } },
+      select: { id: true, status: true, endAt: true, capacity: true, ticketsReserved: true, ticketsSold: true },
     });
     if (!event) throw new NotFoundException('Event not found');
+    if (event.status !== 'PUBLISHED' || event.endAt <= new Date()) return [];
     const now = new Date();
     const ticketTypes = await this.prisma.ticketType.findMany({
       where: {
@@ -218,9 +222,9 @@ export class EventsService {
     });
   }
 
-  private async findPublished(identifier: string) {
+  private async findVisible(identifier: string) {
     const event = await this.prisma.event.findFirst({
-      where: { OR: [{ id: identifier }, { slug: identifier }], status: 'PUBLISHED' },
+      where: { OR: [{ id: identifier }, { slug: identifier }], status: { in: ['PUBLISHED', 'CANCELLED', 'COMPLETED'] } },
       select: { id: true },
     });
     if (!event) throw new NotFoundException('Event not found');

@@ -1,6 +1,6 @@
 import { AxiosError } from 'axios'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { DashboardShell } from '../analytics/dashboard-shell'
 import { useAuthenticatedApi } from '../auth/use-authenticated-api'
 import { useToast } from '../../components/ui/toast'
@@ -58,6 +58,12 @@ export type EventRecord = {
   sessions: Session[]
 }
 
+function eventStatusForDisplay(event: EventRecord, now = Date.now()) {
+  return event.status === 'PUBLISHED' && new Date(event.endAt).getTime() <= now ? 'COMPLETED' : event.status
+}
+
+type EventStatusFilter = 'ALL' | 'PUBLISHED' | 'DRAFT' | 'CANCELLED' | 'COMPLETED'
+
 const statusBadgeClasses: Record<string, string> = {
   PUBLISHED: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
   DRAFT: 'border border-amber-200 bg-amber-50 text-amber-700',
@@ -73,16 +79,21 @@ const statusDotClasses: Record<string, string> = {
 }
 
 export function OrganizerEventsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const request = useAuthenticatedApi()
   const toast = useToast()
 
   const [events, setEvents] = useState<EventRecord[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [clock, setClock] = useState(() => Date.now())
 
   // Filters & Search
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PUBLISHED' | 'DRAFT' | 'CANCELLED' | 'COMPLETED'>('ALL')
+  const [statusFilter, setStatusFilter] = useState<EventStatusFilter>(() => {
+    const status = searchParams.get('status')
+    return status && ['PUBLISHED', 'DRAFT', 'CANCELLED', 'COMPLETED'].includes(status) ? status as Exclude<EventStatusFilter, 'ALL'> : 'ALL'
+  })
   const [categoryFilter, setCategoryFilter] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
 
@@ -115,10 +126,15 @@ export function OrganizerEventsPage() {
     void fetchEvents()
   }, [fetchEvents])
 
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
   // Filtered Events
   const filteredEvents = useMemo(() => {
     return events.filter((ev) => {
-      if (statusFilter !== 'ALL' && ev.status !== statusFilter) return false
+      if (statusFilter !== 'ALL' && eventStatusForDisplay(ev, clock) !== statusFilter) return false
       if (categoryFilter && ev.categoryId !== categoryFilter) return false
       if (search.trim()) {
         const q = search.toLowerCase()
@@ -127,30 +143,30 @@ export function OrganizerEventsPage() {
       }
       return true
     })
-  }, [events, statusFilter, categoryFilter, search])
+  }, [clock, events, statusFilter, categoryFilter, search])
 
   // Aggregate Metrics
   const metrics = useMemo(() => {
     const total = events.length
-    const published = events.filter((e) => e.status === 'PUBLISHED').length
+    const published = events.filter((e) => eventStatusForDisplay(e, clock) === 'PUBLISHED').length
     const drafts = events.filter((e) => e.status === 'DRAFT').length
     const totalSold = events.reduce((sum, e) => {
       const fromTypes = e.ticketTypes?.reduce((tSum, t) => tSum + (t.quantitySold || 0), 0) ?? 0
       return sum + (e.ticketsSold ?? fromTypes)
     }, 0)
     return { total, published, drafts, totalSold }
-  }, [events])
+  }, [clock, events])
 
   // Status counts for filter pills
   const statusCounts = useMemo(() => {
     return {
       ALL: events.length,
-      PUBLISHED: events.filter((e) => e.status === 'PUBLISHED').length,
+      PUBLISHED: events.filter((e) => eventStatusForDisplay(e, clock) === 'PUBLISHED').length,
       DRAFT: events.filter((e) => e.status === 'DRAFT').length,
       CANCELLED: events.filter((e) => e.status === 'CANCELLED').length,
-      COMPLETED: events.filter((e) => e.status === 'COMPLETED').length,
+      COMPLETED: events.filter((e) => eventStatusForDisplay(e, clock) === 'COMPLETED').length,
     }
-  }, [events])
+  }, [clock, events])
 
   async function handlePublishToggle(event: EventRecord, action: 'publish' | 'unpublish') {
     try {
@@ -162,11 +178,11 @@ export function OrganizerEventsPage() {
           : 'The event is no longer publicly visible.',
       )
       await fetchEvents()
-    } catch {
-      toast.error(
-        'Action Failed',
-        `Could not ${action} event. Ensure at least one active ticket tier is configured.`,
-      )
+    } catch (err) {
+      const payload = err instanceof AxiosError ? err.response?.data : undefined
+      const issues = Array.isArray(payload?.issues) ? payload.issues as { message?: string }[] : []
+      const detail = issues.map((issue) => issue.message).filter((message): message is string => Boolean(message)).join(' ')
+      toast.error('Action Failed', detail || (typeof payload?.message === 'string' ? payload.message : `Could not ${action} this event. Please try again.`))
     }
   }
 
@@ -185,8 +201,9 @@ export function OrganizerEventsPage() {
       )
       setCancelModalEvent(null)
       await fetchEvents()
-    } catch {
-      toast.error('Cancellation Error', 'Could not cancel event.')
+    } catch (err) {
+      const message = err instanceof AxiosError ? err.response?.data?.message : undefined
+      toast.error('Cancellation Error', typeof message === 'string' ? message : 'Could not cancel this event. Please try again.')
     } finally {
       setActionBusy(false)
     }
@@ -200,8 +217,9 @@ export function OrganizerEventsPage() {
       toast.success('Event Deleted', 'The draft event has been removed.')
       setDeleteModalEvent(null)
       await fetchEvents()
-    } catch {
-      toast.error('Cannot Delete', 'Events with attendee registrations or sales cannot be deleted.')
+    } catch (err) {
+      const message = err instanceof AxiosError ? err.response?.data?.message : undefined
+      toast.error('Cannot Delete', typeof message === 'string' ? message : 'This event cannot be deleted because it has attendee or ticket history.')
     } finally {
       setActionBusy(false)
     }
@@ -294,14 +312,17 @@ export function OrganizerEventsPage() {
                 <button
                   key={status}
                   type="button"
-                  onClick={() => setStatusFilter(status)}
+                  onClick={() => {
+                    setStatusFilter(status)
+                    setSearchParams(status === 'ALL' ? {} : { status })
+                  }}
                   className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
                     statusFilter === status
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
                   }`}
                 >
-                  <span>{status === 'ALL' ? 'All Events' : status.charAt(0) + status.slice(1).toLowerCase()}</span>
+                <span>{status === 'ALL' ? 'All Events' : status === 'COMPLETED' ? 'Past' : status.charAt(0) + status.slice(1).toLowerCase()}</span>
                   <span
                     className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
                       statusFilter === status ? 'bg-indigo-500 text-white' : 'bg-slate-200 text-slate-600'
@@ -401,6 +422,7 @@ export function OrganizerEventsPage() {
                   setSearch('')
                   setStatusFilter('ALL')
                   setCategoryFilter('')
+                  setSearchParams({})
                 }}
                 className="mt-4 rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
               >
@@ -412,6 +434,7 @@ export function OrganizerEventsPage() {
           /* Cards Grid View */
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
             {filteredEvents.map((ev) => {
+              const cardStatus = eventStatusForDisplay(ev, clock)
               const startDate = new Date(ev.startAt)
               const totalSold = ev.ticketTypes?.reduce((sum, t) => sum + (t.quantitySold || 0), 0) ?? ev.ticketsSold ?? 0
               const capacity = ev.capacity
@@ -437,11 +460,11 @@ export function OrganizerEventsPage() {
                     <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
                       <span
                         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold shadow-xs backdrop-blur-md ${
-                          statusBadgeClasses[ev.status] ?? 'bg-slate-100 text-slate-600'
+                          statusBadgeClasses[cardStatus] ?? 'bg-slate-100 text-slate-600'
                         }`}
                       >
-                        <span className={`h-1.5 w-1.5 rounded-full ${statusDotClasses[ev.status] ?? 'bg-slate-400'}`} />
-                        {ev.status.toLowerCase()}
+                        <span className={`h-1.5 w-1.5 rounded-full ${statusDotClasses[cardStatus] ?? 'bg-slate-400'}`} />
+                        {cardStatus === 'COMPLETED' ? 'Past' : cardStatus.toLowerCase()}
                       </span>
                       {ev.category && (
                         <span className="inline-flex rounded-full bg-slate-900/60 px-2 py-0.5 text-[10px] font-semibold text-slate-200 backdrop-blur-md">
@@ -513,13 +536,13 @@ export function OrganizerEventsPage() {
                         Manage & Edit
                       </Link>
 
-                      <Link
+                      {cardStatus === 'PUBLISHED' && <Link
                         to={`/organizer/events/${ev.id}/check-in`}
                         title="Door Check-in Console"
                         className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white p-2 text-slate-700 shadow-xs transition hover:border-slate-300 hover:bg-slate-50 active:scale-98"
                       >
                         <IconCamera className="h-4 w-4" />
-                      </Link>
+                      </Link>}
 
                       <Link
                         to={`/organizer/sales/${ev.id}`}
@@ -531,7 +554,7 @@ export function OrganizerEventsPage() {
 
                       {/* Dropdown / Quick Actions */}
                       <div className="flex items-center gap-1">
-                        {ev.status === 'DRAFT' && (
+                        {cardStatus === 'DRAFT' && (
                           <button
                             type="button"
                             onClick={() => void handlePublishToggle(ev, 'publish')}
@@ -540,7 +563,7 @@ export function OrganizerEventsPage() {
                             Publish
                           </button>
                         )}
-                        {ev.status === 'PUBLISHED' && (
+                        {cardStatus === 'PUBLISHED' && (
                           <button
                             type="button"
                             onClick={() => void handlePublishToggle(ev, 'unpublish')}
@@ -549,7 +572,7 @@ export function OrganizerEventsPage() {
                             Draft
                           </button>
                         )}
-                        {ev.status !== 'CANCELLED' && ev.status !== 'COMPLETED' && (
+                        {cardStatus !== 'CANCELLED' && cardStatus !== 'COMPLETED' && (
                           <button
                             type="button"
                             onClick={() => setCancelModalEvent(ev)}
@@ -592,6 +615,7 @@ export function OrganizerEventsPage() {
                   {filteredEvents.map((ev) => {
                     const totalSold = ev.ticketTypes?.reduce((sum, t) => sum + (t.quantitySold || 0), 0) ?? ev.ticketsSold ?? 0
                     const coverUrl = ev.coverImageUrl || getEventPlaceholder(ev.title)
+                    const cardStatus = eventStatusForDisplay(ev, clock)
 
                     return (
                       <tr key={ev.id} className="transition hover:bg-slate-50/70">
@@ -628,11 +652,11 @@ export function OrganizerEventsPage() {
                         <td className="px-4 py-4">
                           <span
                             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                              statusBadgeClasses[ev.status] ?? 'bg-slate-100 text-slate-600'
+                              statusBadgeClasses[cardStatus] ?? 'bg-slate-100 text-slate-600'
                             }`}
                           >
-                            <span className={`h-1.5 w-1.5 rounded-full ${statusDotClasses[ev.status] ?? 'bg-slate-400'}`} />
-                            {ev.status.toLowerCase()}
+                            <span className={`h-1.5 w-1.5 rounded-full ${statusDotClasses[cardStatus] ?? 'bg-slate-400'}`} />
+                            {cardStatus === 'COMPLETED' ? 'Past' : cardStatus.toLowerCase()}
                           </span>
                         </td>
 
@@ -651,13 +675,13 @@ export function OrganizerEventsPage() {
                             >
                               Manage
                             </Link>
-                            <Link
+                            {cardStatus === 'PUBLISHED' && <Link
                               to={`/organizer/events/${ev.id}/check-in`}
                               className="rounded-lg border border-slate-200 p-1.5 text-slate-600 hover:bg-slate-50"
                               title="Check-in Console"
                             >
                               <IconCamera className="h-4 w-4" />
-                            </Link>
+                            </Link>}
                           </div>
                         </td>
                       </tr>

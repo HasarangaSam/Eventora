@@ -6,7 +6,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { ticketQrToken, verifyTicketQr } from './ticket-crypto.js';
 
 const ticketInclude = {
-  event: { select: { id: true, title: true, startAt: true, endAt: true, venue: true, city: true, timezone: true, coverImageUrl: true, status: true } },
+  event: { select: { id: true, slug: true, title: true, startAt: true, endAt: true, venue: true, city: true, timezone: true, coverImageUrl: true, status: true, cancellationReason: true } },
   ticketType: { select: { name: true } },
   registration: { select: { id: true, status: true } },
 } as const;
@@ -15,14 +15,21 @@ const ticketInclude = {
 export class TicketsService {
   constructor(private readonly prisma: PrismaService, private readonly config: ConfigService) {}
 
-  async listMine(userId: string) {
-    const rows = await this.prisma.ticket.findMany({
-      where: { registration: { userId } },
-      orderBy: [{ event: { startAt: 'asc' } }, { createdAt: 'asc' }],
-      take: 100,
-      include: ticketInclude,
-    });
-    return rows.filter((ticket) => ticket.registration.status === 'CONFIRMED').map((ticket) => ({
+  async listMine(userId: string, query: { page: number; pageSize: number; search?: string; view: 'UPCOMING' | 'PAST' | 'CANCELLED' | 'ALL' }) {
+    const now = new Date();
+    const eventWhere = query.view === 'CANCELLED' ? { status: 'CANCELLED' as const }
+      : query.view === 'PAST' ? { status: { not: 'CANCELLED' as const }, endAt: { lt: now } }
+        : query.view === 'UPCOMING' ? { status: { not: 'CANCELLED' as const }, endAt: { gte: now } } : {};
+    const where = {
+      registration: { userId, status: 'CONFIRMED' as const },
+      ...(Object.keys(eventWhere).length ? { event: eventWhere } : {}),
+      ...(query.search?.trim() ? { event: { ...eventWhere, title: { contains: query.search.trim(), mode: 'insensitive' as const } } } : {}),
+    };
+    const [rows, total] = await Promise.all([this.prisma.ticket.findMany({
+      where, orderBy: [{ event: { startAt: query.view === 'PAST' ? 'desc' : 'asc' } }, { createdAt: 'asc' }],
+      skip: (query.page - 1) * query.pageSize, take: query.pageSize, include: ticketInclude,
+    }), this.prisma.ticket.count({ where })]);
+    const items = rows.map((ticket) => ({
       id: ticket.id,
       reference: ticket.reference,
       status: ticket.status,
@@ -30,6 +37,7 @@ export class TicketsService {
       event: ticket.event,
       ticketType: ticket.ticketType,
     }));
+    return { items, total, page: query.page, pageSize: query.pageSize, pageCount: Math.ceil(total / query.pageSize) };
   }
 
   async getMine(userId: string, ticketId: string) {

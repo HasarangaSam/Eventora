@@ -46,6 +46,8 @@ export class OrganizerEventsController {
 
   @Get(':eventId') get(@Req() req: AuthenticatedRequest, @Param('eventId') eventId: string) { return this.events.get(userId(req), eventId); }
 
+  @Get(':eventId/readiness') readiness(@Req() req: AuthenticatedRequest, @Param('eventId') eventId: string) { return this.events.readiness(userId(req), eventId); }
+
   @Patch(':eventId')
   update(@Req() req: AuthenticatedRequest, @Param('eventId') eventId: string, @Body() body: UpdateEventDto) {
     const dto = ensureDto(UpdateEventDto, body);

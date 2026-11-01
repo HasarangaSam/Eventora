@@ -11,14 +11,14 @@ import {
 } from '../../components/ui/icons'
 
 type CheckInResult = {
-  outcome: 'CHECKED_IN' | 'ALREADY_CHECKED_IN' | 'INVALID' | 'WRONG_EVENT' | 'PAYMENT_UNCONFIRMED' | 'EVENT_CANCELLED'
+  outcome: 'CHECKED_IN' | 'ALREADY_CHECKED_IN' | 'INVALID' | 'WRONG_EVENT' | 'PAYMENT_UNCONFIRMED' | 'EVENT_CANCELLED' | 'EVENT_ENDED' | 'EVENT_NOT_ACTIVE'
   reference?: string
   ticketType?: string
   checkedInAt?: string | null
 }
 
 type Attendance = {
-  event: { id: string; title: string }
+  event: { id: string; title: string; startAt: string; endAt: string; status: string }
   summary: { totalIssued: number; checkedIn: number; remaining: number }
   page: number
   pageSize: number
@@ -32,6 +32,8 @@ const outcomeMessages: Record<CheckInResult['outcome'], string> = {
   WRONG_EVENT: 'Wrong Event. Ticket belongs to a different event.',
   PAYMENT_UNCONFIRMED: 'Payment Unconfirmed for this ticket.',
   EVENT_CANCELLED: 'This event was cancelled. Check-in closed.',
+  EVENT_ENDED: 'This event has ended. Check-in is closed.',
+  EVENT_NOT_ACTIVE: 'This event is not published. Check-in is unavailable.',
 }
 
 export function EventCheckinPage() {
@@ -49,6 +51,18 @@ export function EventCheckinPage() {
   const [submitting, setSubmitting] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [page, setPage] = useState(1)
+  const [clock, setClock] = useState(() => Date.now())
+  const eventEnded = Boolean(attendance && (attendance.event.status === 'COMPLETED' || new Date(attendance.event.endAt).getTime() <= clock))
+  const eventClosed = eventEnded || attendance?.event.status === 'CANCELLED' || (attendance !== null && attendance.event.status !== 'PUBLISHED')
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 10_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
+    if (eventClosed) setScanning(false)
+  }, [eventClosed])
 
   const refreshAttendance = useCallback(
     async (nextPage = page) => {
@@ -170,18 +184,30 @@ export function EventCheckinPage() {
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
       {/* Top Console Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <Link to="/account" className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]" style={{ marginBottom: '8px' }}>
-            ← Back to Organizer Studio
+          {/* Bug fix: was linking to /account, now correctly links back to the check-in hub */}
+          <Link
+            to="/organizer/checkin"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[13px] font-semibold text-indigo-600 transition hover:bg-indigo-50"
+          >
+            ← Back to Check-in Hub
           </Link>
-          <h2 style={{ margin: '4px 0 0', fontSize: '26px', fontWeight: 800 }}>
+          <h2 className="mt-1 text-2xl font-extrabold text-slate-900 sm:text-3xl">
             {loading ? 'Loading Event…' : attendance?.event.title ?? 'Door Check-in Console'}
           </h2>
-          <span className="text-muted" style={{ fontSize: '14px' }}>
-            Live attendee QR scanning and manual entry verification
-          </span>
+          <span className="text-sm text-slate-500">Live attendee QR scanning and manual entry verification</span>
         </div>
+        {/* Live indicator */}
+        {!loading && attendance && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            </span>
+            {eventEnded ? 'Event Ended' : attendance.event.status === 'CANCELLED' ? 'Cancelled' : attendance.event.status !== 'PUBLISHED' ? 'Unavailable' : new Date(attendance.event.startAt).getTime() > clock ? 'Upcoming Event' : 'Console Active'}
+          </span>
+        )}
       </div>
 
       {/* KPI Stats Strip */}
@@ -234,6 +260,8 @@ export function EventCheckinPage() {
         </div>
       )}
 
+      {eventClosed && <div role="status" className="rounded-lg border border-slate-200 bg-slate-100 p-4 text-sm font-medium text-slate-700">{eventEnded ? 'This event has ended.' : attendance?.event.status === 'CANCELLED' ? 'This event was cancelled.' : 'This event is not published.'} Ticket scanning and manual admission are closed; attendance records remain available below.</div>}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '28px' }}>
         {/* Scanner & Manual Entry Card */}
         <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0, padding: '24px' }}>
@@ -245,6 +273,7 @@ export function EventCheckinPage() {
                 type="button"
                 className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]"
                 style={{ width: '100%', padding: '16px' }}
+                disabled={eventClosed}
                 onClick={() => setScanning(true)}
               >
                 <IconCamera /> Start Live Camera Scanner
@@ -304,11 +333,12 @@ export function EventCheckinPage() {
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
                 placeholder="e.g. EVT-ABCD-1234"
+                disabled={eventClosed}
               />
               <button
                 type="submit"
                 className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)]"
-                disabled={submitting || !reference.trim()}
+                disabled={submitting || eventClosed || !reference.trim()}
               >
                 {submitting ? 'Checking…' : 'Admit'}
               </button>

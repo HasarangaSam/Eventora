@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Headers, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Headers, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AccountGuard } from '../auth/account.guard.js';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
@@ -6,6 +6,7 @@ import type { AuthenticatedRequest } from '../auth/auth.types.js';
 import { RegistrationsService } from './registrations.service.js';
 import { CreateRegistrationDto } from './dto/create-registration.dto.js';
 import { ensureDto } from '../common/validation/dto-validator.js';
+import { ListRegistrationsQueryDto } from './dto/list-registrations-query.dto.js';
 
 @Controller('registrations')
 @UseGuards(ClerkAuthGuard, AccountGuard)
@@ -27,8 +28,8 @@ export class RegistrationsController {
   }
 
   @Get('me')
-  listMine(@Req() request: AuthenticatedRequest) {
-    return this.registrations.listMine(request.eventoraUser!.id);
+  listMine(@Req() request: AuthenticatedRequest, @Query() query: ListRegistrationsQueryDto) {
+    return this.registrations.listMine(request.eventoraUser!.id, query);
   }
 
   @Get(':registrationId')

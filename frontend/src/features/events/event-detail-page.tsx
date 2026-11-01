@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { SignInButton, useAuth } from '@clerk/react'
-import { Link, useParams } from 'react-router'
+import { SignInButton, useAuth, useUser } from '@clerk/react'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { api } from '../../lib/api'
 import { useAuthenticatedApi } from '../auth/use-authenticated-api'
 import { formatEventDate } from './event-format'
@@ -21,6 +21,8 @@ interface EventDetails {
   city: string
   startAt: string
   endAt: string
+  status?: 'PUBLISHED' | 'CANCELLED' | 'COMPLETED'
+  cancellationReason?: string | null
   timezone: string
   coverImageUrl: string | null
   organizerName: string | null
@@ -60,6 +62,8 @@ interface CheckoutContact {
 
 interface RegistrationResponse {
   id: string
+  status?: 'PENDING' | 'CONFIRMED' | 'EXPIRED'
+  reservation?: { status: string; expiresAt: string } | null
 }
 
 interface CheckoutResponse {
@@ -70,13 +74,16 @@ interface CheckoutResponse {
 
 type PageState =
   | { identifier: string; status: 'loading' }
-  | { identifier: string; status: 'ready'; event: EventDetails; sessions: Session[]; tickets: TicketType[] }
+  | { identifier: string; status: 'ready'; event: EventDetails; sessions: Session[]; tickets: TicketType[]; organizerPreview: boolean }
   | { identifier: string; status: 'not-found' }
   | { identifier: string; status: 'error' }
 
 export function EventDetailPage() {
   const { eventId = '' } = useParams()
+  const [searchParams] = useSearchParams()
+  const organizerPreview = searchParams.get('preview') === 'organizer'
   const { isLoaded, isSignedIn } = useAuth()
+  const { user: clerkUser } = useUser()
   const authenticatedRequest = useAuthenticatedApi()
   const toast = useToast()
 
@@ -93,28 +100,103 @@ export function EventDetailPage() {
   })
   const [checkoutBusy, setCheckoutBusy] = useState(false)
   const [registrationStarted, setRegistrationStarted] = useState(false)
+  const [reservationExpiresAt, setReservationExpiresAt] = useState<string | null>(null)
+  const [reservationSeconds, setReservationSeconds] = useState<number | null>(null)
+  const [reservationExpired, setReservationExpired] = useState(false)
   const registrationKey = useRef<string | null>(null)
   const registrationId = useRef<string | null>(null)
+
+  useEffect(() => {
+    setContact((current) => ({ ...current, firstName: current.firstName || clerkUser?.firstName || '', lastName: current.lastName || clerkUser?.lastName || '' }))
+  }, [clerkUser?.firstName, clerkUser?.lastName])
+
+  useEffect(() => {
+    if (!reservationExpiresAt) { setReservationSeconds(null); return }
+    const update = () => {
+      const seconds = Math.max(0, Math.ceil((new Date(reservationExpiresAt).getTime() - Date.now()) / 1000))
+      setReservationSeconds(seconds)
+      setReservationExpired(seconds === 0)
+    }
+    update()
+    const timer = window.setInterval(update, 1000)
+    return () => window.clearInterval(timer)
+  }, [reservationExpiresAt])
+
+  useEffect(() => {
+    if (!eventId || !selectedTicketId || !isSignedIn || registrationKey.current) return
+    const saved = readCheckoutState(eventId, selectedTicketId)
+    if (!saved) return
+    registrationKey.current = saved.key
+    registrationId.current = saved.registrationId
+    setQuantity(saved.quantity)
+    if (!saved.registrationId) return
+    let active = true
+    authenticatedRequest<RegistrationResponse>({ method: 'GET', url: `/registrations/${encodeURIComponent(saved.registrationId)}` }).then(({ data }) => {
+      if (!active) return
+      if (data.status === 'PENDING' && data.reservation?.status === 'HELD') {
+        setRegistrationStarted(true)
+        setReservationExpiresAt(data.reservation.expiresAt)
+      } else if (data.status === 'CONFIRMED') {
+        window.location.assign(`/checkout/result?registrationId=${encodeURIComponent(saved.registrationId!)}`)
+      } else {
+        clearCheckoutState(eventId, selectedTicketId)
+        registrationId.current = null
+        registrationKey.current = null
+      }
+    }).catch(() => {
+      if (!active) return
+      clearCheckoutState(eventId, selectedTicketId)
+      registrationId.current = null
+      registrationKey.current = null
+    })
+    return () => { active = false }
+  }, [authenticatedRequest, eventId, isSignedIn, selectedTicketId])
 
   useEffect(() => {
     let active = true
     async function loadEventDetails() {
       try {
-        const [eventResponse, sessionResponse, ticketResponse] = await Promise.all([
-          api.get<EventDetails>(`/events/${encodeURIComponent(eventId)}`),
-          api.get<Session[]>(`/events/${encodeURIComponent(eventId)}/sessions`),
-          api.get<TicketType[]>(`/events/${encodeURIComponent(eventId)}/ticket-types`),
-        ])
+        let event: EventDetails
+        let sessions: Session[]
+        let tickets: TicketType[]
+        if (organizerPreview) {
+          const response = await authenticatedRequest<{
+            id: string; slug: string; title: string; description: string; venue: string; city: string; startAt: string; endAt: string; timezone: string; coverImageUrl: string | null; capacity: number | null; ticketsReserved: number; ticketsSold: number;
+            category: { name: string; slug: string }; sessions: Session[];
+            ticketTypes: { id: string; name: string; description: string | null; price: string; currency: string; quantity: number; quantityReserved: number; quantitySold: number; isActive: boolean; salesStartAt: string | null; salesEndAt: string | null }[];
+          }>({ method: 'GET', url: `/organizer/events/${encodeURIComponent(eventId)}` })
+          const value = response.data
+          event = { id: value.id, slug: value.slug, title: value.title, description: value.description, venue: value.venue, city: value.city, startAt: value.startAt, endAt: value.endAt, timezone: value.timezone, coverImageUrl: value.coverImageUrl, organizerName: null, category: value.category }
+          sessions = value.sessions
+          const now = Date.now()
+          const eventRemaining = value.capacity === null ? Number.MAX_SAFE_INTEGER : Math.max(0, value.capacity - value.ticketsReserved - value.ticketsSold)
+          tickets = value.ticketTypes.filter((ticket) => ticket.isActive && Number(ticket.price) > 0).map((ticket) => ({
+            id: ticket.id, name: ticket.name, description: ticket.description, price: ticket.price, currency: ticket.currency,
+            salesStartAt: ticket.salesStartAt, salesEndAt: ticket.salesEndAt,
+            availableQuantity: Math.max(0, Math.min(ticket.quantity - ticket.quantityReserved - ticket.quantitySold, eventRemaining)),
+            isOnSale: (!ticket.salesStartAt || new Date(ticket.salesStartAt).getTime() <= now) && (!ticket.salesEndAt || new Date(ticket.salesEndAt).getTime() > now),
+          }))
+        } else {
+          const [eventResponse, sessionResponse, ticketResponse] = await Promise.all([
+            api.get<EventDetails>(`/events/${encodeURIComponent(eventId)}`),
+            api.get<Session[]>(`/events/${encodeURIComponent(eventId)}/sessions`),
+            api.get<TicketType[]>(`/events/${encodeURIComponent(eventId)}/ticket-types`),
+          ])
+          event = eventResponse.data
+          sessions = sessionResponse.data
+          tickets = ticketResponse.data
+        }
         if (active) {
           setState({
             identifier: eventId,
             status: 'ready',
-            event: eventResponse.data,
-            sessions: sessionResponse.data,
-            tickets: ticketResponse.data,
+            event,
+            sessions,
+            tickets,
+            organizerPreview,
           })
-          if (ticketResponse.data.length > 0 && !selectedTicketId) {
-            const firstAvailable = ticketResponse.data.find((t) => t.isOnSale && t.availableQuantity > 0)
+          if (tickets.length > 0 && !selectedTicketId) {
+            const firstAvailable = tickets.find((t) => t.isOnSale && t.availableQuantity > 0)
             if (firstAvailable) setSelectedTicketId(firstAvailable.id)
           }
         }
@@ -132,7 +214,7 @@ export function EventDetailPage() {
     return () => {
       active = false
     }
-  }, [eventId, selectedTicketId])
+  }, [eventId, selectedTicketId, organizerPreview, authenticatedRequest])
 
   const pageState: PageState = state.identifier === eventId ? state : { identifier: eventId, status: 'loading' }
 
@@ -170,12 +252,13 @@ export function EventDetailPage() {
   }
 
   const { event, sessions, tickets } = pageState
+  const previewMode = pageState.organizerPreview
   const selectedTicket = tickets.find((t) => t.id === selectedTicketId)
   const coverImage = event.coverImageUrl || getEventPlaceholder(event.category.name)
 
   async function beginCheckout(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!selectedTicket || !isSignedIn) return
+    if (previewMode || !selectedTicket || !isSignedIn) return
     setCheckoutBusy(true)
 
     try {
@@ -192,6 +275,8 @@ export function EventDetailPage() {
           data: { ticketTypeId: selectedTicket.id, quantity: Number(quantity) },
         })
         registrationId.current = registration.data.id
+        setReservationExpiresAt(registration.data.reservation?.expiresAt ?? null)
+        setReservationExpired(false)
         saveCheckoutState(eventId, selectedTicket.id, {
           key: registrationKey.current,
           registrationId: registration.data.id,
@@ -245,9 +330,12 @@ export function EventDetailPage() {
 
   return (
     <main className="mx-auto w-full max-w-[1280px] px-6" style={{ padding: '32px 24px 80px' }}>
-      <Link to="/discover" className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]" style={{ marginBottom: '20px' }}>
-        ← All Events
+      <Link to={previewMode ? `/organizer/events/${event.id}/edit` : '/discover'} className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]" style={{ marginBottom: '20px' }}>
+        {previewMode ? '← Back to event editor' : '← All Events'}
       </Link>
+
+      {previewMode && <div role="status" className="mb-5 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900"><strong>Organizer preview</strong> · This is how the attendee page will look. Checkout is disabled in preview mode.</div>}
+      {!previewMode && (event.status === 'CANCELLED' || event.status === 'COMPLETED' || new Date(event.endAt) <= new Date()) && <div role="status" className={`mb-5 rounded-xl border px-4 py-3 text-sm ${event.status === 'CANCELLED' ? 'border-rose-200 bg-rose-50 text-rose-900' : 'border-slate-200 bg-slate-100 text-slate-700'}`}><strong>{event.status === 'CANCELLED' ? 'This event was cancelled' : 'This event has ended'}</strong>{event.status === 'CANCELLED' && event.cancellationReason ? ` · ${event.cancellationReason}` : ''} · Ticket sales are closed. Existing bookings remain in your account history.</div>}
 
       {/* Hero Banner */}
       <div className="relative mb-10 h-[420px] overflow-hidden rounded-[var(--radius-xl)] shadow-[var(--shadow-lg)]">
@@ -333,11 +421,11 @@ export function EventDetailPage() {
         {/* Right Sticky Column: Ticket Booking Panel */}
         <aside>
           <div className="sticky top-[94px] rounded-[var(--radius-xl)] border border-[var(--border)] bg-white p-7 shadow-[var(--shadow-md)]">
-            <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 800 }}>Reserve Your Tickets</h3>
+            <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 800 }}>{previewMode ? 'Ticket Options Preview' : 'Choose tickets'}</h3>
 
             {/* Ticket Tier Selector */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-              {tickets.map((t) => {
+                {tickets.map((t) => {
                 const isSelected = selectedTicketId === t.id
                 return (
                   <div
@@ -367,7 +455,7 @@ export function EventDetailPage() {
                     <div className="text-muted" style={{ fontSize: '12px', marginTop: '4px' }}>
                       {t.isOnSale && t.availableQuantity > 0
                         ? `${t.availableQuantity} passes left`
-                        : 'Sold out / Not on sale'}
+                      : t.availableQuantity < 1 ? 'Sold out' : t.salesStartAt ? `Sales open ${new Date(t.salesStartAt).toLocaleString()}` : 'Not currently on sale'}
                     </div>
                   </div>
                 )
@@ -375,8 +463,19 @@ export function EventDetailPage() {
             </div>
 
             {/* Checkout Form */}
-            {selectedTicket && (
+            {previewMode ? <div className="mt-2 rounded-lg bg-slate-50 p-4">
+              {tickets.length === 0 ? <p className="m-0 text-sm text-slate-600">No active paid ticket tiers are available to display yet.</p> : selectedTicket ? <>
+                <label className="mb-2 block text-sm font-semibold text-slate-700" htmlFor="preview-quantity">Ticket quantity</label>
+                <input id="preview-quantity" type="number" min="1" max={selectedTicket.availableQuantity || 1} value={quantity} onChange={(event) => setQuantity(event.target.value)} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm" />
+                <div className="mt-3 flex justify-between text-sm"><span className="text-slate-600">Estimated total</span><strong className="text-indigo-700">{selectedTicket.currency} {displayTotal(selectedTicket.price, quantity)}</strong></div>
+                <button type="button" disabled className="mt-4 w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white opacity-60">Checkout preview only</button>
+                <p className="mb-0 mt-2 text-center text-xs text-slate-500">Preview mode does not reserve tickets or charge a payment method.</p>
+              </> : <p className="m-0 text-sm text-slate-600">Select an available ticket tier to preview its checkout total.</p>}
+            </div> : selectedTicket && (
               <>
+                {registrationStarted && reservationSeconds !== null && <div role="status" className={`mb-4 rounded-lg border px-3 py-2.5 text-sm ${reservationExpired ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
+                  {reservationExpired ? 'Your 10-minute ticket hold expired. Start a new reservation to continue.' : <>Tickets held for <strong>{Math.floor(reservationSeconds / 60)}:{String(reservationSeconds % 60).padStart(2, '0')}</strong>. Complete PayHere checkout before the timer ends.</>}
+                </div>}
                 {!isLoaded ? (
                   <p className="text-muted">Loading account session…</p>
                 ) : !isSignedIn ? (
@@ -430,6 +529,7 @@ export function EventDetailPage() {
                           required
                           className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                           placeholder="First Name"
+                          aria-label="First name for payment"
                           value={contact.firstName}
                           onChange={(e) => setContact({ ...contact, firstName: e.target.value })}
                         />
@@ -437,6 +537,7 @@ export function EventDetailPage() {
                           required
                           className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                           placeholder="Last Name"
+                          aria-label="Last name for payment"
                           value={contact.lastName}
                           onChange={(e) => setContact({ ...contact, lastName: e.target.value })}
                         />
@@ -446,6 +547,7 @@ export function EventDetailPage() {
                         type="tel"
                         className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         placeholder="Phone Number"
+                        aria-label="Phone number for payment"
                         value={contact.phone}
                         onChange={(e) => setContact({ ...contact, phone: e.target.value })}
                       />
@@ -453,6 +555,7 @@ export function EventDetailPage() {
                         required
                         className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                         placeholder="Billing Address"
+                        aria-label="Billing address for payment"
                         value={contact.address}
                         onChange={(e) => setContact({ ...contact, address: e.target.value })}
                       />
@@ -461,6 +564,7 @@ export function EventDetailPage() {
                           required
                           className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                           placeholder="City"
+                          aria-label="Billing city"
                           value={contact.city}
                           onChange={(e) => setContact({ ...contact, city: e.target.value })}
                         />
@@ -468,6 +572,7 @@ export function EventDetailPage() {
                           required
                           className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                           placeholder="Country"
+                          aria-label="Billing country"
                           value={contact.country}
                           onChange={(e) => setContact({ ...contact, country: e.target.value })}
                         />
@@ -480,18 +585,21 @@ export function EventDetailPage() {
                       style={{ width: '100%', padding: '14px' }}
                       disabled={
                         checkoutBusy ||
+                        reservationExpired ||
                         !quantity ||
                         Number(quantity) < 1 ||
                         Number(quantity) > selectedTicket.availableQuantity
                       }
                     >
-                      {checkoutBusy ? 'Preparing Checkout…' : 'Proceed to PayHere Checkout'}
+                      {checkoutBusy ? 'Preparing Checkout…' : reservationExpired ? 'Reservation expired' : 'Continue to PayHere'}
                     </button>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', marginTop: '12px', color: 'var(--text-muted)', fontSize: '12px' }}>
                       <IconShield style={{ width: '14px', height: '14px' }} />
                       Secure checkout with PayHere
                     </div>
+                    <p className="mb-0 mt-2 text-center text-xs leading-5 text-slate-500">Your order total is shown above. PayHere will display the payment methods available for this order before you confirm payment.</p>
+                    {reservationExpired && <button type="button" className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" onClick={() => { clearCheckoutState(eventId, selectedTicket.id); registrationKey.current = null; registrationId.current = null; setRegistrationStarted(false); setReservationExpiresAt(null); setReservationExpired(false) }}>Start a new reservation</button>}
                   </form>
                 )}
               </>
@@ -529,3 +637,13 @@ function saveCheckoutState(eventId: string, ticketTypeId: string, value: { key: 
     sessionStorage.setItem(checkoutStorageKey(eventId, ticketTypeId), JSON.stringify(value))
   } catch {}
 }
+
+function readCheckoutState(eventId: string, ticketTypeId: string): { key: string; quantity: string; registrationId: string | null } | null {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(checkoutStorageKey(eventId, ticketTypeId)) ?? 'null') as { key?: string; quantity?: string; registrationId?: string | null } | null
+    if (value && typeof value.key === 'string' && typeof value.quantity === 'string' && (value.registrationId === null || typeof value.registrationId === 'string')) return { key: value.key, quantity: value.quantity, registrationId: value.registrationId ?? null }
+  } catch {}
+  return null
+}
+
+function clearCheckoutState(eventId: string, ticketTypeId: string) { try { sessionStorage.removeItem(checkoutStorageKey(eventId, ticketTypeId)) } catch {} }

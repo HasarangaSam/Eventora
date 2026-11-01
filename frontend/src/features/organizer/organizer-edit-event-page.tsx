@@ -18,6 +18,7 @@ import {
 } from '../../components/ui/icons'
 
 type TabKey = 'details' | 'tickets' | 'schedule' | 'overview'
+type PublishReadiness = { ready: boolean; issues: { field: string; code: string; message: string }[]; canUnpublish: boolean; unpublishBlocker: string | null }
 
 export function OrganizerEditEventPage() {
   const { eventId = '' } = useParams()
@@ -26,6 +27,7 @@ export function OrganizerEditEventPage() {
   const toast = useToast()
 
   const [event, setEvent] = useState<EventRecord | null>(null)
+  const [readiness, setReadiness] = useState<PublishReadiness | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<TabKey>('details')
@@ -68,14 +70,16 @@ export function OrganizerEditEventPage() {
   const loadEvent = useCallback(async () => {
     if (!eventId) return
     try {
-      const [eventRes, catsRes] = await Promise.all([
+      const [eventRes, catsRes, readinessRes] = await Promise.all([
         request<EventRecord>({ method: 'GET', url: `/organizer/events/${eventId}` }),
         request<Category[]>({ method: 'GET', url: '/categories' }),
+        request<PublishReadiness>({ method: 'GET', url: `/organizer/events/${eventId}/readiness` }),
       ])
 
       const data = eventRes.data
       setEvent(data)
       setCategories(catsRes.data)
+      setReadiness(readinessRes.data)
 
       // Populate form
       setTitle(data.title)
@@ -213,11 +217,11 @@ export function OrganizerEditEventPage() {
           : 'The event is no longer publicly visible.',
       )
       await loadEvent()
-    } catch {
-      toast.error(
-        'Action Failed',
-        `Could not ${action} event. Ensure at least one active ticket tier is configured.`,
-      )
+    } catch (err) {
+      const payload = err instanceof AxiosError ? err.response?.data : undefined
+      const issues = Array.isArray(payload?.issues) ? payload.issues as PublishReadiness['issues'] : []
+      const message = issues.map((issue) => issue.message).join(' ')
+      toast.error('Action Failed', message || (typeof payload?.message === 'string' ? payload.message : `Could not ${action} this event. Please try again.`))
     }
   }
 
@@ -234,8 +238,9 @@ export function OrganizerEditEventPage() {
       toast.success('Event Cancelled', `${res.data.cancellationNoticesQueued} attendee notice(s) queued.`)
       setCancelModalOpen(false)
       await loadEvent()
-    } catch {
-      toast.error('Cancellation Error', 'Could not cancel event.')
+    } catch (err) {
+      const message = err instanceof AxiosError ? err.response?.data?.message : undefined
+      toast.error('Cancellation Error', typeof message === 'string' ? message : 'Could not cancel this event. Please try again.')
     } finally {
       setActionBusy(false)
     }
@@ -249,8 +254,9 @@ export function OrganizerEditEventPage() {
       await request({ method: 'DELETE', url: `/organizer/events/${event.id}` })
       toast.success('Event Deleted', 'The draft event has been removed.')
       navigate('/organizer/events')
-    } catch {
-      toast.error('Cannot Delete', 'Events with attendee registrations or sales cannot be deleted.')
+    } catch (err) {
+      const message = err instanceof AxiosError ? err.response?.data?.message : undefined
+      toast.error('Cannot Delete', typeof message === 'string' ? message : 'This event cannot be deleted because it has attendee or ticket history.')
       setActionBusy(false)
     }
   }
@@ -274,8 +280,9 @@ export function OrganizerEditEventPage() {
       toast.success('Ticket Tier Added', `Created ${ticketForm.name} tier.`)
       setTicketForm({ name: '', price: '', currency: 'LKR', quantity: '' })
       await loadEvent()
-    } catch {
-      toast.error('Ticket Error', 'Verify that price and quantity are valid.')
+    } catch (err) {
+      const message = err instanceof AxiosError ? err.response?.data?.message : undefined
+      toast.error('Ticket Error', typeof message === 'string' ? message : 'Could not add this ticket tier. Check the price, quantity, and event capacity.')
     } finally {
       setAddingTicket(false)
     }
@@ -291,8 +298,9 @@ export function OrganizerEditEventPage() {
       })
       toast.success('Ticket Status Updated', `${item.name} is now ${!item.isActive ? 'active' : 'paused'}.`)
       await loadEvent()
-    } catch {
-      toast.error('Update Failed', 'Ticket status could not be changed.')
+    } catch (err) {
+      const message = err instanceof AxiosError ? err.response?.data?.message : undefined
+      toast.error('Update Failed', typeof message === 'string' ? message : 'Ticket status could not be changed. Please try again.')
     }
   }
 
@@ -372,6 +380,20 @@ export function OrganizerEditEventPage() {
           <span className="truncate font-medium text-slate-800">{event.title}</span>
         </div>
 
+        {event.status === 'DRAFT' && readiness && (
+          <section aria-labelledby="publish-readiness-title" className={`rounded-2xl border p-5 ${readiness.ready ? 'border-emerald-200 bg-emerald-50/70' : 'border-amber-200 bg-amber-50/70'}`}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 id="publish-readiness-title" className="m-0 text-sm font-bold text-slate-900">{readiness.ready ? 'Ready to publish' : 'Finish setup before publishing'}</h2>
+                <p className="mb-0 mt-1 text-sm text-slate-600">Publishing makes this event visible to attendees and opens ticket sales.</p>
+              </div>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${readiness.ready ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{readiness.ready ? 'All checks passed' : `${readiness.issues.length} ${readiness.issues.length === 1 ? 'item' : 'items'} to fix`}</span>
+            </div>
+            {readiness.issues.length > 0 && <ul className="mb-0 mt-3 space-y-1.5 pl-5 text-sm text-slate-700">{readiness.issues.map((issue) => <li key={issue.code}>{issue.message}</li>)}</ul>}
+            {readiness.issues.some((issue) => issue.field === 'ticketTypes') && <button type="button" onClick={() => setActiveTab('tickets')} className="mt-3 text-sm font-semibold text-indigo-700 hover:underline">Review tickets →</button>}
+          </section>
+        )}
+
         {/* Top Header Card with Quick Actions */}
         <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
@@ -426,28 +448,30 @@ export function OrganizerEditEventPage() {
             {/* Quick Action Button Strip */}
             <div className="flex flex-wrap items-center gap-2">
               <Link
-                to={`/events/${event.id}`}
+                to={`/events/${event.id}?preview=organizer`}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 active:scale-98"
               >
-                <span>View Public Page</span>
+                <span>Preview Attendee Page</span>
                 <span className="text-slate-400">↗</span>
               </Link>
 
-              <Link
+              {event.status === 'PUBLISHED' && new Date(event.endAt).getTime() > Date.now() && <Link
                 to={`/organizer/events/${event.id}/check-in`}
                 className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 shadow-xs transition hover:bg-slate-50 active:scale-98"
               >
                 <IconCamera className="h-4 w-4 text-indigo-600" />
                 <span>Check-in Console</span>
-              </Link>
+              </Link>}
 
               {event.status === 'DRAFT' && (
                 <button
                   type="button"
                   onClick={() => void handlePublishToggle('publish')}
-                  className="rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:from-emerald-700 hover:to-emerald-800 active:scale-98"
+                  disabled={readiness !== null && !readiness.ready}
+                  title={readiness && !readiness.ready ? 'Complete the readiness items before publishing.' : undefined}
+                  className="rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:from-emerald-700 hover:to-emerald-800 active:scale-98 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Publish Event
                 </button>
@@ -457,7 +481,9 @@ export function OrganizerEditEventPage() {
                 <button
                   type="button"
                   onClick={() => void handlePublishToggle('unpublish')}
-                  className="rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-800 transition hover:bg-amber-100 active:scale-98"
+                  disabled={readiness !== null && !readiness.canUnpublish}
+                  title={readiness?.unpublishBlocker ?? undefined}
+                  className="rounded-xl border border-amber-300 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-800 transition hover:bg-amber-100 active:scale-98 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Unpublish to Draft
                 </button>
@@ -546,6 +572,11 @@ export function OrganizerEditEventPage() {
         {/* Tab 1: Details & Cover Banner */}
         {activeTab === 'details' && (
           <div className="space-y-6">
+            {event.status === 'PUBLISHED' && (
+              <div role="note" className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                <strong className="font-semibold">Live event:</strong> description and banner updates appear publicly right away. {readiness?.unpublishBlocker ?? 'To change date, venue, capacity, or ticket terms, return the event to draft first.'}
+              </div>
+            )}
             {/* Dedicated Cover Banner Section */}
             <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
               <div className="mb-4">
@@ -991,13 +1022,13 @@ export function OrganizerEditEventPage() {
 
               <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
                 <span className="text-xs font-bold uppercase text-slate-500">Door Check-in</span>
-                <Link
+                {event.status === 'PUBLISHED' && new Date(event.endAt).getTime() > Date.now() && <Link
                   to={`/organizer/events/${event.id}/check-in`}
                   className="mt-2 inline-flex items-center gap-1.5 text-lg font-bold text-indigo-600 hover:underline"
                 >
                   <IconCamera className="h-5 w-5" />
                   <span>Open Console →</span>
-                </Link>
+                </Link>}
                 <span className="mt-1 block text-xs text-slate-500">Fast QR and ticket reference check-in</span>
               </div>
 

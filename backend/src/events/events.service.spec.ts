@@ -64,7 +64,7 @@ describe('EventsService', () => {
     await expect(service.get('private-draft')).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('only selects sessions belonging to a published event', async () => {
+  it('only selects sessions belonging to a public, published or archived event', async () => {
     const eventFindFirst = vi.fn().mockResolvedValue({ id: 'event_1' });
     const eventSessionFindMany = vi.fn().mockResolvedValue([]);
     const service = new EventsService({
@@ -74,7 +74,7 @@ describe('EventsService', () => {
     await service.sessions('summer-market');
 
     expect(eventFindFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: { OR: [{ id: 'summer-market' }, { slug: 'summer-market' }], status: 'PUBLISHED' },
+      where: { OR: [{ id: 'summer-market' }, { slug: 'summer-market' }], status: { in: ['PUBLISHED', 'CANCELLED', 'COMPLETED'] } },
     }));
     expect(eventSessionFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { eventId: 'event_1' } }));
   });
@@ -93,7 +93,7 @@ describe('EventsService', () => {
   });
 
   it('returns public ticket prices as exact strings and clamps inventory by event capacity', async () => {
-    const findFirst = vi.fn().mockResolvedValue({ id: 'event_1', capacity: 20, ticketsReserved: 17, ticketsSold: 2 });
+    const findFirst = vi.fn().mockResolvedValue({ id: 'event_1', status: 'PUBLISHED', endAt: new Date(Date.now() + 86_400_000), capacity: 20, ticketsReserved: 17, ticketsSold: 2 });
     const findMany = vi.fn().mockResolvedValue([{
       id: 'ticket_1',
       name: 'General admission',
@@ -119,7 +119,7 @@ describe('EventsService', () => {
       isOnSale: false,
     })]);
     expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: { OR: [{ id: 'summer-market' }, { slug: 'summer-market' }], status: 'PUBLISHED' },
+      where: { OR: [{ id: 'summer-market' }, { slug: 'summer-market' }], status: { in: ['PUBLISHED', 'CANCELLED', 'COMPLETED'] } },
     }));
   });
 

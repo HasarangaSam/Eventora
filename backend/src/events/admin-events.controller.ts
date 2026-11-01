@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Get, Param, Patch, Query, Req, UseGuards } from '@nestjs/common';
-import { IsIn, IsOptional } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { AccountGuard } from '../auth/account.guard.js';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
 import { RequireRoles, RolesGuard } from '../auth/roles.guard.js';
@@ -15,6 +15,9 @@ class AdminEventFilterDto {
   @IsOptional()
   @IsIn(eventStatuses, { message: `status must be one of ${eventStatuses.join(', ')}` })
   status?: EventStatus;
+  @IsOptional() @IsString() @MaxLength(120) search?: string;
+  @IsOptional() @IsInt() @Min(1) page = 1;
+  @IsOptional() @IsInt() @Min(1) @Max(100) pageSize = 25;
 }
 
 @Controller('admin/events')
@@ -25,8 +28,11 @@ export class AdminEventsController {
 
   @Get()
   list(@Query() query: AdminEventFilterDto) {
-    return this.events.listForAdmin(query.status);
+    return this.events.listForAdmin(query);
   }
+
+  @Get(':eventId')
+  detail(@Param('eventId') eventId: string) { return this.events.getForAdmin(eventId); }
 
   @Patch(':eventId/cancel')
   cancel(@Req() request: AuthenticatedRequest, @Param('eventId') eventId: string, @Body() body: CancelEventDto) {

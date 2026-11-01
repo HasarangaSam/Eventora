@@ -9,6 +9,8 @@ I built this project to move beyond basic CRUD applications and learn how to sol
 ## 📌 Table of Contents
 
 - [Overview & Features](#overview--features)
+- [Role Workflows](#role-workflows)
+- [API Surface](#api-surface)
 - [Architecture & Tech Stack](#architecture--tech-stack)
 - [How It Works: Core Engineering Concepts](#how-it-works-core-engineering-concepts)
   - [1. Preventing Overselling with Concurrency Control](#1-preventing-overselling-with-concurrency-control)
@@ -32,8 +34,48 @@ Eventora supports three user roles, each with clear boundaries:
 | Role | What They Can Do |
 |---|---|
 | **Attendee** | Browse published events, search and filter by category, reserve tickets with a 10-minute price/inventory hold, complete PayHere checkout, and access their personal QR ticket wallet. |
-| **Organizer** | Apply for organizer status, create events and schedule sessions, define tiered ticket pricing and capacities, track live ticket sales and attendee check-ins, and scan QR tickets at the venue via webcam or mobile camera. |
-| **Admin** | Review and approve/reject organizer applications, monitor platform-wide metrics and payments, manage event categories, and review or cancel events if necessary. |
+| **Organizer** | Apply for organizer status, create and edit events, manage paid ticket tiers and sessions, publish when event details are ready, track sales and attendee check-ins, and scan tickets at the venue. |
+| **Admin** | Review organizer applications, oversee events and users, manage categories, inspect platform reports, and review payment exceptions with an audit trail. |
+
+## Role Workflows
+
+### Attendee
+
+1. Discover published events using keyword, category, location, and date filters. Results are paginated.
+2. Review an event's schedule, venue, ticket availability, and paid ticket options.
+3. Choose ticket quantities and reserve inventory. A reservation lasts 10 minutes while checkout is completed.
+4. Continue to PayHere hosted checkout. The verified server callback is the source of truth for payment confirmation and ticket issuance.
+5. Find bookings in **My Orders** and QR passes in **My Tickets**. Search and status/date views help locate upcoming, past, or cancelled-event passes. Past and cancelled events remain viewable for order context.
+
+### Organizer
+
+1. Submit an organizer application and wait for an admin decision. Approved organizers can open Organizer Studio.
+2. Create an event draft, add event details, sessions, a cover image, and one or more **paid** ticket tiers with price and capacity.
+3. Review event readiness and resolve missing or invalid fields before publishing. Published events can be edited and returned to sale through the publish flow.
+4. Use the event list and dashboard to distinguish drafts, published, completed, and cancelled events. Search and filters help find events. Past events remain available for reports, attendee lists, and check-in history.
+5. For event operations, review paginated participant lists and sales/attendance analytics, then scan a QR or validate a ticket manually. Duplicate check-ins are guarded.
+
+### Admin
+
+1. Review organizer applications with search and status filters; record a decision and note.
+2. Search and filter platform users and events. User role/status changes require a reason and are written to an audit log.
+3. Review platform analytics and payment exceptions. Recording a review is audited; it does not itself issue a refund or change a PayHere payment.
+
+## API Surface
+
+Application routes are under `/api`. Authenticated routes require a Clerk bearer token; role and account checks are enforced by the API. These are the main workflows, not an exhaustive endpoint listing.
+
+| Area | Main routes | Purpose |
+|---|---|---|
+| Public events | `GET /events`, `GET /events/:eventId`, `GET /events/:eventId/sessions`, `GET /events/:eventId/ticket-types` | Search, browse, and view event details. Lists support pagination and filters. |
+| Attendee orders | `POST /registrations`, `GET /registrations/me`, `GET /registrations/:registrationId` | Reserve inventory and review the signed-in attendee's bookings. |
+| Checkout & payments | `POST /payments/:registrationId/checkout`, `GET /payments/me`, `GET /payments/:paymentId`, `POST /webhooks/payhere/notify` | Start hosted checkout, inspect payment state, and receive provider notifications. |
+| Tickets | `GET /tickets/me`, `GET /tickets/:ticketId` | Browse the attendee's QR ticket wallet. `/tickets/me` supports `page`, `pageSize`, `search`, and `view` (`UPCOMING`, `PAST`, `CANCELLED`, `ALL`). |
+| Organizer events | `/organizer/events` | Create, edit, publish, unpublish, or cancel events; manage sessions, paid ticket tiers, and cover images. |
+| Organizer operations | `/organizer/events/:eventId/participants`, organizer analytics routes, check-in routes | Review attendee/check-in information, sales and attendance, and validate passes. Participant lists support search, filters, and pagination. |
+| Admin operations | `/admin/*`, `/organizer-applications/*`, `/users/*` | Review applications, oversee events/users, inspect reports, and record payment-exception reviews. |
+
+Paginated responses include `items`, `total`, `page`, `pageSize`, and a page count. Query parameters vary by endpoint; the corresponding DTO/controller defines supported filters.
 
 ---
 
@@ -58,7 +100,7 @@ Eventora supports three user roles, each with clear boundaries:
                                     ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │                  PostgreSQL Database (Supabase / Local)                │
-│   15 Relational Tables · Row Locks (FOR UPDATE) · Decimal(12,2) Money  │
+│   Prisma Relational Models · Row Locks (FOR UPDATE) · Decimal Money  │
 └────────────────────────────────────────────────────────────────────────┘
          │                                │                       │
     Clerk Identity                 PayHere Gateway          Nodemailer SMTP
@@ -128,7 +170,7 @@ Payment gateways communicate via asynchronous webhooks that can arrive late, out
 * **Idempotency:** If PayHere sends the same webhook notification twice, the handler detects that the attempt is already `SUCCEEDED` and returns success immediately without incrementing inventory or issuing duplicate tickets.
 * **Late Payment Handling:** If a buyer completes payment after their 10-minute reservation hold has expired, Eventora checks if unsold capacity remains:
   * If capacity is still available, it fulfills the tickets.
-  * If the event sold out while the user was delayed, it records a `PaymentException` (`LATE_PAYMENT_UNFULFILLED`) so administrators can process a refund without overselling the event.
+  * If the event sold out while the user was delayed, it records a `PaymentException` (`LATE_PAYMENT_UNFULFILLED`) for administrator review without overselling. The admin review workflow records a note; refunds must be handled through the payment provider and are not issued by this app.
 
 ### 5. Zero-Trust Role Authorization
 
@@ -163,10 +205,11 @@ Eventora is containerized using multi-stage Docker builds and an orchestrated lo
   - Serves files using a lightweight `nginx:alpine` image—Node.js is completely excluded from the production image.
   - **SPA Fallback Rule (`frontend/nginx.conf`):** Uses `try_files $uri $uri/ /index.html;` so direct page refreshes on client-side routes (like `/discover` or `/organizer`) return `/index.html` instead of an HTTP 404.
 - **Local Compose Orchestration (`docker-compose.yml`):**
-  Spins up the full stack (local PostgreSQL, NestJS API, and Nginx frontend) with automated health checks using one command:
+  Starts local PostgreSQL, the NestJS API, and Nginx frontend with automated database health checks:
   ```bash
   docker compose up --build
   ```
+  Compose does not run database migrations. The backend image also does not include the Prisma CLI/schema, so initialize the configured database from a development checkout with `npm run db:deploy` before using the application. Provide Clerk keys and PayHere credentials through the environment for authenticated and payment flows. The Compose PostgreSQL volume persists data between runs.
 
 ---
 
@@ -206,21 +249,23 @@ eventora/
 
 ## Local Setup & Getting Started
 
-### Option A: Docker Compose (Fastest & Zero Local DB Setup)
+### Option A: Docker Compose (Containerized Local Stack)
 
-If you have Docker Desktop installed, you can run the database, backend, and frontend together:
+If you have Docker Desktop installed, Compose starts PostgreSQL, the backend, and the frontend:
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/HasarangaSam/Eventora.git
 cd Eventora
 
-# 2. Build and run all services
+# 2. Build and start the services
 docker compose up --build
 ```
 - Frontend: `http://localhost:80`
 - Backend API: `http://localhost:3000/api`
 - Health check: `http://localhost:3000/api/health`
+
+Before using authenticated features, provide valid Clerk keys. Before using checkout, provide PayHere sandbox credentials and a publicly reachable `PAYHERE_NOTIFY_URL`. Compose does not apply database migrations; the backend image does not include the Prisma CLI or schema. Apply migrations from a development checkout against the same database URL before using database-backed features. For first-time setup, the manual local development option below is the simplest path.
 
 ---
 
@@ -255,6 +300,8 @@ Open `backend/.env` and fill in your keys:
 - `CLERK_PUBLISHABLE_KEY` & `CLERK_SECRET_KEY`: From your Clerk dashboard.
 - `TICKET_QR_SECRET`: Any random string of 32+ characters for signing ticket QRs.
 - `FRONTEND_ORIGIN`: `http://localhost:5173` (for local development).
+- PayHere sandbox merchant ID/secret, notify URL, and checkout return/cancel URLs for payment flows. PayHere's notify URL must be reachable by the provider (for example, through a development tunnel).
+- Gmail SMTP app-password settings if you want transactional emails. Cloudinary credentials are needed for hosted cover-image uploads.
 
 Run database migrations and generate the Prisma client:
 
@@ -321,12 +368,16 @@ Open `http://localhost:5173` in your browser.
 | `DATABASE_URL` | PostgreSQL connection string (Supabase Session Pooler or local) |
 | `CLERK_PUBLISHABLE_KEY` | Clerk public key |
 | `CLERK_SECRET_KEY` | Clerk secret key for backend token verification |
+| `CLERK_WEBHOOK_SIGNING_SECRET` | Clerk webhook signature secret when using Clerk webhook sync |
 | `FRONTEND_ORIGIN` | Allowed origin for CORS (e.g. `http://localhost:5173`) |
 | `TICKET_QR_SECRET` | Secret key used to HMAC-sign ticket QR codes (minimum 32 chars) |
 | `PAYHERE_MERCHANT_ID` | PayHere sandbox merchant ID |
 | `PAYHERE_MERCHANT_SECRET` | PayHere merchant secret used for signature verification |
-| `PAYHERE_NOTIFY_URL` | Webhook URL where PayHere posts payment status updates |
+| `PAYHERE_ENVIRONMENT` | `sandbox` or `live` |
+| `PAYHERE_NOTIFY_URL` | Public webhook URL where PayHere posts payment status updates |
+| `PAYHERE_RETURN_URL` / `PAYHERE_CANCEL_URL` | Frontend destinations after hosted checkout |
 | `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Optional Gmail SMTP credentials for sending ticket emails |
+| `EMAIL_FROM` | Optional sender address for transactional email |
 | `CLOUDINARY_*` | Optional Cloudinary credentials for event cover uploads |
 
 ### Frontend (`frontend/.env.local`)
@@ -344,7 +395,7 @@ Open `http://localhost:5173` in your browser.
 
 - `npm run start:dev` — Start backend in watch mode (NestJS)
 - `npm run build` — Compile TypeScript and generate Prisma client
-- `npm test` — Run all unit and integration test suites with Vitest (15 test suites, 48 tests)
+- `npm test` — Run unit and integration test suites with Vitest
 - `npm run lint` — Lint code with Oxlint
 - `npm run prisma:validate` — Check Prisma schema syntax
 

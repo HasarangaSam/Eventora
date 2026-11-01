@@ -11,10 +11,11 @@ import { CheckinsController } from '../checkins/checkins.controller.js';
 import { CheckinsService } from '../checkins/checkins.service.js';
 import { OrganizerNotificationsController } from './organizer-notifications.controller.js';
 import { OrganizerNotificationsService } from './organizer-notifications.service.js';
+import { EventLifecycleService } from './event-lifecycle.service.js';
 
 @Module({
   imports: [AuthModule, RegistrationsModule],
   controllers: [EventsController, OrganizerEventsController, OrganizerNotificationsController, AdminEventsController, CheckinsController],
-  providers: [EventsService, OrganizerEventsService, OrganizerNotificationsService, CloudinaryService, CheckinsService],
+  providers: [EventsService, OrganizerEventsService, OrganizerNotificationsService, EventLifecycleService, CloudinaryService, CheckinsService],
 })
 export class EventsModule {}

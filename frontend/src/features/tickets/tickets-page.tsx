@@ -6,6 +6,7 @@ import { Modal } from '../../components/ui/modal'
 import { getEventPlaceholder } from '../../lib/placeholders'
 import { PageIntro } from '../../components/layout/page-intro'
 import { LinkButton } from '../../components/ui/link-button'
+import { IconSearch } from '../../components/ui/icons'
 import {
   IconCalendar,
   IconMapPin,
@@ -20,6 +21,7 @@ interface TicketSummary {
   status: string
   issuedAt: string
   event: {
+    slug: string
     title: string
     startAt: string
     endAt: string
@@ -28,6 +30,7 @@ interface TicketSummary {
     timezone: string
     coverImageUrl: string | null
     status: string
+    cancellationReason: string | null
   }
   ticketType: { name: string }
 }
@@ -44,14 +47,20 @@ export function TicketsPage() {
   const [loadingModal, setLoadingModal] = useState(false)
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
+  const [view, setView] = useState<'UPCOMING' | 'PAST' | 'CANCELLED' | 'ALL'>('UPCOMING')
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageInfo, setPageInfo] = useState({ total: 0, pageCount: 0 })
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return
     let active = true
     async function loadTickets() {
       try {
-        const { data } = await authenticatedRequest<TicketSummary[]>({ method: 'GET', url: '/tickets/me' })
-        if (active) setTickets(data)
+        const params = new URLSearchParams({ view, page: String(page), pageSize: '25' })
+        if (search.trim()) params.set('search', search.trim())
+        const { data } = await authenticatedRequest<{ items: TicketSummary[]; total: number; pageCount: number }>({ method: 'GET', url: `/tickets/me?${params}` })
+        if (active) { setTickets(data.items); setPageInfo({ total: data.total, pageCount: data.pageCount }) }
       } catch {
         if (active) setError('Could not load your digital tickets. Please refresh.')
       }
@@ -60,7 +69,9 @@ export function TicketsPage() {
     return () => {
       active = false
     }
-  }, [authenticatedRequest, isLoaded, isSignedIn, reload])
+  }, [authenticatedRequest, isLoaded, isSignedIn, reload, view, page, search])
+
+  useEffect(() => { setPage(1) }, [view, search])
 
   async function openTicket(ticket: TicketSummary) {
     setLoadingModal(true)
@@ -107,6 +118,7 @@ export function TicketsPage() {
         title="Your digital passes & tickets"
         description="Show your QR pass at the venue entrance. Staff will scan it to confirm your ticket and check you in."
       />
+      <section className="mx-auto mb-6 flex w-full max-w-[900px] flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex flex-wrap gap-2" role="group" aria-label="Ticket wallet views">{([['UPCOMING', 'Upcoming'], ['PAST', 'Past'], ['CANCELLED', 'Cancelled'], ['ALL', 'All tickets']] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={view === value} onClick={() => { setView(value); setPage(1) }} className={`rounded-full px-3 py-2 text-sm font-semibold ${view === value ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{label}</button>)}</div><label className="flex min-w-[220px] items-center gap-2 rounded-lg border border-slate-300 px-3 py-2"><IconSearch className="h-4 w-4 text-slate-400" /><input className="w-full border-0 text-sm outline-none" type="search" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="Search your events" aria-label="Search tickets by event" /></label></section>
 
       {error && (
         <div className="mx-auto mb-6 flex max-w-[600px] items-start gap-3 rounded-[var(--radius-md)] border-l-4 border-l-[var(--danger)] bg-white px-[18px] py-3.5 shadow-[0_10px_25px_-5px_rgba(15,23,42,0.2),0_8px_10px_-6px_rgba(15,23,42,0.1)] animate-[toastSlideIn_0.25s_cubic-bezier(0.16,1,0.3,1)]">
@@ -134,9 +146,9 @@ export function TicketsPage() {
       {tickets && tickets.length === 0 && (
         <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ maxWidth: '600px', margin: '0 auto', padding: '60px', textAlign: 'center' }}>
           <IconTicket style={{ width: '48px', height: '48px', color: 'var(--text-muted)', margin: '0 auto 16px' }} />
-          <h3 style={{ margin: '0 0 8px', fontSize: '20px', fontWeight: 700 }}>No Tickets Yet</h3>
+          <h3 style={{ margin: '0 0 8px', fontSize: '20px', fontWeight: 700 }}>{view === 'UPCOMING' ? 'No Upcoming Passes' : 'No Tickets in This View'}</h3>
           <p className="text-muted" style={{ margin: '0 0 24px', fontSize: '14px' }}>
-            When you register for an event, your digital entry pass and verification code will appear here.
+            {view === 'UPCOMING' && !search ? 'Confirmed tickets for upcoming events will appear here.' : 'Try another wallet view or clear your search to find a ticket.'}
           </p>
           <Link to="/discover" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]">
             Explore Upcoming Events
@@ -159,8 +171,8 @@ export function TicketsPage() {
               <div className="flex flex-col gap-3 p-6">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5] [--badge-dot-color:#6366f1]">{t.ticketType.name}</span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]">
-                    <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" /> Confirmed
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${t.event.status === 'CANCELLED' ? 'bg-rose-50 text-rose-700' : t.status === 'CHECKED_IN' ? 'bg-slate-100 text-slate-700' : t.status === 'VOIDED' ? 'bg-rose-50 text-rose-700' : new Date(t.event.startAt) < new Date() ? 'bg-slate-100 text-slate-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                    {t.event.status === 'CANCELLED' ? 'Event cancelled' : t.status === 'CHECKED_IN' ? 'Already checked in' : t.status === 'VOIDED' ? 'Ticket voided' : new Date(t.event.endAt) < new Date() ? 'Past event' : 'Valid pass'}
                   </span>
                 </div>
 
@@ -194,7 +206,7 @@ export function TicketsPage() {
                     type="button"
                     className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
                     onClick={() => void openTicket(t)}
-                    disabled={loadingModal}
+                    disabled={loadingModal || t.event.status === 'CANCELLED' || t.status === 'VOIDED'}
                   >
                     <IconQrCode /> View Pass
                   </button>
@@ -204,6 +216,7 @@ export function TicketsPage() {
           ))}
         </div>
       )}
+      {tickets && pageInfo.pageCount > 1 && <div className="mx-auto mt-6 flex max-w-[900px] items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm"><span>{pageInfo.total} passes · Page {page} of {pageInfo.pageCount}</span><div className="flex gap-2"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="rounded border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={page >= pageInfo.pageCount} onClick={() => setPage((value) => value + 1)} className="rounded border px-3 py-1.5 disabled:opacity-40">Next</button></div></div>}
 
       {/* QR Code Pass Modal */}
       {selected && (

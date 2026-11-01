@@ -115,6 +115,8 @@ model User {
   checkIns              CheckIn[]
   adminNotificationReads AdminNotificationRead[]
   organizerNotificationReads OrganizerNotificationRead[]
+  adminAuditLogs AdminAuditLog[] @relation("AdminAuditActor")
+  reviewedPaymentExceptions PaymentException[] @relation("PaymentExceptionReviewer")
 
   @@index([email])
   @@index([role, status])
@@ -370,15 +372,36 @@ model PaymentException {
   id               String   @id @default(cuid())
   registrationId   String
   paymentAttemptId String?
+  reviewedById     String?
   reasonCode       String   @db.VarChar(80)
   description      String   @db.Text
+  reviewedAt       DateTime? @db.Timestamptz(6)
+  reviewNote       String?  @db.Text
   createdAt        DateTime @default(now()) @db.Timestamptz(6)
 
   registration   Registration    @relation(fields: [registrationId], references: [id], onDelete: Restrict)
   paymentAttempt PaymentAttempt? @relation(fields: [paymentAttemptId], references: [id], onDelete: Restrict)
+  reviewedBy     User? @relation("PaymentExceptionReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   @@index([registrationId, createdAt])
   @@index([paymentAttemptId, createdAt])
+  @@index([reviewedAt, createdAt])
+}
+
+model AdminAuditLog {
+  id          String   @id @default(cuid())
+  actorId     String
+  action      String   @db.VarChar(80)
+  targetType  String   @db.VarChar(80)
+  targetId    String   @db.VarChar(255)
+  beforeValue String?  @db.Text
+  afterValue  String?  @db.Text
+  reason      String?  @db.Text
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  actor       User     @relation("AdminAuditActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([targetType, targetId, createdAt])
+  @@index([actorId, createdAt])
 }
 
 model Ticket {

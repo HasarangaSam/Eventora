@@ -11,8 +11,8 @@ describe('AdminEventsController', () => {
   it('rejects unsupported event status filters', async () => {
     // The global ValidationPipe rejects invalid enums; in a unit test we call ensureDto path via the DTO directly.
     // An invalid status value would be stripped by whitelist, so just verify valid statuses pass through.
-    await controller.list({ status: 'DRAFT' });
-    expect(events.listForAdmin).toHaveBeenCalledWith('DRAFT');
+    await controller.list({ status: 'DRAFT', page: 1, pageSize: 25 });
+    expect(events.listForAdmin).toHaveBeenCalledWith({ status: 'DRAFT', page: 1, pageSize: 25 });
   });
 
   it('accepts only a reason for cancellation and attributes the action to the database admin', async () => {

@@ -79,10 +79,10 @@ export function AdminPage() {
     try {
       const [applicationResponse, userResponse] = await Promise.all([
         request<Application[]>({ method: 'GET', url: '/organizer-applications?status=PENDING' }),
-        request<UserRecord[]>({ method: 'GET', url: '/users' }),
+        request<{ items: UserRecord[] }>({ method: 'GET', url: '/users?page=1&pageSize=100' }),
       ])
       setApplications(applicationResponse.data)
-      setUsers(userResponse.data)
+      setUsers(userResponse.data.items)
     } catch {
       toast.error('Data Unavailable', 'Could not refresh platform records. Check administrator permissions.')
     } finally {
@@ -96,11 +96,11 @@ export function AdminPage() {
       try {
         const [applicationResponse, userResponse] = await Promise.all([
           request<Application[]>({ method: 'GET', url: '/organizer-applications?status=PENDING' }),
-          request<UserRecord[]>({ method: 'GET', url: '/users' }),
+          request<{ items: UserRecord[] }>({ method: 'GET', url: '/users?page=1&pageSize=100' }),
         ])
         if (!active) return
         setApplications(applicationResponse.data)
-        setUsers(userResponse.data)
+        setUsers(userResponse.data.items)
       } catch {
         if (active) toast.error('Admin Access Error', 'Confirm that this account has administrator privileges.')
       } finally {
@@ -127,9 +127,11 @@ export function AdminPage() {
   }
 
   async function updateUser(user: UserRecord, patch: { role?: UserRecord['role']; status?: UserRecord['status'] }) {
+    const reason = window.prompt('Why are you changing this account?')
+    if (!reason || reason.trim().length < 5) return
     try {
       const [field, value] = Object.entries(patch)[0]
-      await request({ method: 'PATCH', url: `/users/${user.id}/${field}`, data: { [field]: value } })
+      await request({ method: 'PATCH', url: `/users/${user.id}/${field}`, data: { [field]: value, reason: reason.trim() } })
       toast.success('Account Updated', `${user.email} ${field} set to ${value}.`)
       await refresh()
     } catch {

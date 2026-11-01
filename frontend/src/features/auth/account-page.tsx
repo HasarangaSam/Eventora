@@ -37,6 +37,7 @@ interface TicketSummary {
   status: string
   issuedAt: string
   event: {
+    slug: string
     title: string
     startAt: string
     endAt: string
@@ -45,6 +46,7 @@ interface TicketSummary {
     timezone: string
     coverImageUrl: string | null
     status: string
+    cancellationReason: string | null
   }
   ticketType: { name: string }
 }
@@ -70,6 +72,13 @@ interface AttendeeDashboardData {
   }>
 }
 
+interface RegistrationHistoryItem {
+  id: string; status: string; quantity: number; unitPrice: string; totalAmount: string; currency: string; createdAt: string
+  event: { id: string; slug: string; title: string; startAt: string; endAt: string; city: string; status: string; cancellationReason: string | null }
+  ticketType: { id: string; name: string }
+  payment: { id: string; status: string; amount: string; currency: string } | null
+}
+
 interface EventPage {
   items: PublicEventCard[]
 }
@@ -87,6 +96,11 @@ export function AccountPage() {
   // Attendee Data
   const [dashboardData, setDashboardData] = useState<AttendeeDashboardData | null>(null)
   const [tickets, setTickets] = useState<TicketSummary[]>([])
+  const [orderHistory, setOrderHistory] = useState<RegistrationHistoryItem[]>([])
+  const [orderSearch, setOrderSearch] = useState('')
+  const [orderStatus, setOrderStatus] = useState('')
+  const [orderPage, setOrderPage] = useState(1)
+  const [orderPageInfo, setOrderPageInfo] = useState({ total: 0, pageCount: 0 })
   const [recommendedEvents, setRecommendedEvents] = useState<PublicEventCard[]>([])
   const [activeTab, setActiveTab] = useState<'passes' | 'orders' | 'organizer' | 'profile'>('passes')
 
@@ -122,8 +136,8 @@ export function AccountPage() {
 
     async function loadTickets() {
       try {
-        const { data } = await authenticatedRequest<TicketSummary[]>({ method: 'GET', url: '/tickets/me' })
-        if (active) setTickets(data)
+        const { data } = await authenticatedRequest<{ items: TicketSummary[] }>({ method: 'GET', url: '/tickets/me?view=UPCOMING&pageSize=100' })
+        if (active) setTickets(data.items)
       } catch {
         // Ticket loading has a separate error state on the wallet view.
       }
@@ -147,6 +161,20 @@ export function AccountPage() {
       active = false
     }
   }, [authenticatedRequest, isLoaded, isSignedIn, userId])
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return
+    let active = true
+    const params = new URLSearchParams({ page: String(orderPage), pageSize: '10' })
+    if (orderSearch.trim()) params.set('search', orderSearch.trim())
+    if (orderStatus) params.set('status', orderStatus)
+    authenticatedRequest<{ items: RegistrationHistoryItem[]; total: number; pageCount: number }>({ method: 'GET', url: `/registrations/me?${params}` })
+      .then(({ data }) => { if (active) { setOrderHistory(data.items); setOrderPageInfo({ total: data.total, pageCount: data.pageCount }) } })
+      .catch(() => { if (active) setOrderHistory([]) })
+    return () => { active = false }
+  }, [authenticatedRequest, isLoaded, isSignedIn, orderPage, orderSearch, orderStatus])
+
+  useEffect(() => { setOrderPage(1) }, [orderSearch, orderStatus])
 
   const openQrModal = async (ticket: TicketSummary) => {
     setLoadingQr(true)
@@ -211,7 +239,7 @@ export function AccountPage() {
 
   const activeTicketCount = dashboardData?.activeTickets ?? tickets.length
   const totalBookingsCount = dashboardData?.registrationCount ?? dashboardData?.registrations?.length ?? 0
-  const registrationsList = dashboardData?.registrations ?? []
+  const registrationsList = orderHistory
 
   return (
     <main className="mx-auto w-full max-w-[1280px] px-6 pt-10 px-6 pb-20">
@@ -423,13 +451,12 @@ export function AccountPage() {
         {/* TAB 2: ORDER & REGISTRATION HISTORY */}
         {activeTab === 'orders' && (
           <div className="attendee-orders-section">
-            <div className="flex justify-between items-end mb-6 gap-4 max-[768px]:flex-col max-[768px]:items-start">
+            <div className="flex flex-wrap justify-between items-end mb-6 gap-4">
               <div>
                 <h2 className="mt-0 mx-0 mb-1 text-xl font-extrabold text-slate-900">Order &amp; Booking History</h2>
-                <p className="m-0 text-sm text-slate-500">
-                  All past registrations and payment records processed securely via PayHere.
-                </p>
+                <p className="m-0 text-sm text-slate-500">{orderPageInfo.total} bookings · includes payment and event status.</p>
               </div>
+              <div className="flex flex-wrap gap-2"><input className="rounded-lg border border-slate-300 px-3 py-2 text-sm" type="search" value={orderSearch} onChange={(e) => { setOrderSearch(e.target.value); setOrderPage(1) }} placeholder="Search event or ticket type" aria-label="Search booking history" /><select className="rounded-lg border border-slate-300 px-3 py-2 text-sm" value={orderStatus} onChange={(e) => { setOrderStatus(e.target.value); setOrderPage(1) }} aria-label="Filter bookings by status"><option value="">All booking statuses</option><option value="PENDING">Pending</option><option value="CONFIRMED">Confirmed</option><option value="EXPIRED">Expired</option></select></div>
             </div>
 
             {registrationsList.length > 0 ? (
@@ -438,8 +465,9 @@ export function AccountPage() {
                   <thead>
                     <tr>
                       <th>Event</th>
-                      <th>Event Date</th>
-                      <th>Status</th>
+                      <th>Ticket</th>
+                      <th>Amount</th>
+                      <th>Booking / Payment</th>
                       <th>Action</th>
                     </tr>
                   </thead>
@@ -448,27 +476,14 @@ export function AccountPage() {
                       <tr key={reg.id}>
                         <td>
                           <strong className="block text-slate-900 text-[15px]">{reg.event?.title || 'Event'}</strong>
-                          <span className="text-xs text-slate-500">{reg.event?.city}</span>
+                          <span className="text-xs text-slate-500">{reg.event?.city} · {new Date(reg.event.startAt).toLocaleString()}</span>
+                          {reg.event.status === 'CANCELLED' && <span className="mt-1 block text-xs font-semibold text-rose-700">Cancelled{reg.event.cancellationReason ? ` · ${reg.event.cancellationReason}` : ''}</span>}
                         </td>
+                        <td>{reg.ticketType.name} × {reg.quantity}<span className="mt-1 block text-xs text-slate-500">Booked {new Date(reg.createdAt).toLocaleDateString()}</span></td>
+                        <td className="font-semibold">{reg.currency} {Number(reg.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        <td><span className={`rounded-full px-2 py-1 text-xs font-semibold ${reg.status === 'CONFIRMED' ? 'bg-emerald-50 text-emerald-700' : reg.status === 'EXPIRED' ? 'bg-slate-100 text-slate-600' : 'bg-amber-50 text-amber-700'}`}>{reg.status.toLowerCase()}</span><span className="mt-1 block text-xs text-slate-500">Payment: {reg.payment?.status?.toLowerCase() ?? 'not started'}</span></td>
                         <td>
-                          <span className="font-semibold text-slate-600">
-                            {reg.event?.startAt ? new Date(reg.event.startAt).toLocaleDateString() : '—'}
-                          </span>
-                        </td>
-                        <td>
-                          <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]">
-                            <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" />
-                            {reg.status.toLowerCase()}
-                          </span>
-                        </td>
-                        <td>
-                          {reg.event?.slug ? (
-                            <Link to={`/events/${reg.event.slug}`} className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]" style={{ fontSize: '13px' }}>
-                              View Event Details →
-                            </Link>
-                          ) : (
-                            <span className="text-muted">—</span>
-                          )}
+                          {reg.status === 'CONFIRMED' ? <Link to="/tickets" className="text-sm font-semibold text-indigo-700 hover:underline">View pass →</Link> : reg.event.status === 'PUBLISHED' && new Date(reg.event.endAt) > new Date() ? <Link to={`/events/${reg.event.slug}`} className="text-sm font-semibold text-indigo-700 hover:underline">Event details →</Link> : <span className="text-xs text-slate-500">No action available</span>}
                         </td>
                       </tr>
                     ))}
@@ -477,12 +492,13 @@ export function AccountPage() {
               </div>
             ) : (
               <div className="bg-white border border-slate-200 rounded-[14px] p-10 text-center">
-                <p className="text-muted">No booking history recorded yet.</p>
+                <p className="text-muted">No bookings match this search and filter.</p>
                 <Link to="/discover" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]">
                   Browse Events Directory
                 </Link>
               </div>
             )}
+            {orderPageInfo.pageCount > 1 && <div className="mt-4 flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm"><span>Page {orderPage} of {orderPageInfo.pageCount}</span><div className="flex gap-2"><button disabled={orderPage <= 1} onClick={() => setOrderPage((value) => value - 1)} className="rounded border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={orderPage >= orderPageInfo.pageCount} onClick={() => setOrderPage((value) => value + 1)} className="rounded border px-3 py-1.5 disabled:opacity-40">Next</button></div></div>}
           </div>
         )}
 

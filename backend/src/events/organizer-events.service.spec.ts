@@ -15,7 +15,7 @@ const baseEvent = {
 
 function setup() {
   const prisma = {
-    event: { findFirst: vi.fn().mockResolvedValue(baseEvent), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), update: vi.fn(), create: vi.fn() },
+    event: { findFirst: vi.fn().mockResolvedValue(baseEvent), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), findMany: vi.fn(), count: vi.fn().mockResolvedValue(0), updateMany: vi.fn(), update: vi.fn(), create: vi.fn() },
     category: { findFirst: vi.fn() }, ticketType: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
     eventSession: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
     registration: { findMany: vi.fn() }, $transaction: vi.fn(),
@@ -89,12 +89,12 @@ describe('OrganizerEventsService', () => {
     expect(prisma.eventSession.create).not.toHaveBeenCalled();
   });
 
-  it('limits admin event oversight to the latest 100 records and applies its status filter', async () => {
+  it('paginates admin event oversight and applies its status filter', async () => {
     const { service, prisma } = setup();
     prisma.event.findMany.mockResolvedValue([]);
-    await service.listForAdmin('PUBLISHED');
+    await service.listForAdmin({ status: 'PUBLISHED', page: 1, pageSize: 25 });
     expect(prisma.event.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { status: 'PUBLISHED' }, orderBy: { updatedAt: 'desc' }, take: 100,
+      where: { status: 'PUBLISHED' }, orderBy: { updatedAt: 'desc' }, skip: 0, take: 25,
       select: expect.objectContaining({ organizer: expect.any(Object), _count: expect.any(Object) }),
     }));
   });

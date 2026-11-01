@@ -13,11 +13,14 @@ export class CheckinsService {
   async checkIn(organizerId: string, eventId: string, value: string, method: CheckInMethod, commit = true) {
     return this.prisma.$transaction(async (tx) => {
       // Keep the event stable while checking ownership and cancellation state.
-      const events = await tx.$queryRaw<Array<{ id: string; organizerId: string; status: string }>>(Prisma.sql`
-        SELECT "id", "organizerId", "status" FROM "Event" WHERE "id" = ${eventId} FOR SHARE
+      const events = await tx.$queryRaw<Array<{ id: string; organizerId: string; status: string; endAt: Date }>>(Prisma.sql`
+        SELECT "id", "organizerId", "status", "endAt" FROM "Event" WHERE "id" = ${eventId} FOR SHARE
       `);
       const event = events[0];
       if (!event || event.organizerId !== organizerId) throw new NotFoundException('Event not found');
+      if (event.status === 'COMPLETED' || event.endAt <= new Date()) return { outcome: 'EVENT_ENDED' as const };
+      if (event.status === 'CANCELLED') return { outcome: 'EVENT_CANCELLED' as const };
+      if (event.status !== 'PUBLISHED') return { outcome: 'EVENT_NOT_ACTIVE' as const };
 
       const candidate = method === 'QR_SCAN'
         ? await tx.ticket.findFirst({ where: { qrTokenHash: ticketQrHash(value) }, select: { id: true } })
@@ -45,7 +48,6 @@ export class CheckinsService {
       if (ticket.status === 'CHECKED_IN' || ticket.checkIn) {
         return { outcome: 'ALREADY_CHECKED_IN' as const, checkedInAt: ticket.checkIn?.checkedInAt ?? null };
       }
-      if (event.status === 'CANCELLED') return { outcome: 'EVENT_CANCELLED' as const };
       if (ticket.registration.status !== 'CONFIRMED' || !ticket.registration.payments.some((payment) => payment.status === 'SUCCEEDED')) {
         return { outcome: 'PAYMENT_UNCONFIRMED' as const };
       }
@@ -66,7 +68,7 @@ export class CheckinsService {
   }
 
   async attendance(organizerId: string, eventId: string, page: number, pageSize: number) {
-    const event = await this.prisma.event.findFirst({ where: { id: eventId, organizerId }, select: { id: true, title: true } });
+    const event = await this.prisma.event.findFirst({ where: { id: eventId, organizerId }, select: { id: true, title: true, startAt: true, endAt: true, status: true } });
     if (!event) throw new NotFoundException('Event not found');
 
     const where = { eventId };

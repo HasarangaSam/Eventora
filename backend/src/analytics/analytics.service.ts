@@ -1,10 +1,41 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 @Injectable()
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async adminPaymentExceptions(query: { page: number; pageSize: number; search?: string; status?: 'OPEN' | 'REVIEWED' }) {
+    const term = query.search?.trim() ?? '';
+    const where = {
+      ...(query.status === 'OPEN' ? { reviewedAt: null } : query.status === 'REVIEWED' ? { reviewedAt: { not: null } } : {}),
+      ...(term ? { OR: [
+        { reasonCode: { contains: term, mode: 'insensitive' as const } },
+        { description: { contains: term, mode: 'insensitive' as const } },
+        { registration: { event: { title: { contains: term, mode: 'insensitive' as const } } } },
+        { registration: { attendee: { email: { contains: term, mode: 'insensitive' as const } } } },
+      ] } : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.paymentException.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (query.page - 1) * query.pageSize, take: query.pageSize,
+        include: { reviewedBy: { select: { email: true, firstName: true, lastName: true } }, registration: { select: { id: true, quantity: true, totalAmount: true, currency: true, status: true, attendee: { select: { email: true, firstName: true, lastName: true } }, event: { select: { id: true, title: true } } } }, paymentAttempt: { select: { id: true, provider: true, merchantReference: true, providerPaymentId: true, amount: true, currency: true, status: true, providerStatus: true, createdAt: true, verifiedAt: true } } } }),
+      this.prisma.paymentException.count({ where }),
+    ]);
+    return { items, total, page: query.page, pageSize: query.pageSize, pageCount: Math.ceil(total / query.pageSize) };
+  }
+
+  async reviewPaymentException(id: string, adminId: string, reviewNote: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const item = await tx.paymentException.findUnique({ where: { id } });
+      if (!item) throw new NotFoundException('Payment exception not found');
+      if (item.reviewedAt) throw new ConflictException('This payment exception has already been reviewed');
+      const updated = await tx.paymentException.updateMany({ where: { id, reviewedAt: null }, data: { reviewedAt: new Date(), reviewedById: adminId, reviewNote } });
+      if (updated.count !== 1) throw new ConflictException('This payment exception has already been reviewed');
+      await tx.adminAuditLog.create({ data: { actorId: adminId, action: 'PAYMENT_EXCEPTION_REVIEWED', targetType: 'PAYMENT_EXCEPTION', targetId: id, beforeValue: 'OPEN', afterValue: 'REVIEWED', reason: reviewNote } });
+      return tx.paymentException.findUniqueOrThrow({ where: { id } });
+    });
+  }
 
   async organizerSales(organizerId: string) {
     return this.salesTrend({ registration: { event: { organizerId } } });
@@ -107,13 +138,13 @@ export class AnalyticsService {
     };
   }
 
-  async adminSales() { return this.salesTrend({}); }
+  async adminSales(months = 6) { return this.salesTrend({}, months); }
 
   async organizerRegistrations(organizerId: string) {
     return this.registrationTrend({ event: { organizerId } });
   }
 
-  async adminRegistrations() { return this.registrationTrend({}); }
+  async adminRegistrations(months = 6) { return this.registrationTrend({}, months); }
 
   async organizerAttendance(organizerId: string) {
     const [issued, checkedIn, events, issuedByEvent, checkInsByEvent] = await Promise.all([
@@ -147,8 +178,8 @@ export class AnalyticsService {
     return { byStatus: byStatus.map(item => ({ status: item.status, currency: item.currency, count: item._count._all, amount: item._sum.amount?.toString() ?? '0' })), verifiedGross: verifiedGross.map(item => ({ currency: item.currency, count: item._count._all, amount: item._sum.amount?.toString() ?? '0' })) };
   }
 
-  private async salesTrend(registration: Prisma.PaymentAttemptWhereInput) {
-    const months = monthWindows();
+  private async salesTrend(registration: Prisma.PaymentAttemptWhereInput, monthCount = 6) {
+    const months = monthWindows(monthCount);
     // Only verified successes count as gross sales; pending callbacks are not settled revenue.
     const monthly = await Promise.all(months.map(async ({ key, start, end }) => {
       const groups = await this.prisma.paymentAttempt.groupBy({ by: ['currency'], where: { ...registration, status: 'SUCCEEDED', verifiedAt: { not: null }, paidAt: { gte: start, lt: end } }, _sum: { amount: true }, _count: { _all: true } });
@@ -157,8 +188,8 @@ export class AnalyticsService {
     return { months: monthly };
   }
 
-  private async registrationTrend(where: Prisma.RegistrationWhereInput) {
-    const months = monthWindows();
+  private async registrationTrend(where: Prisma.RegistrationWhereInput, monthCount = 6) {
+    const months = monthWindows(monthCount);
     return { months: await Promise.all(months.map(async ({ key, start, end }) => {
       const [created, confirmed] = await Promise.all([
         this.prisma.registration.count({ where: { ...where, createdAt: { gte: start, lt: end } } }),
@@ -178,9 +209,9 @@ export class AnalyticsService {
       this.prisma.registration.findMany({
         where: { userId }, orderBy: { createdAt: 'desc' }, take: 8, select: registrationSelect,
       }),
-      this.prisma.registration.findMany({ where: { userId, event: { startAt: { gte: now } } }, orderBy: { event: { startAt: 'asc' } }, take: 5, select: registrationSelect }),
-      this.prisma.registration.findMany({ where: { userId, event: { startAt: { lt: now } } }, orderBy: { event: { startAt: 'desc' } }, take: 5, select: registrationSelect }),
-      this.prisma.ticket.count({ where: { registration: { userId }, status: { in: ['ISSUED', 'CHECKED_IN'] }, event: { startAt: { gte: now } } } }),
+      this.prisma.registration.findMany({ where: { userId, event: { endAt: { gte: now }, status: { not: 'CANCELLED' } } }, orderBy: { event: { startAt: 'asc' } }, take: 5, select: registrationSelect }),
+      this.prisma.registration.findMany({ where: { userId, event: { endAt: { lt: now } } }, orderBy: { event: { startAt: 'desc' } }, take: 5, select: registrationSelect }),
+      this.prisma.ticket.count({ where: { registration: { userId, status: 'CONFIRMED' }, status: 'ISSUED', event: { endAt: { gte: now }, status: { not: 'CANCELLED' } } } }),
       this.prisma.registration.count({ where: { userId } }),
     ]);
     return { activeTickets, registrationCount: recentRegistrations, registrations, upcomingEvents, pastEvents };
@@ -238,7 +269,7 @@ export class AnalyticsService {
 
   async admin() {
     const [usersByRole, activeUsers, pendingApplications, eventsByStatus, registrationCount,
-      confirmedRegistrations, paymentsByStatus, grossSales, issued, checkedIn] = await Promise.all([
+      confirmedRegistrations, paymentsByStatus, grossSales, issued, checkedIn, openPaymentExceptions] = await Promise.all([
       this.prisma.user.groupBy({ by: ['role'], _count: { _all: true } }),
       this.prisma.user.count({ where: { status: 'ACTIVE' } }),
       this.prisma.organizerApplication.count({ where: { status: 'PENDING' } }),
@@ -249,21 +280,22 @@ export class AnalyticsService {
       this.prisma.paymentAttempt.groupBy({ by: ['currency'], where: { status: 'SUCCEEDED', verifiedAt: { not: null } }, _sum: { amount: true }, _count: { _all: true } }),
       this.prisma.ticket.count({ where: { status: { in: ['ISSUED', 'CHECKED_IN'] } } }),
       this.prisma.checkIn.count(),
+      this.prisma.paymentException.count({ where: { reviewedAt: null } }),
     ]);
     return { totalUsers: usersByRole.reduce((sum, item) => sum + item._count._all, 0), activeUsers,
       usersByRole: Object.fromEntries(usersByRole.map(x => [x.role, x._count._all])), pendingApplications,
       eventsByStatus: Object.fromEntries(eventsByStatus.map(x => [x.status, x._count._all])), registrationCount,
-      confirmedRegistrations, paymentsByStatus: Object.fromEntries(paymentsByStatus.map(x => [x.status, x._count._all])),
+      confirmedRegistrations, paymentsByStatus: Object.fromEntries(paymentsByStatus.map(x => [x.status, x._count._all])), openPaymentExceptions,
       grossSales: grossSales.map(x => ({ currency: x.currency, amount: x._sum.amount?.toString() ?? '0', payments: x._count._all })),
       attendance: { checkedIn, issued, rate: issued ? checkedIn / issued : 0 } };
   }
 }
 
-function monthWindows() {
+function monthWindows(count = 6) {
   const now = new Date();
   const current = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  return Array.from({ length: 6 }, (_, index) => {
-    const start = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth() - 5 + index, 1));
+  return Array.from({ length: count }, (_, index) => {
+    const start = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth() - (count - 1) + index, 1));
     const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1));
     return { key: start.toISOString().slice(0, 7), start, end };
   });

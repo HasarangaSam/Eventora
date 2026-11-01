@@ -146,6 +146,7 @@ export function DiscoveryPage() {
   const [retry, setRetry] = useState(0)
 
   const filters = draft.queryKey === queryKey ? draft.filters : applied
+  const invalidDateRange = Boolean(filters.from && filters.to && filters.to < filters.from)
 
   useEffect(() => {
     let active = true
@@ -226,7 +227,7 @@ export function DiscoveryPage() {
 
       {/* Filter Bar */}
       <form className="mb-9 rounded-[var(--radius-xl)] border border-[var(--border)] bg-white px-5 py-4 shadow-[var(--shadow-md)]" onSubmit={submit}>
-        <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-2 xl:grid-cols-[2fr_1.2fr_1fr_1fr_auto]">
+        <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-2 xl:grid-cols-[2fr_1.2fr_1fr_1fr_1fr_auto]">
           <div className="mb-[18px] flex flex-col gap-1.5" style={{ margin: 0 }}>
             <label className="text-[13px] font-semibold text-[var(--text-main)]">Search Query</label>
             <div style={{ position: 'relative' }}>
@@ -275,6 +276,17 @@ export function DiscoveryPage() {
           </div>
 
           <div className="mb-[18px] flex flex-col gap-1.5" style={{ margin: 0 }}>
+            <label className="text-[13px] font-semibold text-[var(--text-main)]">To Date</label>
+            <input
+              type="date"
+              min={filters.from || undefined}
+              className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
+              value={filters.to}
+              onChange={(e) => updateFilters({ ...filters, to: e.target.value })}
+            />
+          </div>
+
+          <div className="mb-[18px] flex flex-col gap-1.5" style={{ margin: 0 }}>
             <label className="text-[13px] font-semibold text-[var(--text-main)]">Sort</label>
             <select
               className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
@@ -288,7 +300,7 @@ export function DiscoveryPage() {
           </div>
 
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button type="submit" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]" style={{ height: '42px' }}>
+            <button type="submit" disabled={invalidDateRange} className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]" style={{ height: '42px' }}>
               Filter
             </button>
             <button type="button" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)]" style={{ height: '42px' }} onClick={clearFilters}>
@@ -297,6 +309,7 @@ export function DiscoveryPage() {
           </div>
         </div>
       </form>
+      {invalidDateRange && <p role="alert" className="-mt-6 mb-8 text-sm text-rose-700">Choose an end date on or after the start date.</p>}
 
       {/* Results Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>

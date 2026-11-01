@@ -34,3 +34,14 @@ export class ParticipantsQueryDto {
   @IsIn(['CHECKED_IN', 'NOT_CHECKED_IN'], { message: 'checkInStatus is invalid' })
   checkInStatus?: 'CHECKED_IN' | 'NOT_CHECKED_IN';
 }
+
+export class AdminPaymentExceptionsQueryDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) pageSize = 25;
+  @IsOptional() @IsString() @MaxLength(120) search?: string;
+  @IsOptional() @IsIn(['OPEN', 'REVIEWED']) status?: 'OPEN' | 'REVIEWED';
+}
+
+export class AdminReportRangeDto {
+  @IsOptional() @Type(() => Number) @IsInt() @Min(3) @Max(24) months = 6;
+}

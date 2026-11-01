@@ -122,13 +122,24 @@ export class OrganizerApplicationsService {
     });
   }
 
-  list(status?: OrganizerApplicationStatus) {
-    return this.prisma.organizerApplication.findMany({
-      where: status ? { status } : undefined,
-      orderBy: { submittedAt: 'asc' },
-      take: 100,
-      select: applicationSelect,
-    });
+  async list(status?: OrganizerApplicationStatus, search = '', page = 1, pageSize = 25) {
+    const term = search.trim();
+    const where = {
+      ...(status ? { status } : {}),
+      ...(term ? { OR: [
+        { organizationName: { contains: term, mode: 'insensitive' as const } },
+        { applicantEmail: { contains: term, mode: 'insensitive' as const } },
+        { contactName: { contains: term, mode: 'insensitive' as const } },
+        { city: { contains: term, mode: 'insensitive' as const } },
+        { country: { contains: term, mode: 'insensitive' as const } },
+        { applicant: { email: { contains: term, mode: 'insensitive' as const } } },
+      ] } : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.organizerApplication.findMany({ where, orderBy: { submittedAt: 'asc' }, skip: (page - 1) * pageSize, take: pageSize, select: applicationSelect }),
+      this.prisma.organizerApplication.count({ where }),
+    ]);
+    return { items, total, page, pageSize, pageCount: Math.ceil(total / pageSize) };
   }
 
   async adminNotifications(adminUserId: string) {
@@ -224,6 +235,9 @@ export class OrganizerApplicationsService {
     status: 'APPROVED' | 'REJECTED',
     decisionNote: string | null,
   ) {
+    if (status === 'REJECTED' && !decisionNote?.trim()) {
+      throw new ConflictException('A decision note is required when rejecting an application');
+    }
     try {
       return await this.prisma.$transaction(async (tx) => {
         const application = await tx.organizerApplication.findUnique({
@@ -286,10 +300,19 @@ export class OrganizerApplicationsService {
     }
   }
 
-  async listUsers() {
-    return this.prisma.user.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 100,
+  async listUsers(query: { role?: UserRole; status?: UserStatus; search?: string; page: number; pageSize: number }) {
+    const term = query.search?.trim() ?? '';
+    const where = {
+      ...(query.role ? { role: query.role } : {}),
+      ...(query.status ? { status: query.status } : {}),
+      ...(term ? { OR: [
+        { email: { contains: term, mode: 'insensitive' as const } },
+        { firstName: { contains: term, mode: 'insensitive' as const } },
+        { lastName: { contains: term, mode: 'insensitive' as const } },
+      ] } : {}),
+    };
+    const [items, total] = await Promise.all([
+      this.prisma.user.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (query.page - 1) * query.pageSize, take: query.pageSize,
       select: {
         id: true,
         email: true,
@@ -298,11 +321,18 @@ export class OrganizerApplicationsService {
         role: true,
         status: true,
         createdAt: true,
-      },
-    });
+      } }),
+      this.prisma.user.count({ where }),
+    ]);
+    return { items, total, page: query.page, pageSize: query.pageSize, pageCount: Math.ceil(total / query.pageSize) };
   }
 
-  async setUserRole(id: string, role: UserRole, actingUserId: string) {
+  async userAuditHistory(targetId: string) {
+    const logs = await this.prisma.adminAuditLog.findMany({ where: { targetType: 'USER', targetId }, orderBy: { createdAt: 'desc' }, take: 50, include: { actor: { select: { email: true, firstName: true, lastName: true } } } });
+    return logs;
+  }
+
+  async setUserRole(id: string, role: UserRole, actingUserId: string, reason: string) {
     return this.prisma.$transaction(async (tx) => {
       // Serialize admin mutations to prevent concurrent changes from removing every active admin.
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(584893271004::bigint)`;
@@ -330,15 +360,17 @@ export class OrganizerApplicationsService {
       if (id === actingUserId && role !== 'ADMIN') {
         throw new ConflictException('Administrators cannot change their own role');
       }
-      return tx.user.update({
+      const updated = await tx.user.update({
         where: { id },
         data: { role },
         select: { id: true, email: true, role: true, status: true },
       });
+      if (target.role !== role) await tx.adminAuditLog.create({ data: { actorId: actingUserId, action: 'USER_ROLE_CHANGED', targetType: 'USER', targetId: id, beforeValue: target.role, afterValue: role, reason } });
+      return updated;
     }, { isolationLevel: 'Serializable' });
   }
 
-  async setUserStatus(id: string, status: UserStatus, actingUserId: string) {
+  async setUserStatus(id: string, status: UserStatus, actingUserId: string, reason: string) {
     return this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(584893271004::bigint)`;
       const target = await tx.user.findUnique({ where: { id } });
@@ -352,11 +384,13 @@ export class OrganizerApplicationsService {
           throw new ConflictException('At least one active administrator must remain');
         }
       }
-      return tx.user.update({
+      const updated = await tx.user.update({
         where: { id },
         data: { status },
         select: { id: true, email: true, role: true, status: true },
       });
+      if (target.status !== status) await tx.adminAuditLog.create({ data: { actorId: actingUserId, action: 'USER_STATUS_CHANGED', targetType: 'USER', targetId: id, beforeValue: target.status, afterValue: status, reason } });
+      return updated;
     }, { isolationLevel: 'Serializable' });
   }
 }

@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { InventoryService } from './inventory.service.js';
 
 const registrationInclude = {
-  event: { select: { id: true, title: true, venue: true, city: true, startAt: true, endAt: true, status: true } },
+  event: { select: { id: true, slug: true, title: true, venue: true, city: true, startAt: true, endAt: true, status: true, cancellationReason: true } },
   ticketType: { select: { id: true, name: true } },
   reservation: { select: { status: true, expiresAt: true } },
   payments: { select: { id: true, status: true, amount: true, currency: true }, orderBy: { createdAt: 'desc' as const }, take: 1 },
@@ -77,14 +77,21 @@ export class RegistrationsService {
     }
   }
 
-  async listMine(userId: string) {
-    const registrations = await this.prisma.registration.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-      include: registrationInclude,
-    });
-    return registrations.map(formatRegistration);
+  async listMine(userId: string, query: { page: number; pageSize: number; search?: string; status?: 'PENDING' | 'CONFIRMED' | 'EXPIRED' }) {
+    const term = query.search?.trim();
+    const where: Prisma.RegistrationWhereInput = {
+      userId, ...(query.status ? { status: query.status } : {}),
+      ...(term ? { OR: [
+        { event: { title: { contains: term, mode: 'insensitive' } } },
+        { event: { city: { contains: term, mode: 'insensitive' } } },
+        { ticketType: { name: { contains: term, mode: 'insensitive' } } },
+      ] } : {}),
+    };
+    const [registrations, total] = await Promise.all([
+      this.prisma.registration.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (query.page - 1) * query.pageSize, take: query.pageSize, include: registrationInclude }),
+      this.prisma.registration.count({ where }),
+    ]);
+    return { items: registrations.map(formatRegistration), total, page: query.page, pageSize: query.pageSize, pageCount: Math.ceil(total / query.pageSize) };
   }
 
   async getMine(userId: string, registrationId: string) {
@@ -118,7 +125,7 @@ export class RegistrationsService {
 function formatRegistration(registration: {
   id: string; quantity: number; unitPrice: Prisma.Decimal; totalAmount: Prisma.Decimal; currency: string;
   status: string; createdAt: Date;
-  event: { id: string; title: string; venue: string; city: string; startAt: Date; endAt: Date; status: string };
+  event: { id: string; slug: string; title: string; venue: string; city: string; startAt: Date; endAt: Date; status: string; cancellationReason: string | null };
   ticketType: { id: string; name: string };
   reservation: { status: string; expiresAt: Date } | null;
   payments: Array<{ id: string; status: string; amount: Prisma.Decimal; currency: string }>;

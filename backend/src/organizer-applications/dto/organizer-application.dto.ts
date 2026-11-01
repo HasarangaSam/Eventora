@@ -105,11 +105,17 @@ export class DecideApplicationDto {
 export class SetUserRoleDto {
   @IsIn(['ATTENDEE', 'ORGANIZER', 'ADMIN'], { message: 'role must be ATTENDEE, ORGANIZER, or ADMIN' })
   role!: 'ATTENDEE' | 'ORGANIZER' | 'ADMIN';
+  @IsString() @Length(5, 500) reason!: string;
 }
 
 export class SetUserStatusDto {
   @IsIn(['ACTIVE', 'DEACTIVATED'], { message: 'status must be ACTIVE or DEACTIVATED' })
   status!: 'ACTIVE' | 'DEACTIVATED';
+  @IsString() @Length(5, 500) reason!: string;
+}
+
+export class ReviewPaymentExceptionDto {
+  @IsString() @Length(5, 2000) reviewNote!: string;
 }
 
 export class MarkNotificationsReadDto {
@@ -125,4 +131,46 @@ export class ListApplicationsQueryDto {
   @IsOptional()
   @IsIn(['PENDING', 'APPROVED', 'REJECTED'], { message: 'status must be PENDING, APPROVED, or REJECTED' })
   status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  search?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  pageSize = 25;
+}
+
+export class AdminUsersQueryDto {
+  @IsOptional()
+  @IsIn(['ATTENDEE', 'ORGANIZER', 'ADMIN'])
+  role?: 'ATTENDEE' | 'ORGANIZER' | 'ADMIN';
+
+  @IsOptional()
+  @IsIn(['ACTIVE', 'DEACTIVATED'])
+  status?: 'ACTIVE' | 'DEACTIVATED';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  search?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  pageSize = 25;
 }

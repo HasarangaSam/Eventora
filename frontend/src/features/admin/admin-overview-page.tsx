@@ -4,7 +4,7 @@ import { DashboardShell } from '../analytics/dashboard-shell'
 import { useAuthenticatedApi } from '../auth/use-authenticated-api'
 
 type Overview = {
-  totalUsers: number; activeUsers: number; pendingApplications: number; registrationCount: number; confirmedRegistrations: number
+  totalUsers: number; activeUsers: number; pendingApplications: number; openPaymentExceptions: number; registrationCount: number; confirmedRegistrations: number
   usersByRole: Record<string, number>; eventsByStatus: Record<string, number>; paymentsByStatus: Record<string, number>
   grossSales: { currency: string; amount: string; payments: number }[]; attendance: { checkedIn: number; issued: number; rate: number }
 }
@@ -42,6 +42,7 @@ export function AdminOverviewPage() {
 
       {loading ? <section className={`${card} p-8 text-center text-sm text-slate-500`}>Loading platform totals…</section> : !data ? <section className={`${card} p-8 text-center`}><p className="m-0 text-sm text-slate-600">We couldn’t load the platform overview.</p><button onClick={() => setAttempt((value) => value + 1)} className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Try again</button></section> : <>
         {data.pendingApplications > 0 && <Link to="/admin/applications" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 hover:border-amber-300"><div><strong className="text-sm text-amber-950">{data.pendingApplications} organizer {data.pendingApplications === 1 ? 'application needs' : 'applications need'} review</strong><p className="mb-0 mt-1 text-sm text-amber-800">Open the review queue to approve or decline applications.</p></div><span className="text-sm font-semibold text-amber-900">Review applications →</span></Link>}
+        {data.openPaymentExceptions > 0 && <Link to="/admin/payments" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 hover:border-rose-300"><div><strong className="text-sm text-rose-950">{data.openPaymentExceptions} payment {data.openPaymentExceptions === 1 ? 'exception needs' : 'exceptions need'} review</strong><p className="mb-0 mt-1 text-sm text-rose-800">Investigate these records and document the review outcome.</p></div><span className="text-sm font-semibold text-rose-900">Review payments →</span></Link>}
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{metrics.map((metric) => <div key={metric.label} className={`${card} p-5`}><p className="m-0 text-sm text-slate-500">{metric.label}</p><strong className="mt-2 block text-2xl font-bold tabular-nums text-slate-900">{metric.value.toLocaleString()}</strong><span className="mt-1 block text-xs text-slate-500">{metric.detail}</span></div>)}</section>
 
@@ -54,7 +55,7 @@ export function AdminOverviewPage() {
           { to: '/admin/applications', title: 'Organizer applications', detail: `${data.pendingApplications} waiting for review` },
           { to: '/admin/events', title: 'Events', detail: 'Review event status and handle cancellations' },
           { to: '/admin/users', title: 'Accounts', detail: 'Manage account roles and access' },
-          { to: '/admin/payments', title: 'Payments', detail: 'Review verified sales and payment attempts' },
+          { to: '/admin/payments', title: 'Payments', detail: `${data.openPaymentExceptions} exceptions need review; inspect verified sales and attempts` },
           { to: '/admin/reports', title: 'Reports', detail: 'Follow registrations and attendance' },
           { to: '/admin/categories', title: 'Categories', detail: 'Manage event categories and visibility' },
         ].map((task) => <Link key={task.to} to={task.to} className="rounded-lg border border-slate-200 p-4 transition hover:border-indigo-300 hover:bg-slate-50"><strong className="block text-sm text-slate-900">{task.title}</strong><span className="mt-1 block text-sm text-slate-500">{task.detail}</span></Link>)}</div></section>

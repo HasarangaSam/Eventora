@@ -3,6 +3,8 @@ import { useAuthenticatedApi } from '../auth/use-authenticated-api'
 import { DashboardShell } from '../analytics/dashboard-shell'
 import { useToast } from '../../components/ui/toast'
 import { IconCheck, IconX, IconExternalLink, IconSearch } from '../../components/ui/icons'
+import { AdminPagination } from './admin-pagination'
+import { AdminNoteModal } from './admin-note-modal'
 
 interface Application {
   id: string
@@ -25,6 +27,9 @@ interface Application {
   agreedAt: string | null
   eventCategories: Array<{ category: { id: string; name: string } }>
   submittedAt: string
+  reviewedAt: string | null
+  decisionNote: string | null
+  reviewer: { id: string; email: string; firstName: string | null; lastName: string | null } | null
   applicant: { id: string; email: string; firstName: string | null; lastName: string | null }
 }
 
@@ -34,32 +39,40 @@ export function AdminApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
+  const [status, setStatus] = useState('PENDING')
+  const [page, setPage] = useState(1)
+  const [pageData, setPageData] = useState({ total: 0, pageCount: 0 })
+  const [rejecting, setRejecting] = useState<Application | null>(null)
 
   const loadApplications = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await request<Application[]>({
+      const params = new URLSearchParams({ page: String(page), pageSize: '25', status })
+      if (query.trim()) params.set('search', query.trim())
+      const response = await request<{ items: Application[]; total: number; pageCount: number }>({
         method: 'GET',
-        url: '/organizer-applications?status=PENDING',
+        url: `/organizer-applications?${params}`,
       })
-      setApplications(response.data)
+      setApplications(response.data.items)
+      setPageData({ total: response.data.total, pageCount: response.data.pageCount })
     } catch {
       toast.error('Load Error', 'Could not load organizer applications.')
     } finally {
       setLoading(false)
     }
-  }, [request, toast])
+  }, [page, query, request, status, toast])
 
   useEffect(() => {
     void loadApplications()
   }, [loadApplications])
 
-  async function decide(id: string, status: 'APPROVED' | 'REJECTED', orgName: string) {
+  async function decide(id: string, decision: 'APPROVED' | 'REJECTED', orgName: string, decisionNote: string | null = null) {
+    if (decision === 'APPROVED' && !window.confirm(`Approve ${orgName} as an event organizer?`)) return
     try {
-      await request({ method: 'PATCH', url: `/organizer-applications/${id}/decision`, data: { status } })
+      await request({ method: 'PATCH', url: `/organizer-applications/${id}/decision`, data: { status: decision, decisionNote } })
       toast.success(
-        status === 'APPROVED' ? 'Application Approved' : 'Application Rejected',
-        `${orgName} has been ${status.toLowerCase()}.`,
+        decision === 'APPROVED' ? 'Application Approved' : 'Application Rejected',
+        `${orgName} has been ${decision.toLowerCase()}.`,
       )
       await loadApplications()
     } catch {
@@ -67,18 +80,14 @@ export function AdminApplicationsPage() {
     }
   }
 
-  const filtered = applications.filter((app) =>
-    `${app.organizationName} ${app.applicant.email} ${app.contactName ?? ''}`
-      .toLowerCase()
-      .includes(query.toLowerCase()),
-  )
+  useEffect(() => { setPage(1) }, [query, status])
 
   return (
     <DashboardShell role="ADMIN" pageTitle="Organizer applications">
       <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
         <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold" style={{ flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <h3>Pending Applications ({applications.length})</h3>
+            <h3>{status === 'PENDING' ? 'Pending' : status === 'APPROVED' ? 'Approved' : 'Rejected'} Applications ({pageData.total})</h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
               Review requests from people and organizations who want to host events.
             </p>
@@ -104,6 +113,7 @@ export function AdminApplicationsPage() {
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
+          <select className="rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3 py-2.5 text-sm" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter application status"><option value="PENDING">Pending</option><option value="APPROVED">Approved</option><option value="REJECTED">Rejected</option></select>
         </div>
 
         {loading ? (
@@ -119,13 +129,9 @@ export function AdminApplicationsPage() {
             </h4>
             <p style={{ margin: 0, fontSize: '14px' }}>There are no pending organizer applications to review.</p>
           </div>
-        ) : filtered.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
-            No applications match your search query.
-          </div>
         ) : (
           <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {filtered.map((app) => (
+            {applications.map((app) => (
               <div
                 key={app.id}
                 style={{
@@ -145,7 +151,7 @@ export function AdminApplicationsPage() {
                       Applicant: {app.applicant.firstName} {app.applicant.lastName} ({app.applicant.email})
                     </span>
                   </div>
-                  <div style={{ display: 'flex', gap: '10px' }}>
+                  {app.status === 'PENDING' && <div style={{ display: 'flex', gap: '10px' }}>
                     <button
                       type="button"
                       className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
@@ -157,11 +163,11 @@ export function AdminApplicationsPage() {
                       type="button"
                       className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
                       style={{ color: 'var(--danger)' }}
-                      onClick={() => void decide(app.id, 'REJECTED', app.organizationName)}
+                      onClick={() => setRejecting(app)}
                     >
                       <IconX /> Reject
                     </button>
-                  </div>
+                  </div>}
                 </div>
 
                 <div
@@ -200,11 +206,14 @@ export function AdminApplicationsPage() {
                     <strong>Prior Experience:</strong> {app.experience}
                   </p>
                 )}
+                {app.status !== 'PENDING' && <p className="m-0 rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-600">Reviewed by {[app.reviewer?.firstName, app.reviewer?.lastName].filter(Boolean).join(' ') || app.reviewer?.email || 'an administrator'}{app.reviewedAt ? ` · ${new Date(app.reviewedAt).toLocaleString()}` : ''}{app.decisionNote ? ` · ${app.decisionNote}` : ''}</p>}
               </div>
             ))}
           </div>
         )}
+        {!loading && <AdminPagination page={page} pageCount={pageData.pageCount} total={pageData.total} onPage={setPage} />}
       </section>
+      <AdminNoteModal open={Boolean(rejecting)} title={`Reject ${rejecting?.organizationName ?? 'application'}?`} description="Give the applicant a clear reason so they understand the decision. This note will be included in their decision email and kept in the review record." label="Decision note" placeholder="Explain what needs to change or why the application cannot be approved." submitLabel="Reject application" onClose={() => setRejecting(null)} onSubmit={async (note) => { if (rejecting) await decide(rejecting.id, 'REJECTED', rejecting.organizationName, note) }} />
     </DashboardShell>
   )
 }

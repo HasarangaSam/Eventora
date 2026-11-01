@@ -4,6 +4,7 @@ import { DashboardShell } from '../analytics/dashboard-shell'
 import { useToast } from '../../components/ui/toast'
 import { PromptModal } from '../../components/ui/modal'
 import { IconSearch } from '../../components/ui/icons'
+import { AdminPagination } from './admin-pagination'
 
 interface ManagedEvent {
   id: string
@@ -17,6 +18,16 @@ interface ManagedEvent {
   organizer: { email: string; firstName: string | null; lastName: string | null }
   _count: { registrations: number; tickets: number }
 }
+interface EventDetails extends ManagedEvent {
+  description: string
+  endAt: string
+  capacity: number | null
+  cancellationReason: string | null
+  category: { name: string }
+  ticketTypes: Array<{ id: string; name: string; price: string; currency: string; quantity: number; quantitySold: number; quantityReserved: number; isActive: boolean }>
+  sessions: Array<{ id: string; title: string; startAt: string; endAt: string; speaker: string | null }>
+  _count: { registrations: number; tickets: number; reservations: number; checkIns: number }
+}
 
 export function AdminEventsPage() {
   const request = useAuthenticatedApi()
@@ -25,6 +36,10 @@ export function AdminEventsPage() {
   const [status, setStatus] = useState('')
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [pageData, setPageData] = useState({ total: 0, pageCount: 0 })
+  const [detail, setDetail] = useState<EventDetails | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   // Cancel Modal State
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
@@ -34,21 +49,35 @@ export function AdminEventsPage() {
   const loadEvents = useCallback(async () => {
     setLoading(true)
     try {
-      const { data } = await request<ManagedEvent[]>({
+      const params = new URLSearchParams({ page: String(page), pageSize: '25' })
+      if (status) params.set('status', status)
+      if (query.trim()) params.set('search', query.trim())
+      const { data } = await request<{ items: ManagedEvent[]; total: number; pageCount: number }>({
         method: 'GET',
-        url: `/admin/events${status ? `?status=${encodeURIComponent(status)}` : ''}`,
+        url: `/admin/events?${params.toString()}`,
       })
-      setEvents(data)
+      setEvents(data.items)
+      setPageData({ total: data.total, pageCount: data.pageCount })
     } catch {
       toast.error('Events Load Error', 'Could not load platform events for oversight.')
     } finally {
       setLoading(false)
     }
-  }, [request, status, toast])
+  }, [page, query, request, status, toast])
 
   useEffect(() => {
     void loadEvents()
   }, [loadEvents])
+
+  async function openDetails(event: ManagedEvent) {
+    setDetailLoading(true)
+    try {
+      const { data } = await request<EventDetails>({ method: 'GET', url: `/admin/events/${event.id}` })
+      setDetail(data)
+    } catch {
+      toast.error('Event Details Unavailable', 'Refresh the list and try again.')
+    } finally { setDetailLoading(false) }
+  }
 
   async function handleCancelSubmit(reason: string) {
     if (!targetEvent) return
@@ -73,16 +102,14 @@ export function AdminEventsPage() {
     }
   }
 
-  const filteredEvents = events.filter((e) =>
-    `${e.title} ${e.city} ${e.organizer.email}`.toLowerCase().includes(query.toLowerCase()),
-  )
+  useEffect(() => { setPage(1) }, [query, status])
 
   return (
     <DashboardShell role="ADMIN" pageTitle="Events">
       <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
         <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold" style={{ flexWrap: 'wrap', gap: '16px' }}>
           <div>
-            <h3>All Platform Events ({events.length})</h3>
+            <h3>All Platform Events ({pageData.total})</h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
               Review event details and status across all organizers. Cancel an event if platform rules require it.
             </p>
@@ -143,16 +170,16 @@ export function AdminEventsPage() {
                     <span className="text-muted">Loading events…</span>
                   </td>
                 </tr>
-              ) : filteredEvents.length === 0 ? (
+              ) : events.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                     No events found matching your filter criteria.
                   </td>
                 </tr>
               ) : (
-                filteredEvents.map((e) => (
+                events.map((e) => (
                   <tr key={e.id}>
-                    <td><strong>{e.title}</strong></td>
+                    <td><button type="button" onClick={() => void openDetails(e)} className="text-left font-semibold text-indigo-700 hover:underline">{e.title}</button></td>
                     <td>
                       <span>{[e.organizer.firstName, e.organizer.lastName].filter(Boolean).join(' ') || e.organizer.email}</span>
                     </td>
@@ -192,6 +219,7 @@ export function AdminEventsPage() {
             </tbody>
           </table>
         </div>
+        {!loading && <AdminPagination page={page} pageCount={pageData.pageCount} total={pageData.total} onPage={setPage} />}
 
         {/* Accessible Cancellation Dialog */}
         <PromptModal
@@ -207,6 +235,7 @@ export function AdminEventsPage() {
           loading={cancelBusy}
         />
       </section>
+      {(detail || detailLoading) && <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null) }}><aside role="dialog" aria-modal="true" aria-label="Event details" className="h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-2xl"><div className="flex items-start justify-between gap-4"><div><p className="mb-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">Event oversight</p><h2 className="m-0 text-xl font-bold text-slate-900">{detail?.title ?? 'Loading event…'}</h2></div><button onClick={() => setDetail(null)} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Close</button></div>{detailLoading && !detail ? <p className="mt-6 text-sm text-slate-500">Loading full event record…</p> : detail && <div className="mt-6 space-y-5 text-sm"><section className="rounded-lg bg-slate-50 p-4"><p className="m-0 font-semibold text-slate-900">{detail.category.name} · {detail.status.toLowerCase()}</p><p className="mb-0 mt-2 text-slate-600">{detail.description}</p><p className="mb-0 mt-2 text-slate-500">{detail.venue}, {detail.city} · {new Date(detail.startAt).toLocaleString()} – {new Date(detail.endAt).toLocaleString()}</p></section><section className="grid grid-cols-2 gap-3">{[['Tickets sold', detail.ticketsSold], ['Reserved', detail.ticketsReserved], ['Registrations', detail._count.registrations], ['Checked in', detail._count.checkIns]].map(([label, value]) => <div key={label} className="rounded-lg border border-slate-200 p-3"><span className="text-xs text-slate-500">{label}</span><strong className="mt-1 block text-lg text-slate-900">{value}</strong></div>)}</section><section><h3 className="mb-2 mt-0 font-semibold text-slate-900">Ticket inventory</h3><div className="divide-y divide-slate-100 rounded-lg border border-slate-200">{detail.ticketTypes.map((ticket) => <div key={ticket.id} className="flex justify-between gap-3 p-3"><span>{ticket.name}{!ticket.isActive && ' · inactive'}</span><span className="text-right text-slate-600">{ticket.currency} {ticket.price} · {ticket.quantitySold} sold · {ticket.quantityReserved} reserved</span></div>)}</div></section><section><h3 className="mb-2 mt-0 font-semibold text-slate-900">Schedule</h3>{detail.sessions.length ? detail.sessions.map((session) => <p key={session.id} className="m-0 border-b border-slate-100 py-2"><strong>{session.title}</strong> · {new Date(session.startAt).toLocaleString()}{session.speaker ? ` · ${session.speaker}` : ''}</p>) : <p className="m-0 text-slate-500">No additional sessions.</p>}</section>{detail.cancellationReason && <p className="m-0 rounded-lg border border-rose-200 bg-rose-50 p-3 text-rose-800">Cancellation reason: {detail.cancellationReason}</p>}</div>}</aside></div>}
     </DashboardShell>
   )
 }

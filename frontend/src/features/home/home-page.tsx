@@ -32,29 +32,28 @@ interface EventPage {
 
 const FAQ_ITEMS = [
   {
-    question: 'How do I receive my ticket after registering and paying?',
-    answer:
-      'Once your payment is complete, your ticket and QR pass are emailed to you as a PDF and saved to your Eventora Ticket Wallet, so you can access them whenever you need.',
+    question: 'How do I receive my ticket after paying?',
+    answer: 'Eventora confirms a booking after it verifies the payment with PayHere. Your digital pass then appears in your Ticket Wallet, and a confirmation email is queued for delivery.',
   },
   {
     question: 'Do I need to print out the QR code ticket to enter?',
     answer:
-      'No printing is necessary! Eventora is completely paperless. Simply open the email on your smartphone, save the pass to your photos, or open your Eventora account at the venue door. The organizer will scan the QR code right off your screen.',
+      'Open the pass in your Eventora Ticket Wallet and show its QR code to the event check-in team. Keep your ticket reference available in case you need help at the entrance.',
   },
   {
     question: 'What payment methods are supported for booking?',
     answer:
-      'We support all major payment options via our secure PayHere integration, including Visa, Mastercard, American Express, and popular local Sri Lankan bank transfer channels in Sri Lankan Rupees (LKR) with zero hidden checkout surcharges.',
+      'Payments are processed through PayHere. The payment options available to you are shown on the PayHere checkout screen. The event and ticket price are shown before you leave Eventora to pay.',
   },
   {
     question: 'How does the door check-in QR code prevent fraud or duplicate tickets?',
     answer:
-      'Each ticket has its own QR pass. Staff scan it at the entrance to confirm your ticket and check you in. Once it has been used, it cannot be used to enter again.',
+      'Each ticket has its own QR pass. Event staff scan it to verify the ticket and record check-in. A checked-in pass cannot be used for a second entry.',
   },
   {
     question: 'How can I become an organizer and sell tickets for my own event?',
     answer:
-      'Creating an organizer account is simple: create your Eventora account, head over to your account portal, and submit an organizer application. Once approved, you gain access to tier creation, real-time ticket sales charts, and the high-speed live camera door scanner console.',
+      'Create an Eventora account and submit an organizer application from your account page. You can create and publish events after your application is approved.',
   },
 ]
 
@@ -65,8 +64,6 @@ export function HomePage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [eventsState, setEventsState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [openFaq, setOpenFaq] = useState<number | null>(0)
-  const [newsletterEmail, setNewsletterEmail] = useState('')
-  const [newsletterSubscribed, setNewsletterSubscribed] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -104,13 +101,6 @@ export function HomePage() {
       navigate(`/discover?search=${encodeURIComponent(searchQuery.trim())}`)
     } else {
       navigate('/discover')
-    }
-  }
-
-  const handleNewsletterSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    if (newsletterEmail.trim()) {
-      setNewsletterSubscribed(true)
     }
   }
 
@@ -569,41 +559,6 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* ── 9. WEEKLY EVENT ALERTS / NEWSLETTER ── */}
-      <section className="bg-slate-50 pt-[60px] px-0 pb-20">
-        <div className="mx-auto w-full max-w-[1280px] px-6">
-          <div className="bg-white border-[1.5px] border-slate-200 rounded-[20px] py-11 px-12 flex items-center justify-between gap-9 shadow-[0_4px_20px_rgba(15,_23,_42,_0.04)] max-[1024px]:flex-col max-[1024px]:items-start max-[1024px]:py-8 max-[1024px]:px-6">
-            <div className="max-w-[520px]">
-              <h3 className="mt-0 mx-0 mb-2 text-2xl font-extrabold text-slate-900 tracking-[-0.5px]">Stay in the loop with Colombo's best events</h3>
-              <p className="m-0 text-[15px] leading-[1.6] text-slate-500">
-                Get handpicked weekend guides, early-bird ticket alerts, and exclusive access directly in your inbox. No spam, ever.
-              </p>
-            </div>
-
-            {newsletterSubscribed ? (
-              <div className="flex items-center gap-2.5 text-sm font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 py-3 px-5 rounded-[10px]">
-                <IconCheckCircle style={{ width: '20px', height: '20px', color: '#10b981' }} />
-                <span>You're on the list! Check your inbox for the upcoming weekly guide.</span>
-              </div>
-            ) : (
-              <form onSubmit={handleNewsletterSubmit} className="flex items-center gap-2.5 [flex:1] max-w-[440px] max-[1024px]:w-full max-[1024px]:max-w-full">
-                <input
-                  type="email"
-                  required
-                  value={newsletterEmail}
-                  onChange={(e) => setNewsletterEmail(e.target.value)}
-                  placeholder="Enter your email address..."
-                  className="[flex:1] py-3 px-4 border-[1.5px] border-slate-300 rounded-[var(--radius-md)] text-sm text-slate-900 bg-slate-50 [outline:none] [transition:all_0.15s_ease] focus:border-indigo-600 focus:bg-white focus:shadow-[0_0_0_3px_rgba(79,_70,_229,_0.12)]"
-                  aria-label="Email address for event alerts"
-                />
-                <button type="submit" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] whitespace-nowrap py-3 px-[22px] font-bold">
-                  Subscribe
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      </section>
     </div>
   )
 }
