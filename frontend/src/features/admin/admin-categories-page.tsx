@@ -79,7 +79,7 @@ export function AdminCategoriesPage() {
   return (
     <DashboardShell role="ADMIN" pageTitle="Categories">
       <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-4 sm:px-6 sm:py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
           <div>
             <h3>Discovery Categories ({categories.length})</h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -89,8 +89,8 @@ export function AdminCategoriesPage() {
         </div>
 
         {/* Add Category Form */}
-        <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', background: '#f8fafc' }}>
-          <form onSubmit={createCategory} style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr auto', gap: '14px', alignItems: 'flex-end' }}>
+        <div className="border-b border-[var(--border)] bg-slate-50 p-4 sm:p-6">
+          <form onSubmit={createCategory} className="grid items-end gap-3 sm:grid-cols-[1.2fr_2fr_auto] sm:gap-3.5">
             <div className="mb-[18px] flex flex-col gap-1.5" style={{ margin: 0 }}>
               <label className="text-[13px] font-semibold text-[var(--text-main)]">Category Name</label>
               <input

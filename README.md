@@ -81,6 +81,8 @@ Paginated responses include `items`, `total`, `page`, `pageSize`, and a page cou
 
 ## Architecture & Tech Stack
 
+For the detailed current system, module, authentication, purchase, event operations, and data model diagrams, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        Frontend (React 19 + Vite)                      │

@@ -248,9 +248,9 @@ export function AccountPage() {
   const registrationsList = orderHistory
 
   return (
-    <main className="mx-auto w-full max-w-[1280px] px-6 pb-20 pt-8">
+    <main className="mx-auto w-full max-w-[1280px] px-3 pb-16 pt-5 sm:px-6 sm:pb-20 sm:pt-8">
       <section className="mb-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-5 px-6 py-6 sm:px-8">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-5 sm:gap-5 sm:px-8 sm:py-6">
           <div className="flex min-w-0 items-center gap-4">
             <div className="h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-indigo-100 bg-indigo-600 shadow-sm">
               {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xl font-extrabold text-white">{displayName.charAt(0).toUpperCase()}</div>}
@@ -289,7 +289,7 @@ export function AccountPage() {
         <button
           type="button"
           onClick={() => setActiveTab('passes')}
-          className={`inline-flex items-center gap-2 py-3 px-5 text-sm font-bold text-slate-500 bg-transparent border-0 border-b-[2.5px] border-transparent -mb-0.5 cursor-pointer transition-all duration-150 whitespace-nowrap hover:text-slate-900 ${activeTab === 'passes' ? 'text-indigo-600 border-b-[#4f46e5]' : ''}`}
+          className={`inline-flex items-center gap-2 py-3 px-3 sm:px-5 text-sm font-bold text-slate-500 bg-transparent border-0 border-b-[2.5px] border-transparent -mb-0.5 cursor-pointer transition-all duration-150 whitespace-nowrap hover:text-slate-900 ${activeTab === 'passes' ? 'text-indigo-600 border-b-[#4f46e5]' : ''}`}
         >
           <IconTicket style={{ width: '16px', height: '16px' }} />
           <span>My Passes ({tickets.length})</span>
@@ -298,7 +298,7 @@ export function AccountPage() {
         <button
           type="button"
           onClick={() => setActiveTab('orders')}
-          className={`inline-flex items-center gap-2 py-3 px-5 text-sm font-bold text-slate-500 bg-transparent border-0 border-b-[2.5px] border-transparent -mb-0.5 cursor-pointer transition-all duration-150 whitespace-nowrap hover:text-slate-900 ${activeTab === 'orders' ? 'text-indigo-600 border-b-[#4f46e5]' : ''}`}
+          className={`inline-flex items-center gap-2 py-3 px-3 sm:px-5 text-sm font-bold text-slate-500 bg-transparent border-0 border-b-[2.5px] border-transparent -mb-0.5 cursor-pointer transition-all duration-150 whitespace-nowrap hover:text-slate-900 ${activeTab === 'orders' ? 'text-indigo-600 border-b-[#4f46e5]' : ''}`}
         >
           <IconCreditCard style={{ width: '16px', height: '16px' }} />
           <span>Order History ({orderPageInfo.total})</span>
@@ -307,7 +307,7 @@ export function AccountPage() {
         <button
           type="button"
           onClick={() => setActiveTab('organizer')}
-          className={`inline-flex items-center gap-2 py-3 px-5 text-sm font-bold text-slate-500 bg-transparent border-0 border-b-[2.5px] border-transparent -mb-0.5 cursor-pointer transition-all duration-150 whitespace-nowrap hover:text-slate-900 ${activeTab === 'organizer' ? 'text-indigo-600 border-b-[#4f46e5]' : ''}`}
+          className={`inline-flex items-center gap-2 py-3 px-3 sm:px-5 text-sm font-bold text-slate-500 bg-transparent border-0 border-b-[2.5px] border-transparent -mb-0.5 cursor-pointer transition-all duration-150 whitespace-nowrap hover:text-slate-900 ${activeTab === 'organizer' ? 'text-indigo-600 border-b-[#4f46e5]' : ''}`}
         >
           <IconShield style={{ width: '16px', height: '16px' }} />
           <span>Host an Event</span>
@@ -316,7 +316,7 @@ export function AccountPage() {
         <button
           type="button"
           onClick={() => setActiveTab('profile')}
-          className={`inline-flex items-center gap-2 py-3 px-5 text-sm font-bold text-slate-500 bg-transparent border-0 border-b-[2.5px] border-transparent -mb-0.5 cursor-pointer transition-all duration-150 whitespace-nowrap hover:text-slate-900 ${activeTab === 'profile' ? 'text-indigo-600 border-b-[#4f46e5]' : ''}`}
+          className={`inline-flex items-center gap-2 py-3 px-3 sm:px-5 text-sm font-bold text-slate-500 bg-transparent border-0 border-b-[2.5px] border-transparent -mb-0.5 cursor-pointer transition-all duration-150 whitespace-nowrap hover:text-slate-900 ${activeTab === 'profile' ? 'text-indigo-600 border-b-[#4f46e5]' : ''}`}
         >
           <IconUsers style={{ width: '16px', height: '16px' }} />
           <span>Profile &amp; Security</span>
@@ -423,7 +423,7 @@ export function AccountPage() {
                 <h2 className="mt-0 mx-0 mb-1 text-xl font-extrabold text-slate-900">Order &amp; Booking History</h2>
                 <p className="m-0 text-sm text-slate-500">{orderPageInfo.total} bookings · includes payment and event status.</p>
               </div>
-              <div className="flex flex-wrap gap-2"><input className="rounded-lg border border-slate-300 px-3 py-2 text-sm" type="search" value={orderSearch} onChange={(e) => { setOrderSearch(e.target.value); setOrderPage(1) }} placeholder="Search event or ticket type" aria-label="Search booking history" /><select className="rounded-lg border border-slate-300 px-3 py-2 text-sm" value={orderStatus} onChange={(e) => { setOrderStatus(e.target.value); setOrderPage(1) }} aria-label="Filter bookings by status"><option value="">All booking statuses</option><option value="PENDING">Pending</option><option value="CONFIRMED">Confirmed</option><option value="EXPIRED">Expired</option></select></div>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"><input className="w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-auto" type="search" value={orderSearch} onChange={(e) => { setOrderSearch(e.target.value); setOrderPage(1) }} placeholder="Search event or ticket type" aria-label="Search booking history" /><select className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:w-auto" value={orderStatus} onChange={(e) => { setOrderStatus(e.target.value); setOrderPage(1) }} aria-label="Filter bookings by status"><option value="">All booking statuses</option><option value="PENDING">Pending</option><option value="CONFIRMED">Confirmed</option><option value="EXPIRED">Expired</option></select></div>
             </div>
 
             {registrationsList.length > 0 ? (
@@ -465,7 +465,7 @@ export function AccountPage() {
                 </Link>
               </div>
             )}
-            {orderPageInfo.pageCount > 1 && <div className="mt-4 flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm"><span>Page {orderPage} of {orderPageInfo.pageCount}</span><div className="flex gap-2"><button disabled={orderPage <= 1} onClick={() => setOrderPage((value) => value - 1)} className="rounded border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={orderPage >= orderPageInfo.pageCount} onClick={() => setOrderPage((value) => value + 1)} className="rounded border px-3 py-1.5 disabled:opacity-40">Next</button></div></div>}
+            {orderPageInfo.pageCount > 1 && <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm"><span>Page {orderPage} of {orderPageInfo.pageCount}</span><div className="flex gap-2"><button disabled={orderPage <= 1} onClick={() => setOrderPage((value) => value - 1)} className="min-h-10 rounded border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={orderPage >= orderPageInfo.pageCount} onClick={() => setOrderPage((value) => value + 1)} className="min-h-10 rounded border px-3 py-1.5 disabled:opacity-40">Next</button></div></div>}
           </div>
         )}
 
@@ -504,23 +504,23 @@ export function AccountPage() {
               </div>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-[16px] p-8 flex flex-col gap-[18px] max-w-[680px]">
-              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+            <div className="flex max-w-[680px] flex-col gap-4 rounded-[16px] border border-slate-200 bg-white p-4 sm:gap-[18px] sm:p-8">
+              <div className="flex flex-col items-start justify-between gap-1 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:gap-4">
                 <span className="text-[13px] font-semibold text-slate-500">Full Name</span>
                 <strong className="text-sm font-bold text-slate-900">{displayName}</strong>
               </div>
 
-              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+              <div className="flex flex-col items-start justify-between gap-1 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:gap-4">
                 <span className="text-[13px] font-semibold text-slate-500">Primary Email</span>
                 <strong className="text-sm font-bold text-slate-900">{userEmail}</strong>
               </div>
 
-              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+              <div className="flex flex-col items-start justify-between gap-1 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:gap-4">
                 <span className="text-[13px] font-semibold text-slate-500">Account Role</span>
                 <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5] [--badge-dot-color:#6366f1]">ATTENDEE (Standard Access)</span>
               </div>
 
-              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+              <div className="flex flex-col items-start justify-between gap-1 border-b border-slate-100 pb-4 sm:flex-row sm:items-center sm:gap-4">
                 <span className="text-[13px] font-semibold text-slate-500">Sign-in method</span>
                 <span className="text-sm font-bold text-slate-900">Secure sign-in with Google or email</span>
               </div>

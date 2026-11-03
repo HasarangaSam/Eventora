@@ -212,7 +212,7 @@ export function EventCheckinPage() {
 
       {/* KPI Stats Strip */}
       {attendance && (
-        <div className={metricsGridClass}>
+        <div className={`${metricsGridClass} max-[680px]:grid-cols-1`}>
           <div className={metricCardClass}>
             <span className={metricLabelClass}>Checked In</span>
             <strong className={metricValueClass} style={{ color: 'var(--success)' }}>
@@ -262,16 +262,16 @@ export function EventCheckinPage() {
 
       {eventClosed && <div role="status" className="rounded-lg border border-slate-200 bg-slate-100 p-4 text-sm font-medium text-slate-700">{eventEnded ? 'This event has ended.' : attendance?.event.status === 'CANCELLED' ? 'This event was cancelled.' : 'This event is not published.'} Ticket scanning and manual admission are closed; attendance records remain available below.</div>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '28px' }}>
+      <div className="mb-8 grid grid-cols-1 gap-5 xl:grid-cols-2">
         {/* Scanner & Manual Entry Card */}
-        <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0, padding: '24px' }}>
+        <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-sm)] sm:p-6" style={{ margin: 0 }}>
           <h3 style={{ margin: '0 0 16px', fontSize: '18px' }}>Scanner & Entry</h3>
 
           <div style={{ marginBottom: '24px' }}>
             {!scanning ? (
               <button
                 type="button"
-                className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]"
+                className="inline-flex min-h-12 items-center justify-center gap-2 border border-transparent px-3 py-2 text-center text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-normal transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px]"
                 style={{ width: '100%', padding: '16px' }}
                 disabled={eventClosed}
                 onClick={() => setScanning(true)}
@@ -281,7 +281,7 @@ export function EventCheckinPage() {
             ) : (
               <button
                 type="button"
-                className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)]"
+                className="inline-flex min-h-12 items-center justify-center gap-2 border border-transparent px-3 py-2 text-center text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-normal transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)]"
                 style={{ width: '100%', padding: '16px' }}
                 onClick={() => setScanning(false)}
               >
@@ -326,7 +326,7 @@ export function EventCheckinPage() {
 
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
             <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 600 }}>Manual Ticket Reference</h4>
-            <form onSubmit={submitReference} style={{ display: 'flex', gap: '10px' }}>
+            <form onSubmit={submitReference} className="flex flex-col gap-2 sm:flex-row sm:gap-2.5">
               <input
                 className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
                 maxLength={32}
@@ -337,7 +337,7 @@ export function EventCheckinPage() {
               />
               <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)]"
+                className="inline-flex min-h-10 items-center justify-center gap-2 border border-transparent px-3 py-2 text-center text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-normal transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] border-[var(--border)] bg-white text-[var(--text-main)] shadow-[var(--shadow-sm)] enabled:hover:border-slate-300 enabled:hover:bg-[var(--surface-hover)]"
                 disabled={submitting || eventClosed || !reference.trim()}
               >
                 {submitting ? 'Checking…' : 'Admit'}
@@ -348,30 +348,21 @@ export function EventCheckinPage() {
 
         {/* Live Admission Roster */}
         <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
-          <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-4 sm:px-6 sm:py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
             <h3>Recent Check-ins</h3>
             <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-slate-200 bg-slate-100 text-slate-600 [--badge-dot-color:#64748b]">{attendance?.records.length ?? 0} entries</span>
           </div>
 
           <div style={{ maxHeight: '420px', overflowY: 'auto', padding: '12px' }}>
             {attendance?.records.map((rec) => (
-              <div
-                key={rec.id}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '12px 14px',
-                  borderBottom: '1px solid var(--border)',
-                }}
-              >
-                <div>
+              <div key={rec.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-3.5 py-3">
+                <div className="min-w-0">
                   <strong style={{ fontSize: '14px', display: 'block' }}>{rec.reference}</strong>
                   <span className="text-muted" style={{ fontSize: '12px' }}>
                     {rec.ticketType} · {rec.method === 'QR_SCAN' ? 'Camera Scan' : 'Manual'}
                   </span>
                 </div>
-                <time style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                <time className="shrink-0 text-xs text-[var(--text-muted)]">
                   {new Date(rec.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </time>
               </div>
@@ -384,16 +375,7 @@ export function EventCheckinPage() {
           </div>
 
           {attendance && (
-            <div
-              style={{
-                padding: '12px 16px',
-                borderTop: '1px solid var(--border)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                fontSize: '13px',
-              }}
-            >
+            <div className="flex items-center justify-between border-t border-[var(--border)] px-4 py-3 text-[13px]">
               <button
                 type="button"
                 className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]"

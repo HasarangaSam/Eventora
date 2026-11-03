@@ -530,10 +530,10 @@ export function OrganizerEventsPage() {
                     {/* Actions Strip */}
                     <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
                       <Link
-                        to={`/organizer/events/${ev.id}/edit`}
+                        to={cardStatus === 'COMPLETED' || cardStatus === 'CANCELLED' ? `/organizer/sales/${ev.id}` : `/organizer/events/${ev.id}/edit`}
                         className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-98"
                       >
-                        Manage & Edit
+                        {cardStatus === 'DRAFT' ? 'Continue setup' : cardStatus === 'PUBLISHED' ? 'Manage event' : cardStatus === 'COMPLETED' ? 'View event report' : 'View event'}
                       </Link>
 
                       {cardStatus === 'PUBLISHED' && <Link
@@ -552,8 +552,8 @@ export function OrganizerEventsPage() {
                         <IconTicket className="h-4 w-4" />
                       </Link>
 
-                      {/* Dropdown / Quick Actions */}
-                      <div className="flex items-center gap-1">
+                      {/* Less frequent state changes stay visually secondary. */}
+                      <div className="flex flex-wrap items-center gap-1">
                         {cardStatus === 'DRAFT' && (
                           <button
                             type="button"
@@ -569,7 +569,7 @@ export function OrganizerEventsPage() {
                             onClick={() => void handlePublishToggle(ev, 'unpublish')}
                             className="rounded-xl bg-amber-50 px-2.5 py-2 text-[11px] font-bold text-amber-700 transition hover:bg-amber-100"
                           >
-                            Draft
+                            Unpublish
                           </button>
                         )}
                         {cardStatus !== 'CANCELLED' && cardStatus !== 'COMPLETED' && (
@@ -670,10 +670,10 @@ export function OrganizerEventsPage() {
                         <td className="px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <Link
-                              to={`/organizer/events/${ev.id}/edit`}
+                              to={cardStatus === 'COMPLETED' || cardStatus === 'CANCELLED' ? `/organizer/sales/${ev.id}` : `/organizer/events/${ev.id}/edit`}
                               className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
                             >
-                              Manage
+                              {cardStatus === 'DRAFT' ? 'Continue setup' : cardStatus === 'PUBLISHED' ? 'Manage' : 'View report'}
                             </Link>
                             {cardStatus === 'PUBLISHED' && <Link
                               to={`/organizer/events/${ev.id}/check-in`}

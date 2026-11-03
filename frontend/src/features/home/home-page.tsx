@@ -368,13 +368,13 @@ export function HomePage() {
           </div>
 
           {eventsState === 'loading' ? (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-7">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 sm:gap-7">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="h-[360px] animate-pulse overflow-hidden rounded-2xl border border-[var(--border)] bg-slate-100 shadow-[var(--shadow-sm)] [animation-duration:1.5s]" />
               ))}
             </div>
           ) : eventsState === 'error' ? (
-            <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ padding: '36px', textAlign: 'center' }}>
+            <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white p-5 text-center shadow-[var(--shadow-sm)] sm:p-9">
               <p className="text-muted">Could not load featured events.</p>
               <Link to="/discover" className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]">
                 Browse Discovery Directory
@@ -383,7 +383,7 @@ export function HomePage() {
           ) : events.length ? (
             <EventGrid events={events} />
           ) : (
-            <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <div className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white p-5 text-center text-[var(--text-muted)] shadow-[var(--shadow-sm)] sm:p-10">
               No published events available right now. Check back soon!
             </div>
           )}

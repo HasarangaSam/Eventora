@@ -105,7 +105,7 @@ export function PublicFooter() {
             </ul>
           </div>
         </div>
-        <div className="flex items-center justify-between border-t border-slate-800 pt-6 text-[13px]">
+        <div className="flex flex-col items-start justify-between gap-3 border-t border-slate-800 pt-6 text-[13px] sm:flex-row sm:items-center">
           <span>© 2026 Eventora Platform. All rights reserved.</span>
           <a href="#top" className="text-inherit">Back to top ↑</a>
         </div>

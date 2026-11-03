@@ -81,8 +81,8 @@ export function OrganizerCheckinHubPage() {
 
         {/* Event Selection */}
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
-            <div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-4 sm:px-6 sm:py-5">
+            <div className="min-w-0 flex-1">
               <h2 className="text-base font-bold text-slate-900">Select Event for Check-in</h2>
               <p className="mt-1 text-sm text-slate-500">
                 Upcoming and in-progress events appear here. Events past their scheduled end time are closed.
@@ -130,21 +130,21 @@ export function OrganizerCheckinHubPage() {
               {visibleEvents.map((event) => (
                 <div
                   key={event.id}
-                  className="flex flex-wrap items-center justify-between gap-4 px-6 py-5 transition hover:bg-slate-50"
+                  className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 transition hover:bg-slate-50 sm:px-6 sm:py-5"
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                       <IconCamera className="h-5 w-5" />
                     </div>
-                    <div>
-                      <strong className="block text-sm font-bold text-slate-900">{event.title}</strong>
-                      <span className="mt-0.5 block text-xs text-slate-500">
+                    <div className="min-w-0 flex-1">
+                      <strong className="block break-words text-sm font-bold text-slate-900">{event.title}</strong>
+                      <span className="mt-0.5 block break-words text-xs text-slate-500">
                         {event.venue} · {event.city} · {dateLabel(event.startAt)}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-start">
                     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${new Date(event.startAt).getTime() <= clock ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-indigo-200 bg-indigo-50 text-indigo-700'}`}>
                       <span className="relative flex h-1.5 w-1.5">
                         {new Date(event.startAt).getTime() <= clock && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />}
@@ -154,7 +154,7 @@ export function OrganizerCheckinHubPage() {
                     </span>
                     <Link
                       to={`/organizer/events/${event.id}/check-in`}
-                      className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
+                      className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
                     >
                       <IconCamera className="h-3.5 w-3.5" />
                       Open Console

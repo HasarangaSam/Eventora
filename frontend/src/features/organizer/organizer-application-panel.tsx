@@ -146,7 +146,7 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
   const hasPending = applications.some((app) => app.status === 'PENDING')
 
   return (
-    <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ padding: '32px' }}>
+    <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-sm)] sm:p-6 lg:p-8">
       <div style={{ marginBottom: '24px' }}>
         <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5] [--badge-dot-color:#6366f1]" style={{ marginBottom: '8px' }}>
           Host Events with Eventora
@@ -160,7 +160,7 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '24px' }}>
+        <div className="p-4 text-center sm:p-6">
           <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" style={{ margin: '0 auto 8px' }} />
           <p className="text-muted">Loading application history…</p>
         </div>
@@ -178,8 +178,8 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
                 border: '1px solid var(--border)',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <strong style={{ fontSize: '16px' }}>{app.organizationName}</strong>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <strong className="break-words text-base">{app.organizationName}</strong>
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize ${app.status === 'APPROVED' ? "border border-[#a7f3d0] bg-[#ecfdf5] text-[#059669] [--badge-dot-color:#10b981]" : app.status === 'REJECTED' ? "border border-[#fecaca] bg-[#fef2f2] text-[#dc2626] [--badge-dot-color:#ef4444]" : "border border-[#fde68a] bg-[#fffbeb] text-[#d97706] [--badge-dot-color:#f59e0b]"}`}
                 >
@@ -203,7 +203,7 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
           {!hasPending && (
             <form onSubmit={submit}>
               <h4 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 700 }}>Contact & Organization</h4>
-              <div className="mb-[18px] grid grid-cols-3 gap-[18px]">
+              <div className="mb-[18px] grid gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-[18px]">
                 <div className="mb-[18px] flex flex-col gap-1.5">
                   <label className="text-[13px] font-semibold text-[var(--text-main)]">Contact Name</label>
                   <input
@@ -230,7 +230,7 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
                 </div>
               </div>
 
-              <div className="mb-[18px] grid grid-cols-3 gap-[18px]">
+              <div className="mb-[18px] grid gap-3 sm:grid-cols-2 lg:grid-cols-3 sm:gap-[18px]">
                 <div className="mb-[18px] flex flex-col gap-1.5">
                   <label className="text-[13px] font-semibold text-[var(--text-main)]">Organization Name</label>
                   <input
@@ -267,7 +267,7 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
                 </div>
               </div>
 
-              <div className="mb-[18px] grid grid-cols-2 gap-[18px]">
+              <div className="mb-[18px] grid gap-3 sm:grid-cols-2 sm:gap-[18px]">
                 <div className="mb-[18px] flex flex-col gap-1.5">
                   <label className="text-[13px] font-semibold text-[var(--text-main)]">Country</label>
                   <input
@@ -340,7 +340,7 @@ export function OrganizerApplicationPanel({ role, firstName, lastName, email }: 
                 </div>
               </div>
 
-              <div className="mb-[18px] grid grid-cols-2 gap-[18px]">
+              <div className="mb-[18px] grid gap-3 sm:grid-cols-2 sm:gap-[18px]">
                 <div className="mb-[18px] flex flex-col gap-1.5">
                   <label className="text-[13px] font-semibold text-[var(--text-main)]">Expected Event Frequency</label>
                   <select

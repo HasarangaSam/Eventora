@@ -510,10 +510,17 @@ export function OrganizerEditEventPage() {
               )}
             </div>
           </div>
+          <nav aria-label="Event workspace" className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+            <button type="button" onClick={() => setActiveTab('details')} className={`rounded-lg px-3 py-2 text-xs font-semibold ${activeTab === 'details' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}>Setup</button>
+            <button type="button" onClick={() => setActiveTab('tickets')} className={`rounded-lg px-3 py-2 text-xs font-semibold ${activeTab === 'tickets' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}>Tickets</button>
+            <Link to={`/organizer/participants?event=${encodeURIComponent(event.id)}`} className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">Participants</Link>
+            <Link to={`/organizer/sales/${event.id}`} className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">Sales report</Link>
+            {event.status === 'PUBLISHED' && new Date(event.endAt).getTime() > Date.now() && <Link to={`/organizer/events/${event.id}/check-in`} className="rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">Check-in</Link>}
+          </nav>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 bg-white px-4 rounded-2xl shadow-xs">
+        <div className="flex overflow-x-auto border-b border-slate-200 bg-white px-2 rounded-2xl shadow-xs" aria-label="Event setup sections">
           <button
             type="button"
             onClick={() => setActiveTab('details')}
@@ -849,7 +856,7 @@ export function OrganizerEditEventPage() {
                       required
                       value={ticketForm.price}
                       onChange={(e) => setTicketForm({ ...ticketForm, price: e.target.value })}
-                      placeholder="0 for Free"
+                      placeholder="e.g. 1500"
                       className="mt-1 h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
                     />
                   </div>
@@ -1011,8 +1018,8 @@ export function OrganizerEditEventPage() {
         {activeTab === 'overview' && (
           <div className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
-                <span className="text-xs font-bold uppercase text-slate-500">Tickets Issued</span>
+              <div className="min-h-[156px] rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+                <span className="block text-xs font-bold uppercase text-slate-500">Tickets Issued</span>
                 <strong className="mt-2 block text-2xl font-black text-slate-900">
                   {totalTicketsSold}
                   {event.capacity ? <span className="text-sm font-normal text-slate-500"> / {event.capacity}</span> : ''}
@@ -1020,23 +1027,25 @@ export function OrganizerEditEventPage() {
                 <span className="mt-1 block text-xs text-slate-500">Across {event.ticketTypes.length} tiers</span>
               </div>
 
-              <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
-                <span className="text-xs font-bold uppercase text-slate-500">Door Check-in</span>
+              <div className="min-h-[156px] rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+                <span className="block text-xs font-bold uppercase text-slate-500">Door Check-in</span>
                 {event.status === 'PUBLISHED' && new Date(event.endAt).getTime() > Date.now() && <Link
                   to={`/organizer/events/${event.id}/check-in`}
-                  className="mt-2 inline-flex items-center gap-1.5 text-lg font-bold text-indigo-600 hover:underline"
+                  className="mt-3 inline-flex max-w-full items-center gap-1.5 text-lg font-bold text-indigo-600 hover:underline"
                 >
                   <IconCamera className="h-5 w-5" />
                   <span>Open Console →</span>
                 </Link>}
-                <span className="mt-1 block text-xs text-slate-500">Fast QR and ticket reference check-in</span>
+                {event.status === 'PUBLISHED' && new Date(event.endAt).getTime() > Date.now()
+                  ? <span className="mt-1 block text-xs text-slate-500">Fast QR and ticket reference check-in</span>
+                  : <span className="mt-3 block text-sm text-slate-500">Check-in is available while the event is live.</span>}
               </div>
 
-              <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
-                <span className="text-xs font-bold uppercase text-slate-500">Attendee Records</span>
+              <div className="min-h-[156px] rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+                <span className="block text-xs font-bold uppercase text-slate-500">Attendee Records</span>
                 <Link
                   to={`/organizer/participants?event=${encodeURIComponent(event.id)}`}
-                  className="mt-2 inline-flex items-center gap-1.5 text-lg font-bold text-indigo-600 hover:underline"
+                  className="mt-3 inline-flex max-w-full items-center gap-1.5 text-lg font-bold text-indigo-600 hover:underline"
                 >
                   <IconUsers className="h-5 w-5" />
                   <span>View Attendee List →</span>

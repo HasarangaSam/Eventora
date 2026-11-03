@@ -107,15 +107,15 @@ export function AdminEventsPage() {
   return (
     <DashboardShell role="ADMIN" pageTitle="Events">
       <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold" style={{ flexWrap: 'wrap', gap: '16px' }}>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-4 sm:gap-4 sm:px-6 sm:py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
           <div>
             <h3>All Platform Events ({pageData.total})</h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
               Review event details and status across all organizers. Cancel an event if platform rules require it.
             </p>
           </div>
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <div style={{ position: 'relative' }}>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+            <div className="relative w-full sm:w-auto">
               <IconSearch
                 style={{
                   position: 'absolute',
@@ -128,16 +128,14 @@ export function AdminEventsPage() {
               />
               <input
                 type="search"
-                className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
-                style={{ paddingLeft: '34px', width: '240px' }}
+                className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 pl-[34px] text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)] sm:w-[240px]"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search title, city, host…"
               />
             </div>
             <select
-              className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
-              style={{ width: '150px' }}
+              className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)] sm:w-[150px]"
               value={status}
               onChange={(e) => setStatus(e.target.value)}
             >
@@ -235,7 +233,7 @@ export function AdminEventsPage() {
           loading={cancelBusy}
         />
       </section>
-      {(detail || detailLoading) && <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null) }}><aside role="dialog" aria-modal="true" aria-label="Event details" className="h-full w-full max-w-xl overflow-y-auto bg-white p-6 shadow-2xl"><div className="flex items-start justify-between gap-4"><div><p className="mb-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">Event oversight</p><h2 className="m-0 text-xl font-bold text-slate-900">{detail?.title ?? 'Loading event…'}</h2></div><button onClick={() => setDetail(null)} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm">Close</button></div>{detailLoading && !detail ? <p className="mt-6 text-sm text-slate-500">Loading full event record…</p> : detail && <div className="mt-6 space-y-5 text-sm"><section className="rounded-lg bg-slate-50 p-4"><p className="m-0 font-semibold text-slate-900">{detail.category.name} · {detail.status.toLowerCase()}</p><p className="mb-0 mt-2 text-slate-600">{detail.description}</p><p className="mb-0 mt-2 text-slate-500">{detail.venue}, {detail.city} · {new Date(detail.startAt).toLocaleString()} – {new Date(detail.endAt).toLocaleString()}</p></section><section className="grid grid-cols-2 gap-3">{[['Tickets sold', detail.ticketsSold], ['Reserved', detail.ticketsReserved], ['Registrations', detail._count.registrations], ['Checked in', detail._count.checkIns]].map(([label, value]) => <div key={label} className="rounded-lg border border-slate-200 p-3"><span className="text-xs text-slate-500">{label}</span><strong className="mt-1 block text-lg text-slate-900">{value}</strong></div>)}</section><section><h3 className="mb-2 mt-0 font-semibold text-slate-900">Ticket inventory</h3><div className="divide-y divide-slate-100 rounded-lg border border-slate-200">{detail.ticketTypes.map((ticket) => <div key={ticket.id} className="flex justify-between gap-3 p-3"><span>{ticket.name}{!ticket.isActive && ' · inactive'}</span><span className="text-right text-slate-600">{ticket.currency} {ticket.price} · {ticket.quantitySold} sold · {ticket.quantityReserved} reserved</span></div>)}</div></section><section><h3 className="mb-2 mt-0 font-semibold text-slate-900">Schedule</h3>{detail.sessions.length ? detail.sessions.map((session) => <p key={session.id} className="m-0 border-b border-slate-100 py-2"><strong>{session.title}</strong> · {new Date(session.startAt).toLocaleString()}{session.speaker ? ` · ${session.speaker}` : ''}</p>) : <p className="m-0 text-slate-500">No additional sessions.</p>}</section>{detail.cancellationReason && <p className="m-0 rounded-lg border border-rose-200 bg-rose-50 p-3 text-rose-800">Cancellation reason: {detail.cancellationReason}</p>}</div>}</aside></div>}
+      {(detail || detailLoading) && <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null) }}><aside role="dialog" aria-modal="true" aria-label="Event details" className="h-full w-full max-w-xl overflow-y-auto bg-white p-4 shadow-2xl sm:p-6"><div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="mb-1 text-xs font-semibold uppercase tracking-wide text-indigo-700">Event oversight</p><h2 className="m-0 break-words text-xl font-bold text-slate-900">{detail?.title ?? 'Loading event…'}</h2></div><button onClick={() => setDetail(null)} className="shrink-0 rounded-md border border-slate-300 px-3 py-1.5 text-sm">Close</button></div>{detailLoading && !detail ? <p className="mt-6 text-sm text-slate-500">Loading full event record…</p> : detail && <div className="mt-6 space-y-5 text-sm"><section className="rounded-lg bg-slate-50 p-4"><p className="m-0 font-semibold text-slate-900">{detail.category.name} · {detail.status.toLowerCase()}</p><p className="mb-0 mt-2 text-slate-600">{detail.description}</p><p className="mb-0 mt-2 text-slate-500">{detail.venue}, {detail.city} · {new Date(detail.startAt).toLocaleString()} – {new Date(detail.endAt).toLocaleString()}</p></section><section className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">{[['Tickets sold', detail.ticketsSold], ['Reserved', detail.ticketsReserved], ['Registrations', detail._count.registrations], ['Checked in', detail._count.checkIns]].map(([label, value]) => <div key={label} className="rounded-lg border border-slate-200 p-3"><span className="text-xs text-slate-500">{label}</span><strong className="mt-1 block text-lg text-slate-900">{value}</strong></div>)}</section><section><h3 className="mb-2 mt-0 font-semibold text-slate-900">Ticket inventory</h3><div className="divide-y divide-slate-100 rounded-lg border border-slate-200">{detail.ticketTypes.map((ticket) => <div key={ticket.id} className="flex flex-wrap justify-between gap-2 p-3"><span>{ticket.name}{!ticket.isActive && ' · inactive'}</span><span className="text-right text-slate-600">{ticket.currency} {ticket.price} · {ticket.quantitySold} sold · {ticket.quantityReserved} reserved</span></div>)}</div></section><section><h3 className="mb-2 mt-0 font-semibold text-slate-900">Schedule</h3>{detail.sessions.length ? detail.sessions.map((session) => <p key={session.id} className="m-0 border-b border-slate-100 py-2"><strong>{session.title}</strong> · {new Date(session.startAt).toLocaleString()}{session.speaker ? ` · ${session.speaker}` : ''}</p>) : <p className="m-0 text-slate-500">No additional sessions.</p>}</section>{detail.cancellationReason && <p className="m-0 rounded-lg border border-rose-200 bg-rose-50 p-3 text-rose-800">Cancellation reason: {detail.cancellationReason}</p>}</div>}</aside></div>}
     </DashboardShell>
   )
 }

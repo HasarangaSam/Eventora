@@ -246,6 +246,13 @@ export function OrganizerCreateEventPage() {
               Fill in your event details, upload a vibrant banner, and configure initial ticket tiers. You can save as a draft or publish right away.
             </p>
           </div>
+          <ol aria-label="Event setup steps" className="mt-5 grid gap-2 border-t border-slate-100 pt-4 sm:grid-cols-3">
+            {[
+              { number: '1', label: 'Event details', target: '#event-details' },
+              { number: '2', label: 'Paid ticket', target: '#ticket-setup' },
+              { number: '3', label: 'Save or publish', target: '#save-event' },
+            ].map((step) => <li key={step.number}><a href={step.target} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"><span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs text-indigo-700">{step.number}</span>{step.label}</a></li>)}
+          </ol>
         </div>
 
         {/* Form Container */}
@@ -267,7 +274,7 @@ export function OrganizerCreateEventPage() {
           </div>
 
           {/* Section 2: Basic Event Information */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
+          <div id="event-details" className="scroll-mt-24 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
             <div className="mb-4">
               <h2 className="text-base font-bold text-slate-900">2. Event Details</h2>
               <p className="text-xs text-slate-500">
@@ -431,7 +438,7 @@ export function OrganizerCreateEventPage() {
           </div>
 
           {/* Section 4: Initial Ticket Setup (Optional & Convenient) */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
+          <div id="ticket-setup" className="scroll-mt-24 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-base font-bold text-slate-900">4. Initial Ticket Tier</h2>
@@ -499,14 +506,14 @@ export function OrganizerCreateEventPage() {
                 </div>
 
                 <p className="mt-2 text-[11px] text-slate-500">
-                  Tip: You can add additional VIP, Early Bird, or workshop tiers after creating the event.
+                  Ticket prices must be greater than zero. Add VIP, Early Bird, or workshop tiers after saving the event.
                 </p>
               </div>
             )}
           </div>
 
           {/* Section 5: Publish Option & Actions */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
+          <div id="save-event" className="scroll-mt-24 rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
             {includeTicket && (
               <label className="mb-6 flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-indigo-50/40 p-3.5 transition hover:bg-indigo-50/70">
                 <input

@@ -227,7 +227,7 @@ export function TicketsPage() {
           })}
         </div>
       )}
-      {tickets && pageInfo.pageCount > 1 && <div className="mx-auto mt-6 flex max-w-[900px] items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm"><span>{pageInfo.total} passes · Page {page} of {pageInfo.pageCount}</span><div className="flex gap-2"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="rounded border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={page >= pageInfo.pageCount} onClick={() => setPage((value) => value + 1)} className="rounded border px-3 py-1.5 disabled:opacity-40">Next</button></div></div>}
+      {tickets && pageInfo.pageCount > 1 && <div className="mx-auto mt-6 flex max-w-[900px] flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm"><span>{pageInfo.total} passes · Page {page} of {pageInfo.pageCount}</span><div className="flex gap-2"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="min-h-10 rounded border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={page >= pageInfo.pageCount} onClick={() => setPage((value) => value + 1)} className="min-h-10 rounded border px-3 py-1.5 disabled:opacity-40">Next</button></div></div>}
 
       {/* QR Code Pass Modal */}
       {selected && (
@@ -245,7 +245,7 @@ export function TicketsPage() {
             <div
               style={{
                 background: '#ffffff',
-                padding: '24px',
+                padding: 'clamp(12px, 5vw, 24px)',
                 borderRadius: 'var(--radius-lg)',
                 border: '1px solid var(--border)',
                 display: 'inline-block',
@@ -256,7 +256,7 @@ export function TicketsPage() {
               {canOpenQr(selected) ? <img
                 src={selected.qrCode}
                 alt={`Entry code for ${selected.reference}`}
-                style={{ width: '220px', height: '220px', display: 'block' }}
+                className="block h-auto w-[min(220px,60vw)]"
               /> : <p className="m-0 max-w-[240px] text-sm leading-6 text-slate-600">{selected.event.status === 'CANCELLED' ? 'This event was cancelled, so the QR pass is no longer available.' : selected.status === 'CHECKED_IN' ? 'This ticket has already been used for entry.' : 'This event has ended, so the QR pass is no longer valid.'}</p>}
             </div>
 

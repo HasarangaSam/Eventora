@@ -79,7 +79,7 @@ export function AdminUsersPage() {
   return (
     <DashboardShell role="ADMIN" pageTitle="Accounts">
       <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold" style={{ flexWrap: 'wrap', gap: '16px' }}>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-4 sm:gap-4 sm:px-6 sm:py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
           <div>
             <h3>User Directory ({pageData.total})</h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -87,8 +87,8 @@ export function AdminUsersPage() {
             </p>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <div style={{ position: 'relative' }}>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
+            <div className="relative w-full sm:w-auto">
               <IconSearch
                 style={{
                   position: 'absolute',
@@ -101,16 +101,14 @@ export function AdminUsersPage() {
               />
               <input
                 type="search"
-                className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
-                style={{ paddingLeft: '34px', width: '220px' }}
+                className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 pl-[34px] text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)] sm:w-[220px]"
                 placeholder="Search name or email…"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
             <select
-              className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
-              style={{ width: '150px' }}
+              className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)] sm:w-[150px]"
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
             >
@@ -119,7 +117,7 @@ export function AdminUsersPage() {
               <option value="ORGANIZER">Organizers</option>
               <option value="ADMIN">Admins</option>
             </select>
-            <select className="rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3 py-2.5 text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filter by account status">
+            <select className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3 py-2.5 text-sm sm:w-auto" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} aria-label="Filter by account status">
               <option value="">All Statuses</option><option value="ACTIVE">Active</option><option value="DEACTIVATED">Deactivated</option>
             </select>
           </div>

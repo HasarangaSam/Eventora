@@ -104,7 +104,6 @@ export function DashboardShell({ role, children, pageTitle }: DashboardShellProp
     { label: 'Sales', to: '/organizer/sales', icon: <IconTicket />, group: 'Track activity' },
     { label: 'Notifications', to: '/organizer/notifications', icon: <IconBell />, badge: unreadNotificationCount },
     { label: 'Check-in', to: '/organizer/checkin', icon: <IconCamera />, group: 'Event day' },
-    { label: 'Organizer profile', to: '/organizer/profile', icon: <IconPerson />, group: 'Account' },
   ]
 
   const attendeeLinks: NavItem[] = [
@@ -156,7 +155,7 @@ export function DashboardShell({ role, children, pageTitle }: DashboardShellProp
                 >
                   {item.icon}
                   <span>{item.label}</span>
-                  {role === 'ADMIN' && item.badge !== undefined && item.badge > 0 && <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{item.badge > 99 ? '99+' : item.badge}</span>}
+                  {(role === 'ADMIN' || role === 'ORGANIZER') && item.badge !== undefined && item.badge > 0 && <span className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{item.badge > 99 ? '99+' : item.badge}</span>}
                 </Link>
               </div>
             )
@@ -167,30 +166,35 @@ export function DashboardShell({ role, children, pageTitle }: DashboardShellProp
 
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 flex h-[68px] items-center justify-between border-b border-[var(--border)] bg-white px-8">
-          <div className="text-lg font-bold text-[var(--text-main)]">{defaultTopTitle}</div>
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-40 flex min-h-[60px] items-center justify-between gap-2 border-b border-[var(--border)] bg-white px-4 py-2 sm:h-[68px] sm:px-6 lg:px-8">
+          <div className="min-w-0 truncate text-sm font-bold text-[var(--text-main)] sm:text-lg">{defaultTopTitle}</div>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <span className="hidden text-sm text-slate-500 sm:inline">{user?.firstName ? `Hi, ${user.firstName}` : 'Your workspace'}</span>
             {(role === 'ADMIN' || role === 'ORGANIZER') && <Link to={role === 'ADMIN' ? '/admin/notifications' : '/organizer/notifications'} aria-label={`Notifications${unreadNotificationCount ? `, ${unreadNotificationCount} unread updates` : ''}`} title={unreadNotificationCount ? `${unreadNotificationCount} unread updates` : 'Notifications'} className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 hover:text-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
               <IconBell />
               {unreadNotificationCount > 0 && <span className="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full border-2 border-white bg-rose-500 px-1 py-0.5 text-[10px] font-bold leading-none text-white">{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</span>}
             </Link>}
-            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5] [--badge-dot-color:#6366f1]">
+            <span className="hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5] [--badge-dot-color:#6366f1] sm:inline-flex">
               <span className="h-[6px] w-[6px] rounded-full bg-[var(--badge-dot-color)]" />
               {role.toLowerCase()}
             </span>
+            {role === 'ORGANIZER' && <Link to="/organizer/profile" className="hidden rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 sm:inline-flex">Profile</Link>}
             <UserButton />
           </div>
         </header>
 
-        <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 lg:hidden" aria-label={`${role.toLowerCase()} navigation`}>
-          {navItems.map((item) => {
-            const isMatch = isNavActive(item)
-            return <Link key={item.to} to={item.to} aria-current={isMatch ? 'page' : undefined} className="inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-600 aria-[current=page]:bg-indigo-50 aria-[current=page]:font-semibold aria-[current=page]:text-indigo-700">{item.icon}{item.label}{role === 'ADMIN' && item.badge !== undefined && item.badge > 0 && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{item.badge > 99 ? '99+' : item.badge}</span>}</Link>
-          })}
-        </nav>
+        <details key={pathname} className="group border-b border-slate-200 bg-white lg:hidden">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-slate-700 [&_svg]:h-5 [&_svg]:w-5 [&_svg]:shrink-0 [&::-webkit-details-marker]:hidden">
+            <span className="flex items-center gap-2">{navItems.find(isNavActive)?.icon}{navItems.find(isNavActive)?.label ?? 'Workspace menu'}</span>
+            <span className="text-xs text-slate-500 group-open:rotate-180">⌄</span>
+          </summary>
+          <nav className="flex flex-col gap-1 px-3 pb-3 [&_svg]:h-5 [&_svg]:w-5 [&_svg]:shrink-0" aria-label={`${role.toLowerCase()} navigation`}>
+            {navItems.map((item) => <Link key={item.to} to={item.to} aria-current={isNavActive(item) ? 'page' : undefined} className="inline-flex min-h-11 w-full min-w-0 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 aria-[current=page]:bg-indigo-50 aria-[current=page]:font-semibold aria-[current=page]:text-indigo-700">{item.icon}<span className="min-w-0 flex-1">{item.label}</span>{(role === 'ADMIN' || role === 'ORGANIZER') && item.badge !== undefined && item.badge > 0 && <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{item.badge > 99 ? '99+' : item.badge}</span>}</Link>)}
+            {role === 'ORGANIZER' && <Link to="/organizer/profile" className="inline-flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600"><IconPerson />Profile</Link>}
+          </nav>
+        </details>
 
-        <main className="w-full max-w-[1600px] flex-1 p-4 md:p-8">{children}</main>
+        <main className="w-full max-w-[1600px] min-w-0 flex-1 p-3 sm:p-4 md:p-8">{children}</main>
       </div>
     </div>
   )

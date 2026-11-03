@@ -85,7 +85,7 @@ export function AdminApplicationsPage() {
   return (
     <DashboardShell role="ADMIN" pageTitle="Organizer applications">
       <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold" style={{ flexWrap: 'wrap', gap: '16px' }}>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-4 sm:gap-4 sm:px-6 sm:py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
           <div>
             <h3>{status === 'PENDING' ? 'Pending' : status === 'APPROVED' ? 'Approved' : 'Rejected'} Applications ({pageData.total})</h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -93,7 +93,7 @@ export function AdminApplicationsPage() {
             </p>
           </div>
 
-          <div style={{ position: 'relative' }}>
+          <div className="relative w-full sm:w-auto">
             <IconSearch
               style={{
                 position: 'absolute',
@@ -106,23 +106,23 @@ export function AdminApplicationsPage() {
             />
             <input
               type="search"
-              className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
-              style={{ paddingLeft: '36px', width: '260px' }}
+              style={{ paddingLeft: '36px' }}
+              className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 pl-9 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)] sm:w-[260px]"
               placeholder="Search organization or email…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          <select className="rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3 py-2.5 text-sm" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter application status"><option value="PENDING">Pending</option><option value="APPROVED">Approved</option><option value="REJECTED">Rejected</option></select>
+          <select className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3 py-2.5 text-sm sm:w-auto" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter application status"><option value="PENDING">Pending</option><option value="APPROVED">Approved</option><option value="REJECTED">Rejected</option></select>
         </div>
 
         {loading ? (
-          <div style={{ padding: '60px', textAlign: 'center' }}>
+          <div className="p-6 text-center sm:p-12">
             <div className="h-8 w-8 rounded-full border-[3px] border-[rgba(99,102,241,0.2)] border-t-[var(--primary)] animate-[spin_0.8s_linear_infinite]" style={{ margin: '0 auto 12px' }} />
             <p className="text-muted">Loading applications…</p>
           </div>
         ) : applications.length === 0 ? (
-          <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <div className="p-6 text-center text-[var(--text-muted)] sm:p-12">
             <IconCheck style={{ width: '40px', height: '40px', color: 'var(--success)', margin: '0 auto 12px' }} />
             <h4 style={{ margin: '0 0 6px', fontSize: '18px', fontWeight: 700, color: 'var(--text-main)' }}>
               Queue is Clear
@@ -130,15 +130,14 @@ export function AdminApplicationsPage() {
             <p style={{ margin: 0, fontSize: '14px' }}>There are no pending organizer applications to review.</p>
           </div>
         ) : (
-          <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="flex flex-col gap-4 p-4 sm:gap-5 sm:p-6">
             {applications.map((app) => (
-              <div
+              <div className="p-4 sm:p-6"
                 key={app.id}
                 style={{
                   background: '#f8fafc',
                   border: '1px solid var(--border)',
                   borderRadius: 'var(--radius-lg)',
-                  padding: '24px',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '16px',
@@ -151,7 +150,7 @@ export function AdminApplicationsPage() {
                       Applicant: {app.applicant.firstName} {app.applicant.lastName} ({app.applicant.email})
                     </span>
                   </div>
-                  {app.status === 'PENDING' && <div style={{ display: 'flex', gap: '10px' }}>
+                  {app.status === 'PENDING' && <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
@@ -170,18 +169,7 @@ export function AdminApplicationsPage() {
                   </div>}
                 </div>
 
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                    gap: '12px',
-                    fontSize: '13px',
-                    background: '#ffffff',
-                    padding: '16px',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border)',
-                  }}
-                >
+                <div className="grid gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-white p-4 text-[13px] min-[440px]:grid-cols-2 lg:grid-cols-3">
                   <div><strong>Contact:</strong> {app.contactName ?? 'N/A'} ({app.contactPhone ?? 'No phone'})</div>
                   <div><strong>Type:</strong> {app.organizerType?.replace(/_/g, ' ') ?? 'General'}</div>
                   <div><strong>Location:</strong> {[app.city, app.country].filter(Boolean).join(', ') || 'Unspecified'}</div>

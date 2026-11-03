@@ -10,7 +10,7 @@ export function OrganizerProfilePage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
         {/* Profile Card */}
         <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ margin: 0 }}>
-          <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-4 py-4 sm:px-6 sm:py-5 [&_h3]:m-0 [&_h3]:text-lg [&_h3]:font-bold">
             <div>
               <h3>Organizer Profile</h3>
               <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '13px' }}>
@@ -19,7 +19,7 @@ export function OrganizerProfilePage() {
             </div>
           </div>
 
-          <div style={{ padding: '32px' }}>
+          <div className="p-4 sm:p-6 lg:p-8">
             <div
               style={{
                 display: 'flex',

@@ -329,7 +329,7 @@ export function EventDetailPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-[1280px] px-6" style={{ padding: '32px 24px 80px' }}>
+    <main className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-6 sm:px-6 sm:pb-20 sm:pt-8">
       <Link to={previewMode ? `/organizer/events/${event.id}/edit` : '/discover'} className="inline-flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-2 py-1 text-[13px] font-semibold text-[var(--text-button-color,var(--primary))] cursor-pointer transition-[all] duration-150 hover:bg-[var(--text-button-bg,var(--primary-light))] hover:text-[var(--text-button-hover,var(--primary-hover))]" style={{ marginBottom: '20px' }}>
         {previewMode ? '← Back to event editor' : '← All Events'}
       </Link>
@@ -361,10 +361,10 @@ export function EventDetailPage() {
       </div>
 
       {/* Layout Content & Sticky Ticket Card */}
-      <div className="mb-20 grid grid-cols-[1fr_380px] gap-12">
+      <div className="mb-12 grid min-w-0 grid-cols-1 items-start gap-6 lg:mb-20 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-12">
         {/* Left Column: Details & Agenda */}
         <div>
-          <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ padding: '32px', marginBottom: '32px' }}>
+          <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-sm)] sm:p-6 lg:p-8" style={{ marginBottom: '32px' }}>
             <h2 style={{ margin: '0 0 16px', fontSize: '20px', fontWeight: 800 }}>About this Event</h2>
             <p style={{ margin: '0 0 24px', fontSize: '15px', lineHeight: 1.7, color: 'var(--text-main)', whiteSpace: 'pre-line' }}>
               {event.description}
@@ -377,23 +377,16 @@ export function EventDetailPage() {
           </section>
 
           {/* Agenda / Schedule */}
-          <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)]" style={{ padding: '32px' }}>
+          <section className="mb-8 overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white p-4 shadow-[var(--shadow-sm)] sm:p-6 lg:p-8">
             <h2 style={{ margin: '0 0 20px', fontSize: '20px', fontWeight: 800 }}>Event Schedule</h2>
             {sessions.length ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {sessions.map((s) => (
                   <div
                     key={s.id}
-                    style={{
-                      display: 'flex',
-                      gap: '16px',
-                      padding: '16px',
-                      background: '#f8fafc',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border)',
-                    }}
+                    className="flex flex-col gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-slate-50 p-4 sm:flex-row sm:gap-4"
                   >
-                    <div style={{ minWidth: '120px', fontSize: '13px', fontWeight: 600, color: 'var(--primary)' }}>
+                    <div className="text-[13px] font-semibold text-[var(--primary)] sm:min-w-[120px]">
                       {new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: safeTimezone(event.timezone) }).format(new Date(s.startAt))}
                       {' – '}
                       {new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: safeTimezone(event.timezone) }).format(new Date(s.endAt))}
@@ -524,7 +517,7 @@ export function EventDetailPage() {
 
                     {/* Attendee Details Form */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
-                      <div className="mb-[18px] grid grid-cols-2 gap-[18px]">
+                      <div className="mb-[18px] grid gap-3 sm:grid-cols-2 sm:gap-[18px]">
                         <input
                           required
                           className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
@@ -559,7 +552,7 @@ export function EventDetailPage() {
                         value={contact.address}
                         onChange={(e) => setContact({ ...contact, address: e.target.value })}
                       />
-                      <div className="mb-[18px] grid grid-cols-2 gap-[18px]">
+                      <div className="mb-[18px] grid gap-3 sm:grid-cols-2 sm:gap-[18px]">
                         <input
                           required
                           className="w-full rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-3.5 py-2.5 text-sm text-[var(--text-main)] transition-all duration-150 focus:border-[var(--primary)] focus:outline-none focus:shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
