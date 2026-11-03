@@ -18,7 +18,7 @@
     "start": "prisma generate && nest start",
     "start:dev": "prisma generate && nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/main.js",
     "lint": "oxlint --type-aware src/ test/",
     "test": "prisma generate && vitest run",
     "test:watch": "vitest",
