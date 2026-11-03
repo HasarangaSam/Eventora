@@ -34,6 +34,7 @@ export class TicketsService {
       reference: ticket.reference,
       status: ticket.status,
       issuedAt: ticket.issuedAt,
+      registrationId: ticket.registration.id,
       event: ticket.event,
       ticketType: ticket.ticketType,
     }));

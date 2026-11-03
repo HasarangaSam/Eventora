@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '@clerk/react'
 import { useAuthenticatedApi } from '../auth/use-authenticated-api'
@@ -20,6 +20,7 @@ interface TicketSummary {
   reference: string
   status: string
   issuedAt: string
+  registrationId: string
   event: {
     slug: string
     title: string
@@ -44,6 +45,7 @@ export function TicketsPage() {
   const authenticatedRequest = useAuthenticatedApi()
   const [tickets, setTickets] = useState<TicketSummary[] | null>(null)
   const [selected, setSelected] = useState<TicketDetails | null>(null)
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set())
   const [loadingModal, setLoadingModal] = useState(false)
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
@@ -83,6 +85,33 @@ export function TicketsPage() {
   }, [authenticatedRequest, isLoaded, isSignedIn, reload, view, page, debouncedSearch])
 
   useEffect(() => { setPage(1) }, [view, search])
+
+  // Group tickets by registrationId to form "orders"
+  const orders = useMemo(() => {
+    if (!tickets) return null
+    const map = new Map<string, TicketSummary[]>()
+    for (const t of tickets) {
+      const group = map.get(t.registrationId) ?? []
+      group.push(t)
+      map.set(t.registrationId, group)
+    }
+    return Array.from(map.entries()).map(([registrationId, orderTickets]) => ({
+      registrationId,
+      tickets: orderTickets,
+    }))
+  }, [tickets])
+
+  function toggleOrder(registrationId: string) {
+    setExpandedOrders((prev) => {
+      const next = new Set(prev)
+      if (next.has(registrationId)) {
+        next.delete(registrationId)
+      } else {
+        next.add(registrationId)
+      }
+      return next
+    })
+  }
 
   async function openTicket(ticket: TicketSummary) {
     setLoadingModal(true)
@@ -169,64 +198,122 @@ export function TicketsPage() {
         </div>
       )}
 
-      {tickets && tickets.length > 0 && (
-        <div className={`grid grid-cols-1 gap-4 transition-opacity sm:grid-cols-2 xl:grid-cols-3 ${isRefreshing ? 'opacity-60' : 'opacity-100'}`}>
-          {tickets.map((t) => {
-            const passState = ticketState(t)
-            const qrUnavailable = !canOpenQr(t)
-            const qrUnavailableLabel = t.event.status === 'CANCELLED' ? 'Event cancelled' : t.status === 'VOIDED' ? 'Ticket voided' : t.status === 'CHECKED_IN' ? 'Already used' : 'QR expired'
-            return <article className="relative flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[var(--shadow-sm)] before:absolute after:absolute before:top-[130px] after:top-[130px] before:left-[-10px] after:right-[-10px] before:z-[2] after:z-[2] before:h-5 after:h-5 before:w-5 after:w-5 before:rounded-full after:rounded-full before:bg-[var(--surface-alt)] after:bg-[var(--surface-alt)] before:content-[''] after:content-['']" key={t.id}>
-              <div className="relative h-[140px] overflow-hidden bg-slate-900">
-                <img
-                  className="h-full w-full object-cover"
-                  src={t.event.coverImageUrl || getEventPlaceholder(t.event.title)}
-                  alt={t.event.title}
-                />
-              </div>
+      {orders && orders.length > 0 && (
+        <div className={`flex flex-col gap-6 transition-opacity ${isRefreshing ? 'opacity-60' : 'opacity-100'}`}>
+          {orders.map((order) => {
+            const isSingle = order.tickets.length === 1
+            const isExpanded = isSingle || expandedOrders.has(order.registrationId)
+            const firstTicket = order.tickets[0]
+            const orderStatus = ticketState(firstTicket)
 
-              <div className="flex flex-col gap-3 p-6">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5] [--badge-dot-color:#6366f1]">{t.ticketType.name}</span>
-                  <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${passState.tone}`}>{passState.label}</span>
-                </div>
-
-                <h3 style={{ margin: '4px 0 0', fontSize: '18px', fontWeight: 700 }}>{t.event.title}</h3>
-
-                <div className="text-muted" style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <IconCalendar style={{ width: '14px', height: '14px' }} />
-                    {formatEventDate(t.event.startAt, t.event.timezone)}
-                  </span>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <IconMapPin style={{ width: '14px', height: '14px' }} />
-                    {t.event.venue}, {t.event.city}
-                  </span>
-                  {t.event.status === 'CANCELLED' && t.event.cancellationReason && <span className="mt-1 rounded-lg bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800">Cancellation note: {t.event.cancellationReason}</span>}
-                </div>
-
-                <div
-                  className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-slate-200 pt-4"
-                >
-                  <code style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>
-                    {t.reference}
-                  </code>
-                  <div className="flex flex-wrap items-center gap-3">
-                  <Link to={`/events/${t.event.slug}`} className="text-xs font-semibold text-indigo-700 hover:underline">Event details</Link>
+            return (
+              <div key={order.registrationId} className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                {/* Order header — only shown for multi-ticket orders */}
+                {!isSingle && (
                   <button
                     type="button"
-                    className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
-                    onClick={() => void openTicket(t)}
-                    disabled={loadingModal || qrUnavailable}
+                    onClick={() => toggleOrder(order.registrationId)}
+                    className="w-full flex items-center justify-between gap-4 px-5 py-4 bg-slate-50 border-b border-slate-200 hover:bg-slate-100 transition-colors text-left"
+                    aria-expanded={isExpanded}
                   >
-                    <IconQrCode /> {qrUnavailable ? qrUnavailableLabel : 'View QR pass'}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-700">
+                        <IconTicket style={{ width: '16px', height: '16px' }} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-900 truncate">{firstTicket.event.title}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {order.tickets.length} tickets · {firstTicket.ticketType.name}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className={`hidden sm:inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${orderStatus.tone}`}>
+                        {orderStatus.label}
+                      </span>
+                      <svg
+                        className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </button>
+                )}
+
+                {/* Ticket list (grid inside the order) */}
+                {isExpanded && (
+                  <div className={`grid grid-cols-1 gap-px bg-slate-100 sm:grid-cols-2 xl:grid-cols-3`}>
+                    {order.tickets.map((t, idx) => {
+                      const passState = ticketState(t)
+                      const qrUnavailable = !canOpenQr(t)
+                      const qrUnavailableLabel = t.event.status === 'CANCELLED' ? 'Event cancelled' : t.status === 'VOIDED' ? 'Ticket voided' : t.status === 'CHECKED_IN' ? 'Already used' : 'QR expired'
+                      return (
+                        <article
+                          className="relative flex min-w-0 flex-col overflow-hidden bg-white before:absolute after:absolute before:top-[130px] after:top-[130px] before:left-[-10px] after:right-[-10px] before:z-[2] after:z-[2] before:h-5 after:h-5 before:w-5 after:w-5 before:rounded-full after:rounded-full before:bg-slate-100 after:bg-slate-100 before:content-[''] after:content-['']"
+                          key={t.id}
+                        >
+                          <div className="relative h-[140px] overflow-hidden bg-slate-900">
+                            <img
+                              className="h-full w-full object-cover"
+                              src={t.event.coverImageUrl || getEventPlaceholder(t.event.title)}
+                              alt={t.event.title}
+                            />
+                            {!isSingle && (
+                              <span className="absolute top-3 right-3 bg-black/60 text-white text-xs font-bold px-2 py-0.5 rounded-full backdrop-blur-sm">
+                                Ticket {idx + 1} of {order.tickets.length}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-3 p-6">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold leading-none capitalize border border-[#c7d2fe] bg-[#eef2ff] text-[#4f46e5] [--badge-dot-color:#6366f1]">{t.ticketType.name}</span>
+                              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${passState.tone}`}>{passState.label}</span>
+                            </div>
+
+                            <h3 style={{ margin: '4px 0 0', fontSize: '18px', fontWeight: 700 }}>{t.event.title}</h3>
+
+                            <div className="text-muted" style={{ fontSize: '13px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <IconCalendar style={{ width: '14px', height: '14px' }} />
+                                {formatEventDate(t.event.startAt, t.event.timezone)}
+                              </span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <IconMapPin style={{ width: '14px', height: '14px' }} />
+                                {t.event.venue}, {t.event.city}
+                              </span>
+                              {t.event.status === 'CANCELLED' && t.event.cancellationReason && <span className="mt-1 rounded-lg bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800">Cancellation note: {t.event.cancellationReason}</span>}
+                            </div>
+
+                            <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-dashed border-slate-200 pt-4">
+                              <code style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                                {t.reference}
+                              </code>
+                              <div className="flex flex-wrap items-center gap-3">
+                                <Link to={`/events/${t.event.slug}`} className="text-xs font-semibold text-indigo-700 hover:underline">Event details</Link>
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center justify-center gap-2 border border-transparent px-[var(--button-px,18px)] py-[var(--button-py,10px)] text-sm font-semibold leading-[1.25] rounded-[var(--button-radius,var(--radius-md))] cursor-pointer whitespace-nowrap transition-[all] duration-[180ms] [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] active:scale-[0.98] disabled:transform-none disabled:cursor-not-allowed disabled:opacity-[0.55] bg-[linear-gradient(135deg,#6366f1_0%,#4f46e5_100%)] text-white shadow-[0_2px_8px_rgba(79,70,229,0.25)] enabled:hover:bg-[linear-gradient(135deg,#4f46e5_0%,#4338ca_100%)] enabled:hover:shadow-[0_4px_14px_rgba(79,70,229,0.35)] enabled:hover:translate-y-[-1px] [--button-px:12px] [--button-py:6px] [--button-font-size:13px] [--button-radius:var(--radius-sm)] text-[13px]"
+                                  onClick={() => void openTicket(t)}
+                                  disabled={loadingModal || qrUnavailable}
+                                >
+                                  <IconQrCode /> {qrUnavailable ? qrUnavailableLabel : 'View QR pass'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </article>
+                      )
+                    })}
                   </div>
-                </div>
+                )}
               </div>
-            </article>
+            )
           })}
         </div>
       )}
+
       {tickets && pageInfo.pageCount > 1 && <div className="mx-auto mt-6 flex max-w-[900px] flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm"><span>{pageInfo.total} passes · Page {page} of {pageInfo.pageCount}</span><div className="flex gap-2"><button disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="min-h-10 rounded border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={page >= pageInfo.pageCount} onClick={() => setPage((value) => value + 1)} className="min-h-10 rounded border px-3 py-1.5 disabled:opacity-40">Next</button></div></div>}
 
       {/* QR Code Pass Modal */}

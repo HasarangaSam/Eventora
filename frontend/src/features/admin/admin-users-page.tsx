@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+﻿import { useCallback, useEffect, useState } from 'react'
 import { useAuthenticatedApi } from '../auth/use-authenticated-api'
 import { DashboardShell } from '../analytics/dashboard-shell'
 import { useToast } from '../../components/ui/toast'
@@ -128,9 +128,10 @@ export function AdminUsersPage() {
             <thead>
               <tr>
                 <th>User Profile</th>
+                <th>History</th>
                 <th>Email Address</th>
                 <th>Role Assignment</th>
-                <th>Account Status</th><th>History</th>
+                <th>Account Status</th>
               </tr>
             </thead>
             <tbody>

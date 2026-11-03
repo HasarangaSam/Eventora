@@ -52,6 +52,8 @@ export function EventCheckinPage() {
   const [scanning, setScanning] = useState(false)
   const [page, setPage] = useState(1)
   const [clock, setClock] = useState(() => Date.now())
+  const [availableDevices, setAvailableDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('')
   const eventEnded = Boolean(attendance && (attendance.event.status === 'COMPLETED' || new Date(attendance.event.endAt).getTime() <= clock))
   const eventClosed = eventEnded || attendance?.event.status === 'CANCELLED' || (attendance !== null && attendance.event.status !== 'PUBLISHED')
 
@@ -149,14 +151,35 @@ export function EventCheckinPage() {
         const { BrowserQRCodeReader } = await import('@zxing/browser')
         if (!active || !videoRef.current) return
         const reader = new BrowserQRCodeReader()
-        const controls = await reader.decodeFromVideoDevice(undefined, videoRef.current, (decoded, _err, controls) => {
-          controlsRef.current = controls
-          if (!active || !decoded || handledRef.current) return
-          handledRef.current = true
-          controls.stop()
-          setScanning(false)
-          void checkIn(decoded.getText(), 'QR_SCAN')
-        })
+
+        // Discover video devices and avoid IR / Virtual camera loops in Edge / Windows
+        let devices: MediaDeviceInfo[] = []
+        try {
+          devices = await BrowserQRCodeReader.listVideoInputDevices()
+          if (active && devices.length > 0) {
+            setAvailableDevices(devices)
+          }
+        } catch {
+          // Device enumeration optional fallback
+        }
+
+        const bestDeviceId = selectedDeviceId || pickBestCamera(devices)
+        if (active && bestDeviceId && !selectedDeviceId) {
+          setSelectedDeviceId(bestDeviceId)
+        }
+
+        const controls = await reader.decodeFromVideoDevice(
+          bestDeviceId || undefined,
+          videoRef.current,
+          (decoded, _err, controls) => {
+            controlsRef.current = controls
+            if (!active || !decoded || handledRef.current) return
+            handledRef.current = true
+            controls.stop()
+            setScanning(false)
+            void checkIn(decoded.getText(), 'QR_SCAN')
+          },
+        )
         if (!controls) return
         controlsRef.current = controls
         if (!active) controls.stop()
@@ -173,8 +196,13 @@ export function EventCheckinPage() {
       active = false
       controlsRef.current?.stop()
       controlsRef.current = null
+      if (videoRef.current?.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream
+        stream.getTracks?.().forEach((track) => track.stop())
+        videoRef.current.srcObject = null
+      }
     }
-  }, [scanning, checkIn, toast])
+  }, [scanning, selectedDeviceId, checkIn, toast])
 
   function submitReference(e: FormEvent) {
     e.preventDefault()
@@ -290,37 +318,58 @@ export function EventCheckinPage() {
             )}
 
             {scanning && (
-              <div
-                style={{
-                  marginTop: '16px',
-                  borderRadius: 'var(--radius-lg)',
-                  overflow: 'hidden',
-                  background: '#000000',
-                  aspectRatio: '4 / 3',
-                  position: 'relative',
-                  border: '2px solid var(--primary)',
-                }}
-              >
-                <video
-                  ref={videoRef}
-                  muted
-                  playsInline
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
+              <>
+                {availableDevices.length > 1 && (
+                  <div className="mt-3 flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                    <label htmlFor="camera-select" className="font-semibold text-slate-700 shrink-0">
+                      Camera:
+                    </label>
+                    <select
+                      id="camera-select"
+                      value={selectedDeviceId}
+                      onChange={(e) => setSelectedDeviceId(e.target.value)}
+                      className="w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 shadow-sm focus:border-indigo-500 focus:outline-none"
+                    >
+                      {availableDevices.map((d, index) => (
+                        <option key={d.deviceId || index} value={d.deviceId}>
+                          {d.label || `Camera ${index + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div
                   style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    width: '60%',
-                    height: '60%',
-                    border: '2px dashed #ffffff',
-                    borderRadius: '12px',
-                    pointerEvents: 'none',
+                    marginTop: '16px',
+                    borderRadius: 'var(--radius-lg)',
+                    overflow: 'hidden',
+                    background: '#000000',
+                    aspectRatio: '4 / 3',
+                    position: 'relative',
+                    border: '2px solid var(--primary)',
                   }}
-                />
-              </div>
+                >
+                  <video
+                    ref={videoRef}
+                    muted
+                    playsInline
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      width: '60%',
+                      height: '60%',
+                      border: '2px dashed #ffffff',
+                      borderRadius: '12px',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                </div>
+              </>
             )}
           </div>
 
@@ -399,4 +448,31 @@ export function EventCheckinPage() {
       </div>
     </div>
   )
+}
+
+function pickBestCamera(devices: MediaDeviceInfo[]): string | undefined {
+  if (!devices.length) return undefined
+  const isExcluded = (d: MediaDeviceInfo) => {
+    const label = (d.label || '').toLowerCase()
+    return (
+      label.includes('ir') ||
+      label.includes('infrared') ||
+      label.includes('hello') ||
+      label.includes('virtual') ||
+      label.includes('obs')
+    )
+  }
+  const realCameras = devices.filter((d) => !isExcluded(d))
+  const pool = realCameras.length > 0 ? realCameras : devices
+
+  // Prioritize back/rear/environment cameras for ticket QR scanning
+  const backCam = pool.find((d) => {
+    const label = (d.label || '').toLowerCase()
+    return (
+      label.includes('back') ||
+      label.includes('rear') ||
+      label.includes('environment')
+    )
+  })
+  return (backCam ?? pool[0])?.deviceId
 }
