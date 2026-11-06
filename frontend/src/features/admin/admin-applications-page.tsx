@@ -201,7 +201,7 @@ export function AdminApplicationsPage() {
         )}
         {!loading && <AdminPagination page={page} pageCount={pageData.pageCount} total={pageData.total} onPage={setPage} />}
       </section>
-      <AdminNoteModal open={Boolean(rejecting)} title={`Reject ${rejecting?.organizationName ?? 'application'}?`} description="Give the applicant a clear reason so they understand the decision. This note will be included in their decision email and kept in the review record." label="Decision note" placeholder="Explain what needs to change or why the application cannot be approved." submitLabel="Reject application" onClose={() => setRejecting(null)} onSubmit={async (note) => { if (rejecting) await decide(rejecting.id, 'REJECTED', rejecting.organizationName, note) }} />
+      <AdminNoteModal open={Boolean(rejecting)} title={`Reject ${rejecting?.organizationName ?? 'application'}?`} description="Give the applicant a clear reason and keep it in the review record." label="Decision note" placeholder="Explain what needs to change or why the application cannot be approved." submitLabel="Reject application" onClose={() => setRejecting(null)} onSubmit={async (note) => { if (rejecting) await decide(rejecting.id, 'REJECTED', rejecting.organizationName, note) }} />
     </DashboardShell>
   )
 }

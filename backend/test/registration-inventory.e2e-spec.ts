@@ -103,7 +103,6 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
         const registrationIds = registrationRows.map(({ id }) => id);
         await prisma.$transaction(async (tx) => {
           await tx.paymentException.deleteMany({ where: { registrationId: { in: registrationIds } } });
-          await tx.emailDelivery.deleteMany({ where: { registrationId: { in: registrationIds } } });
           await tx.checkIn.deleteMany({ where: { eventId } });
           await tx.ticket.deleteMany({ where: { eventId } });
           await tx.paymentAttempt.deleteMany({ where: { registrationId: { in: registrationIds } } });
@@ -112,7 +111,6 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
           await tx.eventSession.deleteMany({ where: { eventId } });
           await tx.ticketType.deleteMany({ where: { eventId } });
           await tx.event.delete({ where: { id: eventId } });
-          await tx.emailDelivery.deleteMany({ where: { organizerApplication: { applicantId: { in: attendeeIds } } } });
           await tx.organizerApplication.deleteMany({ where: { applicantId: { in: attendeeIds } } });
           await tx.category.delete({ where: { id: categoryId } });
           await tx.user.deleteMany({ where: { id: { in: [organizerId, adminId, ...attendeeIds] } } });
@@ -170,6 +168,7 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
     const merchantSecret = 'phase8-integration-secret';
     const ticketConfig = new ConfigService({ TICKET_QR_SECRET: 'phase9-integration-qr-secret-with-sufficient-length' });
     const checkins = new CheckinsService(prisma, ticketConfig);
+    const confirmationEmail = { sendPurchaseConfirmation: vi.fn().mockResolvedValue(undefined) };
     const payments = new PaymentsService(prisma, new ConfigService({
       PAYHERE_MERCHANT_ID: '1234567',
       PAYHERE_MERCHANT_SECRET: merchantSecret,
@@ -178,7 +177,7 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
       PAYHERE_RETURN_URL: 'http://localhost:5173/checkout/result',
       PAYHERE_CANCEL_URL: 'http://localhost:5173/checkout/cancelled',
       TICKET_QR_SECRET: 'phase9-integration-qr-secret-with-sufficient-length',
-    }), inventory);
+    }), inventory, confirmationEmail as never);
     const checkout = await payments.createCheckout(attendeeIds[1 - winnerIndex], next.id, {
       firstName: 'Test', lastName: 'Attendee', phone: '+94770000000', address: 'Test Road', city: 'Colombo', country: 'Sri Lanka',
     });
@@ -201,7 +200,7 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
     await expect(payments.handleNotification({ ...notification, md5sig: '0'.repeat(32) })).rejects.toThrow('Invalid PayHere notification signature');
     await expect(payments.handleNotification(notification)).resolves.toMatchObject({ status: 'SUCCEEDED' });
     expect(await prisma.ticket.count({ where: { registrationId: next.id } })).toBe(1);
-    expect(await prisma.emailDelivery.count({ where: { registrationId: next.id, type: 'PURCHASE_CONFIRMATION' } })).toBe(1);
+    expect(confirmationEmail.sendPurchaseConfirmation).toHaveBeenCalledWith(next.id);
     const issuedTicket = await prisma.ticket.findFirstOrThrow({ where: { registrationId: next.id } });
     const tickets = new TicketsService(prisma, ticketConfig);
     await expect(tickets.getMine(attendeeIds[1 - winnerIndex], issuedTicket.id)).resolves.toMatchObject({ reference: issuedTicket.reference, qrCode: expect.stringMatching(/^data:image\/png;base64,/) });
@@ -221,7 +220,7 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
     const duplicateDeliveries = await Promise.all([payments.handleNotification(notification), payments.handleNotification(notification)]);
     expect(duplicateDeliveries.every(({ status }) => status === 'SUCCEEDED')).toBe(true);
     expect(await prisma.ticket.count({ where: { registrationId: next.id } })).toBe(1);
-    expect(await prisma.emailDelivery.count({ where: { registrationId: next.id, type: 'PURCHASE_CONFIRMATION' } })).toBe(1);
+    expect(confirmationEmail.sendPurchaseConfirmation).toHaveBeenCalledTimes(1);
     const secondAttemptSuccess = signedNotification(merchantSecret, initialAttempt.merchantReference, 'payhere-test-declined', '125.40', 'LKR', '2');
     await expect(payments.handleNotification(secondAttemptSuccess)).resolves.toMatchObject({ status: 'SUCCEEDED', fulfilled: false });
     expect(await prisma.paymentException.findFirst({ where: { paymentAttemptId: initialAttempt.id, reasonCode: 'MULTIPLE_SUCCESSFUL_ATTEMPTS' } })).not.toBeNull();
@@ -242,8 +241,7 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
     const pendingCancel = await registrations.create(attendeeIds[winnerIndex], ticketTypeId, 1, 'phase8-cancel-pending');
     const eventManager = new OrganizerEventsService(prisma, {} as never, inventory);
     await expect(eventManager.cancelAsAdmin(adminId, eventId, 'Admin integration cancellation'))
-      .resolves.toMatchObject({ id: eventId, status: 'CANCELLED', cancellationNoticesQueued: 1 });
-    expect(await prisma.emailDelivery.count({ where: { eventId, type: 'EVENT_CANCELLATION', registrationId: next.id } })).toBe(1);
+      .resolves.toMatchObject({ id: eventId, status: 'CANCELLED' });
     event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });
     ticket = await prisma.ticketType.findUniqueOrThrow({ where: { id: ticketTypeId } });
     expect(event).toMatchObject({ status: 'CANCELLED', cancelledById: adminId, cancellationReason: 'Admin integration cancellation' });
@@ -256,7 +254,7 @@ describe('registration inventory concurrency (PostgreSQL)', () => {
     paidRegistration = await prisma.registration.findUniqueOrThrow({ where: { id: pendingCancel.id } });
     expect(paidRegistration.status).toBe('EXPIRED');
     expect(await prisma.ticket.count({ where: { registrationId: pendingCancel.id } })).toBe(0);
-    expect(await prisma.emailDelivery.count({ where: { registrationId: pendingCancel.id, type: 'PURCHASE_CONFIRMATION' } })).toBe(0);
+    expect(confirmationEmail.sendPurchaseConfirmation).toHaveBeenCalledTimes(1);
     expect(await prisma.paymentAttempt.findUniqueOrThrow({ where: { id: lateAttempt.id } })).toMatchObject({ status: 'SUCCEEDED', providerAmount: new Prisma.Decimal('125.40'), providerCurrency: 'LKR' });
     expect(await prisma.paymentException.findFirst({ where: { paymentAttemptId: lateAttempt.id, reasonCode: 'LATE_PAYMENT_UNFULFILLED' } })).not.toBeNull();
     event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });

@@ -230,12 +230,12 @@ export function OrganizerEditEventPage() {
     if (!event) return
     setActionBusy(true)
     try {
-      const res = await request<{ cancellationNoticesQueued: number }>({
+      await request({
         method: 'PATCH',
         url: `/organizer/events/${event.id}/cancel`,
         data: { reason },
       })
-      toast.success('Event Cancelled', `${res.data.cancellationNoticesQueued} attendee notice(s) queued.`)
+      toast.success('Event Cancelled', 'The event has been cancelled.')
       setCancelModalOpen(false)
       await loadEvent()
     } catch (err) {

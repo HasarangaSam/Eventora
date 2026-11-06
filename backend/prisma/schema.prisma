@@ -83,18 +83,6 @@ enum CheckInMethod {
   MANUAL_REFERENCE
 }
 
-enum EmailType {
-  PURCHASE_CONFIRMATION
-  ORGANIZER_APPLICATION_DECISION
-  EVENT_CANCELLATION
-}
-
-enum EmailDeliveryStatus {
-  PENDING
-  SENT
-  FAILED
-}
-
 model User {
   id          String     @id @default(cuid())
   clerkUserId String     @unique @db.VarChar(255)
@@ -171,7 +159,6 @@ model OrganizerApplication {
 
   applicant       User            @relation("ApplicationApplicant", fields: [applicantId], references: [id], onDelete: Restrict)
   reviewer        User?           @relation("ApplicationReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
-  emailDeliveries EmailDelivery[]
   eventCategories OrganizerApplicationCategory[]
 
   @@index([applicantId, status])
@@ -239,7 +226,6 @@ model Event {
   reservations    InventoryReservation[]
   tickets         Ticket[]
   checkIns        CheckIn[]
-  emailDeliveries EmailDelivery[]
 
   @@index([status, startAt])
   @@index([categoryId, status, startAt])
@@ -313,7 +299,6 @@ model Registration {
   payments        PaymentAttempt[]
   tickets         Ticket[]
   exceptions      PaymentException[]
-  emailDeliveries EmailDelivery[]
 
   @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
@@ -439,28 +424,4 @@ model CheckIn {
 
   @@index([eventId, checkedInAt])
   @@index([checkedInById, checkedInAt])
-}
-
-model EmailDelivery {
-  id                     String              @id @default(cuid())
-  type                   EmailType
-  status                 EmailDeliveryStatus @default(PENDING)
-  idempotencyKey         String              @unique @db.VarChar(160)
-  recipient              String              @db.VarChar(320)
-  registrationId         String?
-  organizerApplicationId String?
-  eventId                String?
-  attemptCount           Int                 @default(0)
-  nextAttemptAt          DateTime?           @db.Timestamptz(6)
-  sentAt                 DateTime?           @db.Timestamptz(6)
-  lastError              String?             @db.VarChar(500)
-  createdAt              DateTime            @default(now()) @db.Timestamptz(6)
-  updatedAt              DateTime            @updatedAt @db.Timestamptz(6)
-
-  registration         Registration?         @relation(fields: [registrationId], references: [id], onDelete: SetNull)
-  organizerApplication OrganizerApplication? @relation(fields: [organizerApplicationId], references: [id], onDelete: SetNull)
-  event                Event?                @relation(fields: [eventId], references: [id], onDelete: SetNull)
-
-  @@index([status, nextAttemptAt])
-  @@index([type, createdAt])
 }

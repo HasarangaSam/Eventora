@@ -33,7 +33,7 @@ interface EventPage {
 const FAQ_ITEMS = [
   {
     question: 'How do I receive my ticket after paying?',
-    answer: 'Eventora confirms a booking after it verifies the payment with PayHere. Your digital pass then appears in your Ticket Wallet, and a confirmation email is queued for delivery.',
+    answer: 'Eventora confirms a booking after it verifies the payment with PayHere. Your digital pass then appears in your Ticket Wallet, and Eventora attempts to email you a confirmation.',
   },
   {
     question: 'Do I need to print out the QR code ticket to enter?',

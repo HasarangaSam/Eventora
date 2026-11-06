@@ -26,6 +26,8 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
   }
 
   async reserve(tx: Prisma.TransactionClient, eventId: string, ticketTypeId: string, quantity: number) {
+    // The conditional update is the concurrency check: PostgreSQL serializes updates to this row,
+    // then re-evaluates capacity against the latest counters before accepting another reservation.
     // Lock/update the event first so reservations and cancellation serialize on the same row.
     const eventRows = await tx.$queryRaw<Array<{ id: string }>>`
       UPDATE "Event"
@@ -89,6 +91,8 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async runExpiryBatch(batchSize: number, eventId?: string) {
+    // Read a bounded set of candidates, then re-check each one while holding its rows in a transaction.
+    // A payment callback may commit a hold between this query and the per-reservation check.
     const due = eventId
       ? await this.prisma.$queryRaw<DueReservation[]>`
         SELECT "id", "eventId", "ticketTypeId", "quantity"

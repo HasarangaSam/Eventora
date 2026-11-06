@@ -13,7 +13,7 @@ flowchart LR
     Clerk[Clerk<br/>sign-in, JWT identity, webhooks]
     PayHere[PayHere<br/>hosted checkout + payment notification]
     Cloudinary[Cloudinary<br/>event cover images]
-    SMTP[SMTP / Gmail<br/>transactional email]
+    SMTP[SMTP / Gmail<br/>purchase confirmation]
 
     Browser --> Frontend
     Frontend -->|JSON API + Clerk bearer token| API
@@ -24,7 +24,7 @@ flowchart LR
     API -->|create checkout request| PayHere
     PayHere -->|signed asynchronous notification| API
     API -->|upload / delete image| Cloudinary
-    API -->|outbox delivery| SMTP
+    API -->|best-effort purchase email after commit| SMTP
 ```
 
 In local development, Vite serves the frontend (typically port `5173`) and the API serves port `3000`. Docker Compose runs PostgreSQL, the NestJS API, and an Nginx-served frontend. Clerk, PayHere, Cloudinary, and SMTP are external integrations configured through environment variables.
@@ -58,7 +58,7 @@ flowchart TB
       Checkins[QR / manual check-in]
       Analytics[Organizer analytics + participant lists]
       Notifications[Organizer / admin notifications]
-      Email[Transactional email outbox]
+      Email[Purchase confirmation email]
       Images[Cloudinary image service]
       Persistence[Prisma service]
       Guards --> Auth
@@ -75,9 +75,7 @@ flowchart TB
       Events --> Registration
       Registration --> Payments
       Payments --> Tickets
-      Events --> Email
       Payments --> Email
-      Applications --> Email
       Events --> Persistence
       Applications --> Persistence
       Categories --> Persistence
@@ -144,10 +142,10 @@ sequenceDiagram
     PayHere-->>Attendee: Collect payment
     PayHere->>API: Signed payment notification
     API->>API: Verify provider signature and reconcile idempotently
-    API->>DB: Transaction: update payment, commit/release inventory, confirm registration, issue tickets, write email outbox
+    API->>DB: Transaction: update payment, commit/release inventory, confirm registration, issue tickets
     DB-->>API: Committed result
+    API->>Mail: Best-effort confirmation email after commit
     API-->>PayHere: Acknowledge notification
-    API->>Mail: Background outbox delivery and retry
     UI->>API: GET /api/tickets/me or /api/registrations/me
     API-->>UI: Tickets / order history
 ```
@@ -165,9 +163,7 @@ flowchart LR
     PublicAPI --> DB
     AdminAPI --> DB
     EventAPI -->|cover image| CDN[Cloudinary]
-    EventAPI -->|cancellation notice rows| Outbox[(EmailDelivery outbox)]
-    Purchase[Successful purchase] --> Outbox
-    Outbox -->|poll every 30 seconds; retry failures| Mail[EmailService → SMTP]
+    Purchase[Successful purchase] -->|after database commit| Mail[EmailService → SMTP]
     Reservation[(InventoryReservation)] -->|expire held stock periodically| Inventory[InventoryService]
     Inventory --> DB
     Lifecycle[EventLifecycleService<br/>every 60 seconds] -->|mark ended published events complete| DB
@@ -175,7 +171,7 @@ flowchart LR
     CheckinAPI -->|verify signed token; prevent duplicate entry| DB
 ```
 
-The email outbox separates committed event/payment changes from SMTP availability. Reservation-expiry and event-lifecycle jobs currently run as timers inside the NestJS application process.
+Purchase email is attempted after the payment transaction commits; SMTP failure does not roll back the payment and is not retried. Reservation-expiry and event-lifecycle jobs currently run as timers inside the NestJS application process.
 
 ## Main persisted concepts
 

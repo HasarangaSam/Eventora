@@ -5,6 +5,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { InventoryService } from '../registrations/inventory.service.js';
 import { ticketQrHash, ticketQrToken } from '../tickets/ticket-crypto.js';
+import { EmailService } from '../email/email.service.js';
 
 type Contact = { firstName: string; lastName: string; phone: string; address: string; city: string; country: string };
 type PayHereNotification = Record<string, unknown>;
@@ -20,6 +21,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly inventory: InventoryService,
+    private readonly email: EmailService,
   ) {}
 
   async createCheckout(userId: string, registrationId: string, contact: Contact) {
@@ -87,7 +89,8 @@ export class PaymentsService {
     if (merchantId !== configuredMerchantId || !/^-?\d+$/.test(statusRaw) || !/^[A-Z]{3}$/.test(currency) || paymentId.length > 100) {
       throw new BadRequestException('Invalid PayHere notification');
     }
-    // Reject unsigned or altered callbacks before looking up or changing payment state.
+    // PayHere calls this endpoint directly. Verify its signature before trusting any callback fields
+    // or using them to locate and change a payment attempt.
     if (!verifyNotificationSignature(merchantId, orderId, amountRaw, currency, statusRaw, merchantSecret, signature)) {
       throw new BadRequestException('Invalid PayHere notification signature');
     }
@@ -98,7 +101,8 @@ export class PaymentsService {
     if (!snapshot) throw new NotFoundException('Payment attempt not found');
     const amount = parseProviderAmount(amountRaw);
 
-    return this.prisma.$transaction(async (tx) => {
+    let shouldSendConfirmation = false;
+    const result = await this.prisma.$transaction(async (tx) => {
       // Lock in the same event → ticket type → reservation → payment order used by inventory operations.
       const [event] = await tx.$queryRaw<Array<{ id: string; status: string; startAt: Date; endAt: Date; capacity: number | null; ticketsReserved: number; ticketsSold: number }>>`
         SELECT "id", "status", "startAt", "endAt", "capacity", "ticketsReserved", "ticketsSold" FROM "Event" WHERE "id" = ${snapshot.registration.eventId} FOR UPDATE
@@ -153,6 +157,8 @@ export class PaymentsService {
       }
 
       if (statusCode === 2) {
+        // A provider-confirmed charge does not automatically mean Eventora can still fulfill it:
+        // the hold may have expired and the last tickets may have gone to another attendee.
         // A successful charge and a fulfillable reservation are separate facts; never invent inventory when capacity is gone.
         const otherSuccessfulAttempt = await tx.paymentAttempt.findFirst({
           where: { registrationId: snapshot.registrationId, id: { not: current.id }, status: { in: ['SUCCEEDED', 'CHARGEDBACK'] } },
@@ -180,7 +186,7 @@ export class PaymentsService {
       }
       if (reservation.status === 'COMMITTED' && snapshot.registration.status === 'CONFIRMED') {
         await tx.paymentAttempt.update({ where: { id: current.id }, data: { status: 'SUCCEEDED', providerPaymentId: current.providerPaymentId ?? paymentId, providerStatus: statusMessage, providerAmount: amount, providerCurrency: currency, paidAt: current.paidAt ?? now, verifiedAt: current.verifiedAt ?? now } });
-        await this.ensureTickets(tx, snapshot.registrationId);
+        shouldSendConfirmation = await this.ensureTickets(tx, snapshot.registrationId);
         return { received: true, processed: true, status: 'SUCCEEDED', fulfilled: true };
       }
 
@@ -217,18 +223,20 @@ export class PaymentsService {
       await tx.inventoryReservation.update({ where: { id: reservation.id }, data: { status: 'COMMITTED', committedAt: now, releasedAt: null } });
       await tx.registration.update({ where: { id: snapshot.registrationId }, data: { status: 'CONFIRMED', confirmedAt: now, expiredAt: null } });
       await tx.paymentAttempt.update({ where: { id: current.id }, data: { status: 'SUCCEEDED', providerPaymentId: current.providerPaymentId ?? paymentId, providerStatus: statusMessage, providerAmount: amount, providerCurrency: currency, paidAt: current.paidAt ?? now, verifiedAt: current.verifiedAt ?? now } });
-      await this.ensureTickets(tx, snapshot.registrationId);
+      shouldSendConfirmation = await this.ensureTickets(tx, snapshot.registrationId);
       return { received: true, processed: true, status: 'SUCCEEDED', fulfilled: true };
     });
+    if (shouldSendConfirmation) await this.email.sendPurchaseConfirmation(snapshot.registrationId);
+    return result;
   }
 
   private async ensureTickets(tx: Prisma.TransactionClient, registrationId: string) {
     const registration = await tx.registration.findUniqueOrThrow({
       where: { id: registrationId },
-      include: { attendee: { select: { email: true } }, event: { select: { id: true } }, tickets: { select: { id: true, reference: true } } },
+      include: { tickets: { select: { id: true, reference: true } } },
     });
     if (registration.status !== 'CONFIRMED') throw new Error('TICKETS_REQUIRE_CONFIRMED_REGISTRATION');
-    // Webhooks may be retried, so issue a complete ticket set once and queue its email idempotently.
+    // Webhooks may be retried, so issue a complete ticket set only once.
     if (registration.tickets.length === 0) {
       const tickets = Array.from({ length: registration.quantity }, () => {
         const reference = `EVT-${randomBytes(12).toString('hex').toUpperCase()}`;
@@ -236,13 +244,11 @@ export class PaymentsService {
         return { registrationId, eventId: registration.eventId, ticketTypeId: registration.ticketTypeId, reference, qrTokenHash: ticketQrHash(qrToken) };
       });
       await tx.ticket.createMany({ data: tickets });
+      return true;
     } else if (registration.tickets.length !== registration.quantity) {
       throw new Error('TICKET_COUNT_DOES_NOT_MATCH_CONFIRMED_QUANTITY');
     }
-    await tx.emailDelivery.createMany({
-      data: [{ type: 'PURCHASE_CONFIRMATION', idempotencyKey: `purchase-confirmation:${registrationId}`, recipient: registration.attendee.email, registrationId, eventId: registration.event.id }],
-      skipDuplicates: true,
-    });
+    return false;
   }
 
   async listMine(userId: string) {

@@ -16,6 +16,7 @@ export class RegistrationsService {
   constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService) {}
 
   async create(userId: string, ticketTypeId: string, quantity: number, idempotencyKey: string) {
+    // A retry with the same key must return the original order, not reserve stock again.
     // Fast-path retries; the unique key and recovery below handle simultaneous first requests.
     const existing = await this.findByIdempotency(userId, idempotencyKey);
     if (existing) return this.replay(existing, ticketTypeId, quantity);
@@ -26,6 +27,7 @@ export class RegistrationsService {
 
     try {
       const registration = await this.prisma.$transaction(async (tx) => {
+        // Reserve stock and create the order in one transaction so either both persist or neither does.
         const snapshot = await this.inventory.reserve(tx, ticketType.eventId, ticketTypeId, quantity).catch((error: unknown) => {
           if (error instanceof Error && error.message === 'EVENT_UNAVAILABLE') throw new ConflictException('This event is not accepting reservations or has insufficient capacity');
           if (error instanceof Error && error.message === 'TICKET_UNAVAILABLE') throw new ConflictException('This ticket type is unavailable or has insufficient inventory');

@@ -51,6 +51,7 @@ export class CheckinsService {
       if (ticket.registration.status !== 'CONFIRMED' || !ticket.registration.payments.some((payment) => payment.status === 'SUCCEEDED')) {
         return { outcome: 'PAYMENT_UNCONFIRMED' as const };
       }
+      // Preview scans use the same validation path but deliberately leave the ticket unchanged.
       if (!commit) return { outcome: 'VALID' as const, reference: ticket.reference, ticketType: ticket.ticketType.name };
 
       const checkIn = await tx.checkIn.create({

@@ -2,7 +2,7 @@
 
 Eventora is a full-stack event discovery and ticketing web application built with **NestJS**, **React 19**, **PostgreSQL (Prisma 7)**, **Clerk Authentication**, and **PayHere Payments**.
 
-I built this project to move beyond basic CRUD applications and learn how to solve practical engineering challenges—such as preventing overselling during concurrent ticket purchases, handling payment gateway webhooks reliably, delivering transactional emails using the outbox pattern, and designing secure, server-enforced role permissions.
+I built this project to learn full-stack event ticketing, including concurrent inventory reservations, payment webhooks, ticket QR validation, and server-enforced roles. After a payment commits, the API attempts to send a confirmation email; email delivery is best-effort and is not retried.
 
 ---
 
@@ -14,7 +14,7 @@ I built this project to move beyond basic CRUD applications and learn how to sol
 - [Architecture & Tech Stack](#architecture--tech-stack)
 - [How It Works: Core Engineering Concepts](#how-it-works-core-engineering-concepts)
   - [1. Preventing Overselling with Concurrency Control](#1-preventing-overselling-with-concurrency-control)
-  - [2. Reliable Email Delivery via Transactional Outbox](#2-reliable-email-delivery-via-transactional-outbox)
+  - [2. Purchase Confirmation Email](#2-purchase-confirmation-email)
   - [3. Cryptographic Ticket QR Generation & Validation](#3-cryptographic-ticket-qr-generation--validation)
   - [4. Safe Payment Webhook Reconciliation](#4-safe-payment-webhook-reconciliation)
   - [5. Zero-Trust Role Authorization](#5-zero-trust-role-authorization)
@@ -113,7 +113,7 @@ For the detailed current system, module, authentication, purchase, event operati
 
 - **Backend:** NestJS 12, TypeScript, Prisma ORM 7 (`@prisma/adapter-pg`), PostgreSQL, `@nestjs/throttler`, Nodemailer, QRCode.
 - **Frontend:** React 19, TypeScript, Vite, React Router 8, Tailwind CSS v4, Lucide Icons, Recharts, `@zxing/browser` (camera scanner).
-- **External Services:** Clerk (authentication), PayHere (payments), Cloudinary (event image hosting), Gmail SMTP (transactional email).
+- **External Services:** Clerk (authentication), PayHere (payments), Cloudinary (event image hosting), Gmail SMTP (best-effort ticket confirmation email).
 - **Testing & Tooling:** Vitest (unit & integration tests), Oxlint (linter), Docker & Docker Compose, GitHub Actions (CI pipeline).
 
 ---
@@ -141,19 +141,9 @@ When popular tickets go on sale, multiple users click "Buy" at the exact same mo
   This prevents database deadlocks when concurrent processes touch the same resources.
 * **10-Minute Hold Expiry:** Reserved tickets are held for 10 minutes (`expiresAt = CURRENT_TIMESTAMP + interval '10 minutes'`) using the database clock rather than the application server clock, avoiding clock-skew issues. A background worker periodically cleans up uncompleted reservations.
 
-### 2. Reliable Email Delivery via Transactional Outbox
+### 2. Purchase Confirmation Email
 
-Normally, sending an email directly inside an HTTP handler introduces the "Dual-Write Problem": if the SMTP server fails or times out after payment succeeded, either the payment rolls back or the user never gets their tickets.
-
-* **The Outbox Table:** When a purchase or cancellation commits, an `EmailDelivery` row is inserted **in the exact same database transaction** as the ticket/order confirmation.
-* **Safe Polling with `SKIP LOCKED`:** A background worker claims pending emails in batches using:
-  ```sql
-  SELECT "id" FROM "EmailDelivery"
-  WHERE "status" = 'PENDING' AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= CURRENT_TIMESTAMP)
-  ORDER BY "createdAt" FOR UPDATE SKIP LOCKED LIMIT 10;
-  ```
-  `SKIP LOCKED` ensures that if multiple backend instances run concurrently, they skip locked rows without waiting or duplicating email sends.
-* **Exponential Backoff:** If delivery fails, attempts retry with exponential delays (`30s`, `60s`, `120s`...) up to 5 attempts before marking as terminal.
+After PayHere confirms payment, Eventora commits the registration, inventory, and tickets first. The API then attempts to send an email with the ticket references and QR codes. If SMTP fails, the purchase remains successful and the email is not retried automatically. Attendees can still view their tickets in Eventora.
 
 ### 3. Cryptographic Ticket QR Generation & Validation
 
@@ -230,7 +220,7 @@ eventora/
 │   │   ├── payments/           # PayHere checkout fields & webhook handling
 │   │   ├── tickets/            # HMAC QR signing & ticket queries
 │   │   ├── checkins/           # Venue entry validation (camera & manual)
-│   │   ├── email/              # Transactional outbox worker & HTML templates
+│   │   ├── email/              # Purchase confirmation email with ticket QR codes
 │   │   ├── analytics/          # Sales aggregates & organizer metrics
 │   │   └── main.ts             # Application entry point & configuration
 │   └── test/                   # Vitest unit and integration tests
@@ -303,7 +293,7 @@ Open `backend/.env` and fill in your keys:
 - `TICKET_QR_SECRET`: Any random string of 32+ characters for signing ticket QRs.
 - `FRONTEND_ORIGIN`: `http://localhost:5173` (for local development).
 - PayHere sandbox merchant ID/secret, notify URL, and checkout return/cancel URLs for payment flows. PayHere's notify URL must be reachable by the provider (for example, through a development tunnel).
-- Gmail SMTP app-password settings if you want transactional emails. Cloudinary credentials are needed for hosted cover-image uploads.
+- Gmail SMTP app-password settings if you want purchase confirmation emails. Cloudinary credentials are needed for hosted cover-image uploads.
 
 Run database migrations and generate the Prisma client:
 
@@ -379,7 +369,7 @@ Open `http://localhost:5173` in your browser.
 | `PAYHERE_NOTIFY_URL` | Public webhook URL where PayHere posts payment status updates |
 | `PAYHERE_RETURN_URL` / `PAYHERE_CANCEL_URL` | Frontend destinations after hosted checkout |
 | `GMAIL_USER` / `GMAIL_APP_PASSWORD` | Optional Gmail SMTP credentials for sending ticket emails |
-| `EMAIL_FROM` | Optional sender address for transactional email |
+| `EMAIL_FROM` | Optional sender address for purchase confirmation email |
 | `CLOUDINARY_*` | Optional Cloudinary credentials for event cover uploads |
 
 ### Frontend (`frontend/.env.local`)
@@ -414,7 +404,7 @@ Open `http://localhost:5173` in your browser.
 
 ### Key Takeaways from Building Eventora:
 1. **Concurrency is subtle:** Using normal ORM updates for stock counts quickly causes race conditions under load; combining raw SQL conditional updates with ORM relations gave both safety and productivity.
-2. **External services fail:** Webhooks and emails can fail independently of database commits. Designing around idempotency and the outbox pattern proved much more reliable than inline API calls.
+2. **External services fail:** Payment callbacks need idempotent handling. Email is a best-effort notification sent after the purchase commits, so an email failure cannot undo a paid order.
 3. **Security requires layers:** Relying solely on client tokens is fragile. Storing hashed tokens and verifying roles strictly on the server prevented privilege elevation bugs.
 
 ## License

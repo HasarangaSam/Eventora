@@ -28,6 +28,7 @@ export class RolesGuard implements CanActivate {
     ]);
     if (!roles?.length) return true;
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    // The role comes from Eventora's database account loaded by AccountGuard, never from a browser claim.
     if (!request.eventoraUser || !roles.includes(request.eventoraUser.role)) {
       throw new ForbiddenException('Your Eventora role cannot access this resource');
     }

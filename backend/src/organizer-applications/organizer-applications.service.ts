@@ -238,8 +238,7 @@ export class OrganizerApplicationsService {
     if (status === 'REJECTED' && !decisionNote?.trim()) {
       throw new ConflictException('A decision note is required when rejecting an application');
     }
-    try {
-      return await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
         const application = await tx.organizerApplication.findUnique({
           where: { id },
           select: { id: true, applicantId: true, status: true },
@@ -273,31 +272,11 @@ export class OrganizerApplicationsService {
           }
         }
 
-        const applicant = await tx.user.findUniqueOrThrow({
-          where: { id: application.applicantId },
-          select: { email: true },
-        });
-        // Queue the decision email in the same transaction as the review and role change.
-        await tx.emailDelivery.create({
-          data: {
-            type: 'ORGANIZER_APPLICATION_DECISION',
-            idempotencyKey: `organizer-application-decision:${id}`,
-            recipient: applicant.email,
-            organizerApplicationId: id,
-          },
-        });
-
         return tx.organizerApplication.findUniqueOrThrow({
           where: { id },
           select: applicationSelect,
         });
-      });
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        throw new ConflictException('A decision notification is already queued');
-      }
-      throw error;
-    }
+    });
   }
 
   async listUsers(query: { role?: UserRole; status?: UserStatus; search?: string; page: number; pageSize: number }) {

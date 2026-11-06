@@ -207,8 +207,7 @@ export class OrganizerEventsService {
   private async cancelEvent(actorId: string, eventId: string, currentStatus: string, reason: string) {
     if (currentStatus === 'CANCELLED' || currentStatus === 'COMPLETED') throw new ConflictException('This event cannot be cancelled in its current state');
     const now = new Date();
-    let noticesQueued = 0;
-    // Persist cancellation and one idempotent outbox row per confirmed registration together.
+    // Cancel the event and release its outstanding reservations as one database change.
     await this.prisma.$transaction(async (tx) => {
       const changed = await tx.event.updateMany({
         where: { id: eventId, status: { notIn: ['CANCELLED', 'COMPLETED'] } },
@@ -216,13 +215,8 @@ export class OrganizerEventsService {
       });
       if (changed.count !== 1) throw new ConflictException('This event cannot be cancelled in its current state');
       await this.inventory.releaseEventReservations(tx, eventId);
-      const recipients = await tx.registration.findMany({ where: { eventId, status: 'CONFIRMED' }, select: { id: true, attendee: { select: { email: true } } } });
-      if (recipients.length) noticesQueued = (await tx.emailDelivery.createMany({
-        data: recipients.map((registration) => ({ type: 'EVENT_CANCELLATION', idempotencyKey: `event-cancel:${eventId}:${registration.id}`, recipient: registration.attendee.email, registrationId: registration.id, eventId })),
-        skipDuplicates: true,
-      })).count;
     });
-    return { id: eventId, status: 'CANCELLED', cancellationNoticesQueued: noticesQueued };
+    return { id: eventId, status: 'CANCELLED' };
   }
 
   async remove(organizerId: string, eventId: string) {

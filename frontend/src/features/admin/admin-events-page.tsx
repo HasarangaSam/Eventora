@@ -83,15 +83,12 @@ export function AdminEventsPage() {
     if (!targetEvent) return
     setCancelBusy(true)
     try {
-      const { data } = await request<{ cancellationNoticesQueued: number }>({
+      await request({
         method: 'PATCH',
         url: `/admin/events/${targetEvent.id}/cancel`,
         data: { reason },
       })
-      toast.success(
-        'Event Cancelled',
-        `“${targetEvent.title}” has been cancelled. ${data.cancellationNoticesQueued} attendee notice(s) queued.`,
-      )
+      toast.success('Event Cancelled', `“${targetEvent.title}” has been cancelled.`)
       setCancelModalOpen(false)
       setTargetEvent(null)
       await loadEvents()

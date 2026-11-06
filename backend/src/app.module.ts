@@ -10,7 +10,6 @@ import { CategoriesModule } from './categories/categories.module.js';
 import { EventsModule } from './events/events.module.js';
 import { RegistrationsModule } from './registrations/registrations.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
-import { EmailModule } from './email/email.module.js';
 import { TicketsModule } from './tickets/tickets.module.js';
 import { AnalyticsModule } from './analytics/analytics.module.js';
 import { AppThrottlerGuard } from './auth/app-throttler.guard.js';
@@ -31,7 +30,6 @@ import { AppThrottlerGuard } from './auth/app-throttler.guard.js';
       },
     ]),
     PrismaModule,
-    EmailModule,
     TicketsModule,
     AnalyticsModule,
     AuthModule,

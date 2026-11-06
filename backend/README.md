@@ -32,15 +32,15 @@
                                             ▼
                      ┌──────────────────────────────────────────────┐
                      │          Prisma 7 / PostgreSQL Adapter       │
-                     │    Row-Level Locking (FOR UPDATE SKIP LOCKED)│
+                     │         Conditional row updates             │
                      │     ACID Transactions & Snapshot Isolation   │
                      └──────────────────────┬───────────────────────┘
                                             │
                       ┌─────────────────────┼─────────────────────┐
                       ▼                     ▼                     ▼
                ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-               │ PostgreSQL   │      │ Outbox Email │      │  PayHere PGW │
-               │ Supabase DB  │      │ Worker (SMTP)│      │  Signatures  │
+               │ PostgreSQL   │      │ Purchase Email│     │  PayHere PGW │
+               │ Supabase DB  │      │ SMTP (direct) │      │  Signatures  │
                └──────────────┘      └──────────────┘      └──────────────┘
 ```
 
@@ -48,12 +48,12 @@
 
 ## Core Engineering Principles & Implementation Depth
 
-### 1. High-Concurrency Inventory Reservations (`FOR UPDATE SKIP LOCKED`)
+### 1. High-Concurrency Inventory Reservations
 Preventing overselling in ticketing systems requires absolute serialization of reservation requests:
 - **Atomicity:** When an attendee initiates a registration (`POST /api/registrations`), inventory is locked and reserved inside a single database transaction.
 - **Locking Pattern:** `Event.ticketsReserved` and `TicketType.quantityReserved` are incremented concurrently with validation checks on capacity and ticket supply.
 - **Database-Clock Expiry:** Held reservations expire strictly based on the database engine's timestamp (`CURRENT_TIMESTAMP + interval '10 minutes'`), immune to application server clock drift.
-- **Background Reclamation:** A recurring worker safely reclaims expired reservation holds using `SELECT ... FOR UPDATE SKIP LOCKED`, preventing deadlocks and competing lock contention.
+- **Background Reclamation:** A timer finds expired holds; each candidate is rechecked and locked in a transaction before reserved counts are released.
 
 ### 2. Idempotent Checkout & Payment Reconciliation
 - **Idempotency Keys:** Registration requests mandate a client-supplied `Idempotency-Key` header, returning existing reservations if retried.
@@ -66,14 +66,14 @@ Preventing overselling in ticketing systems requires absolute serialization of r
 - **Secure Storage:** The database stores only `SHA-256(token)`.
 - **Timing-Attack Resistance:** Door validation recomputes the HMAC and performs constant-time equality checks (`timingSafeEqual`) on both the token and the hash.
 
-### 4. Resilient Transactional Outbox Pattern for Emails
-- **Guaranteed Delivery:** Email records are created inside the exact same database transaction as the business event (payment confirmation, organizer application decision, or event cancellation).
-- **Asynchronous Worker:** The outbox processor executes every 30 seconds, locks pending records with `FOR UPDATE SKIP LOCKED`, and dispatches emails via Gmail SMTP with inline CID QR code attachments.
-- **Exponential Backoff:** Configured with bounded retries (max 5 attempts, capping at 1 hour) and sanitized failure codes (`SMTP_DELIVERY_FAILED`).
+### 4. Best-Effort Purchase Confirmation Email
+- After payment and ticket issuance commit, the API sends an email with the ticket references and QR attachments.
+- SMTP failure is logged and does not change the paid registration. The email is not automatically retried; attendees can still access tickets from their account.
+- Organizer decisions and event cancellations are recorded in the application but do not trigger email notifications.
 
 ### 5. Multi-Tier Rate Limiting & Bot Prevention (`@nestjs/throttler`)
 - **Dual Throttler Architecture:** Configured with a 15 req/sec burst limiter and a 100 req/min baseline sustained limiter.
-- **Session-Aware Tracking:** `AppThrottlerGuard` isolates buckets by authenticated Bearer session token signatures when present, preventing false-positive blocking across shared NATs/corporate Wi-Fi networks, while falling back to normalized IP for anonymous traffic.
+- **Bearer-Aware Tracking:** `AppThrottlerGuard` uses the last 32 characters of a Bearer token as the rate-limit bucket key when present, while anonymous traffic is tracked by IP.
 - **Scalper & Bot Protection:** High-risk mutation routes (`POST /api/registrations`) are throttled to 10 requests per minute to prevent inventory hold hogging.
 - **Webhook Immunity:** Critical payment gateway and identity webhooks carry `@SkipThrottle()` so external state synchronization is never dropped.
 
@@ -88,7 +88,7 @@ backend/
 │   ├── auth/                    # Clerk JWT verification, guards, user sync webhooks
 │   ├── categories/              # Category CRUD with cascade protection
 │   ├── checkins/                # Live door scanning, attendance logging, validation
-│   ├── email/                   # Outbox worker, HTML templates (inline CID QR)
+│   ├── email/                   # Purchase confirmation email (inline QR attachments)
 │   ├── events/                  # Catalog, organizer studio, admin cancellation
 │   ├── organizer-applications/  # Application workflows, KYC fields, approval transactions
 │   ├── payments/                # PayHere hash generation, webhook processing, exceptions
@@ -99,7 +99,7 @@ backend/
 │   └── main.ts                  # NestJS bootstrap, raw body buffers, global prefix
 ├── prisma/
 │   ├── migrations/              # Version-controlled SQL migrations
-│   └── schema.prisma            # Prisma schema (15 models, Decimal money types)
+│   └── schema.prisma            # Prisma schema (14 models, Decimal money types)
 ├── scripts/
 │   └── provision-admin.ts       # CLI-only secure admin bootstrapper
 ├── test/                        # Vitest E2E & unit test suites
@@ -118,7 +118,6 @@ Managed via **Prisma 7** targeting PostgreSQL:
 - **`InventoryReservation`**: Ephemeral 10-minute hold ledger backed by database timestamps.
 - **`Registration` & `PaymentAttempt`**: Attendee order state tracking with unique merchant references and idempotency keys.
 - **`Ticket` & `CheckIn`**: Digital ticket records storing reference identifiers, hashed tokens, and strict single-entry check-in records.
-- **`EmailDelivery`**: Outbox queue maintaining delivery state, attempt logs, error categorization, and retry schedules.
 
 ---
 
